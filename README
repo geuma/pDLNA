@@ -1,0 +1,24 @@
+pDLNA
+(c) 2010 Stefan Heumader
+email: stefan@heumader.at
+webpage: http://pdlna.urandom.at
+
+Licened under GPLv3 (see LICENSE file)
+
+INTRODUCTION
+------------
+pDLNA is an UPnP and DLNA service which serves multimedia
+content to compatible clients on the network and is written
+in Perl.
+
+See http://www.perl.org for more details on Perl
+and http://www.upnp.org/ for more details on UPnP
+and http://www.dlna.org/ for mode details on DLNA.
+
+BUGS & FEATURES
+---------------
+Email me if you find bugs or if you have some ideas for
+improvements. <stefan@heumader.at>
+
+
+Stefan Heumader
