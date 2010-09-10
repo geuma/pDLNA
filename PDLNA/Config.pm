@@ -25,16 +25,24 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
+use Config::ApacheFormat;
+
 my $osversion = `uname -r`;
 chomp($osversion);
 
-# TODO real configuration file
-
 our %CONFIG = (
-	'DEBUG' => 1,
+	# values which can be modified by configuration file
+	'FRIENDLY_NAME' => 'pDLNA',
+	'LOCAL_IPADDR' => undef,
+	'LISTEN_INTERFACE' => undef,
+	'HTTP_PORT' => 8001,
+	'CACHE_CONTROL' => 1800,
 	'LOG_FILE' => 'STDERR',
+	'DEBUG' => 1,
+	'DIRECTORIES' => [],
+	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.12',
+	'PROGRAM_VERSION' => '0.13',
 	'PROGRAM_DATE' => '2010-09-09',
 	'PROGRAM_WEBSITE' => 'http://pdlna.urandom.at',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -42,12 +50,43 @@ our %CONFIG = (
 	'PROGRAM_DESC' => 'perl DLNA MediaServer',
 	'OS' => 'Linux',
 	'OS_VERSION' => $osversion,
-	'LOCAL_IPADDR' => '192.168.1.130',
-	'LISTEN_INTERFACE' => 'eth0',
-	'HTTP_PORT' => 8001,
-	'CACHE_CONTROL' => 1800,
 	'UUID' => 'uuid:abfd68f2-229a-cb5d-6294-aeb7081e6a73',
-	'FRIENDLY_NAME' => 'pDLNA',
 );
+
+sub parse_config
+{
+	my $file = shift;
+	return 0 unless -f $file;
+
+	my $cfg = Config::ApacheFormat->new(
+		valid_blocks => [qw(Directory)],
+	);
+	$cfg->read($file);
+
+	$CONFIG{'FRIENDLY_NAME'} = $cfg->get('FriendlyName') if defined($cfg->get('FriendlyName'));
+	$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') if defined($cfg->get('ListenIPAddress'));
+	$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface') if defined($cfg->get('ListenInterface'));
+	$CONFIG{'HTTP_PORT'} = $cfg->get('HTTPPort') if defined($cfg->get('HTTPPort'));
+	$CONFIG{'CACHE_CONTROL'} = $cfg->get('CacheControl') if defined($cfg->get('CacheControl'));
+	$CONFIG{'LOG_FILE'} = $cfg->get('LogFile') if defined($cfg->get('LogFile'));
+	$CONFIG{'DEBUG'} = $cfg->get('LogLevel') if defined($cfg->get('LogLevel'));
+
+	# Directory parsing
+	foreach my $directory_block ($cfg->get('Directory'))
+	{
+		my $block = $cfg->block(Directory => $directory_block->[1]);
+		push(@{$CONFIG{'DIRECTORIES'}}, {
+				'path' => $directory_block->[1],
+				'type' => $block->get('type'),
+			}
+		);
+	}
+
+	# TODO local ip address error handling
+	# TODO listening interface error handling
+	# TODO directories error handling
+
+	return 1;
+}
 
 1;

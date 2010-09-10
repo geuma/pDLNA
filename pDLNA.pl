@@ -18,14 +18,19 @@
 #
 
 use threads;
+use Getopt::Long::Descriptive;
 
-use lib ('/usr/local/bin/pdlna');
+use lib ('./pDLNA');
 use PDLNA::SSDP;
 use PDLNA::Config;
 use PDLNA::HTTP;
 use PDLNA::Log;
 
 our @THREADS = ();
+
+#
+# SUBS
+#
 
 sub exit_daemon
 {
@@ -41,13 +46,34 @@ sub exit_daemon
 
 sub start_http_server
 {
-	my $foo = PDLNA::HTTP->new($CONFIG{'HTTP_PORT'});
-	$foo->run();
+	my $httpserver = PDLNA::HTTP->new($CONFIG{'HTTP_PORT'});
+	$httpserver->run();
 }
+
+#
+# STARTUP PARAMETERS
+#
+
+my ($opt, $usage) = describe_options(
+	'%c %o ',
+	[ 'config|f:s', 'path to the configuration file', { default => '/etc/pdlna.conf' }, ],
+	[], # just an empty line for the usage message
+	[ 'help|h',	'print usage method and exit' ],
+);
+print($usage->text), exit if $opt->help();
+unless (PDLNA::Config::parse_config($opt->config))
+{
+	print STDERR "Config is bad!"; # TODO we should make this a little bit more beautiful
+}
+
+#
+# Starting the server itself
+#
 
 $SIG{INT} = \&exit_daemon; # currently we aren't a daemon ... so we just want to shut down after a SIGINT
 
-PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'}", 0);
+PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName $CONFIG{'FRIENDLY_NAME'}", 0);
+PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1);
 
 push(@THREADS, threads->create('start_http_server')); # starting the HTTP server in a thread
 
