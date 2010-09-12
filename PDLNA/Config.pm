@@ -29,10 +29,11 @@ use Config::ApacheFormat;
 
 my $osversion = `uname -r`;
 chomp($osversion);
+my $hostname = `hostname`;
+chomp($hostname);
 
 our %CONFIG = (
 	# values which can be modified by configuration file
-	'FRIENDLY_NAME' => 'pDLNA',
 	'LOCAL_IPADDR' => undef,
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
@@ -42,7 +43,7 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.13',
+	'PROGRAM_VERSION' => '0.15',
 	'PROGRAM_DATE' => '2010-09-09',
 	'PROGRAM_WEBSITE' => 'http://pdlna.urandom.at',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -52,6 +53,7 @@ our %CONFIG = (
 	'OS_VERSION' => $osversion,
 	'UUID' => 'uuid:abfd68f2-229a-cb5d-6294-aeb7081e6a73',
 );
+$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.$CONFIG{'PROGRAM_VERSION'}.' on '.$hostname;
 
 sub parse_config
 {

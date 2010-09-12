@@ -135,7 +135,7 @@ sub byebye
 
 sub send_alive_periodic
 {
-	PDLNA::Log::log("Starting thread for sending peridic SSDP alive messages.", 1);
+	PDLNA::Log::log("Starting thread for sending periodic SSDP alive messages.", 1);
 	while(1)
 	{
 		alive();
