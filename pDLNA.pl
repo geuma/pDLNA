@@ -23,7 +23,7 @@ use Getopt::Long::Descriptive;
 use lib ('./pDLNA');
 use PDLNA::SSDP;
 use PDLNA::Config;
-use PDLNA::HTTP;
+use PDLNA::HTTPServer;
 use PDLNA::Log;
 
 our @THREADS = ();
@@ -44,12 +44,6 @@ sub exit_daemon
 	exit(1);
 }
 
-sub start_http_server
-{
-	my $httpserver = PDLNA::HTTP->new($CONFIG{'HTTP_PORT'});
-	$httpserver->run();
-}
-
 #
 # STARTUP PARAMETERS
 #
@@ -65,6 +59,7 @@ unless (PDLNA::Config::parse_config($opt->config))
 {
 	print STDERR "Config is bad!"; # TODO we should make this a little bit more beautiful
 }
+PDLNA::HTTPServer::initialize_content();
 
 #
 # Starting the server itself
@@ -75,7 +70,7 @@ $SIG{INT} = \&exit_daemon; # currently we aren't a daemon ... so we just want to
 PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName $CONFIG{'FRIENDLY_NAME'}", 0);
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1);
 
-push(@THREADS, threads->create('start_http_server')); # starting the HTTP server in a thread
+push(@THREADS, threads->create('PDLNA::HTTPServer::start_webserver')); # starting the HTTP server in a thread
 
 PDLNA::SSDP::add_sockets(); # add sockets for SSDP
 

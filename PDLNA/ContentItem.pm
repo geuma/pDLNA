@@ -32,6 +32,7 @@ sub new
 
 	my $self = ();
 	$self->{ID} = $$params{'id'};
+	$self->{PATH} = $$params{'filename'};
 	$self->{NAME} = basename($$params{'filename'});
 	$self->{DATE} = $$params{'date'};
 	$self->{SIZE} = $$params{'size'};
@@ -73,6 +74,12 @@ sub size
 	return $self->{SIZE};
 }
 
+sub path
+{
+	my $self = shift;
+	return $self->{PATH};
+}
+
 sub print_object
 {
 	my $self = shift;
@@ -80,6 +87,7 @@ sub print_object
 	print "\t\t\tObject PDLNA::ContentItem\n";
 	print "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
 	print "\t\t\t\tFilename:      ".$self->{NAME}."\n";
+	print "\t\t\t\tPath:          ".$self->{PATH}."\n";
 	print "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
 	print "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
 }

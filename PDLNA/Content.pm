@@ -112,10 +112,6 @@ sub initialize
 		}
 	}
 
-
-
-
-
 	$path =~ s/\/$//;
 	foreach my $element (bsd_glob("$path/*"))
 	{
@@ -129,15 +125,6 @@ sub initialize
 		elsif (-f "$element")
 		{
 			PDLNA::Log::log("Adding element $element to database.", 1);
-#			foreach my $type (keys %{$self})
-#			{
-#				my $tmp = $self->{$type};
-#				foreach my $sort (keys %{$tmp})
-#				{
-#					$tmp->{$sort}->print_object();
-#				}
-#			}
-
 
 			# old
 			print "We found a file: $element\n";
