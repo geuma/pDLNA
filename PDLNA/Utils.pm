@@ -22,7 +22,7 @@ use warnings;
 
 sub add_leading_char
 {
-	my $string = shift;
+	my $string = shift || '';
 	my $length = shift;
 	my $char = shift;
 

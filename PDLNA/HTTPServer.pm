@@ -33,12 +33,14 @@ use threads::shared;
 use PDLNA::Config;
 use PDLNA::Log;
 use PDLNA::Content;
+use PDLNA::Library;
 
 our $content = undef;
 
 sub initialize_content
 {
 	$content = PDLNA::Content->new();
+	$content->build_database();
 	$content->print_object();
 }
 
@@ -143,7 +145,7 @@ sub handle_connection
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
 	{
-		stream_media($FH, $1);
+		stream_media($FH, $1, $ENV{'METHOD'}, \%CGI);
 		print $FH "\r\n";
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media_preview\/(.*)$/)
@@ -153,6 +155,10 @@ sub handle_connection
 		print $FH "\r\n";
 		preview_media($FH);
 		print $FH "\r\n";
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/)
+	{
+		print $FH PDLNA::Library::show_library(\$content);
 	}
 	else
 	{
@@ -268,12 +274,13 @@ sub ctrl_content_directory_1
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
 	}
+	# X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>) ... so it's still a TODO
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetIndexfromRID"')
 	{
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 		$response .= '<s:Body>';
 		$response .= '<u:X_GetIndexfromRIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<Index>7</Index>';
+		$response .= '<Index>0</Index>';
 		$response .= '</u:X_GetIndexfromRIDResponse>';
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
@@ -351,6 +358,8 @@ sub stream_media
 {
 	my $FH = shift;
 	my $content_id = shift;
+	my $method = shift;
+	my $CGI = shift;
 
 	if ($content_id =~ /^(\w)_(\w)_(\d+)_(\d+)/)
 	{
@@ -368,22 +377,55 @@ sub stream_media
 		if (-f $path)
 		{
 			PDLNA::Log::log('Streaming '.$path.'.', 1);
+			if ($method eq "HEAD")
+			{
+				print $FH "HTTP/1.0 200 OK\r\n";
+				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+				print $FH "Content-Type: video/x-avi\r\n";
+				print $FH "Content-Length: ".$size."\r\n";
+				print $FH "Accept-Ranges: bytes\r\n";
+				print $FH "Connection: close\r\n";
+				print $FH "transferMode.dlna.org:Streaming\r\n";
+				print $FH "contentFeatures.dlna.org:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000\r\n";
+				print $FH "realTimeInfo.dlna.org: DLNA.ORG_TLAG=*\r\n";
+			}
+			elsif ($method eq "GET")
+			{
+				my $offset = 0;
+				if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
+				{
+					$offset = $1;
+				}
+				my $bytes_to_ship = 10240;
+				my $offset_bytes_ship = $offset + $bytes_to_ship;
+				PDLNA::Log::log('Offset: '.$offset.' | Bytes To Ship: '.$bytes_to_ship.' | Offset + Bytes To Ship: '.$offset_bytes_ship.'.', 2);
 
-			print $FH "HTTP/1.0 206 Partial Content\r\n";
-			print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-			print $FH "Content-Type: video/x-avi\r\n";
-			print $FH "Content-Length: ".$size."\r\n";
-			print $FH "Cache-Control: no-cache\r\n";
-			print $FH "contentFeatures.dlna.org:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000\r\n";
-			my $small_size = $size-1;
-			print $FH "Content-Range: bytes 0-".$small_size."/".$size."\r\n";
-			print $FH "transferMode.dlna.org:Streaming\r\n";
-			print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n";
-			print $FH "\r\n";
+				print $FH "HTTP/1.0 206 Partial Content\r\n";
+				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+				print $FH "Content-Type: video/x-avi\r\n";
+				print $FH "Content-Length: ".$bytes_to_ship."\r\n";
+				print $FH "Cache-Control: no-cache\r\n";
+				print $FH "contentFeatures.dlna.org:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000\r\n";
+				$offset_bytes_ship--;
+				print $FH "Content-Range: bytes ".$offset."-".$offset_bytes_ship."/".$size."\r\n";
+				print $FH "transferMode.dlna.org:Streaming\r\n";
+				print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n";
+				print $FH "\r\n";
 
-			open(FILE, $path);
-			print $FH <FILE>;
-			close(FILE);
+				open(FILE, $path);
+				my $buf = undef;
+
+				# using read with offset isn't working - why is it ignoring my offset
+				#read(FILE, $buf, $bytes_to_ship, $offset);
+
+				# so I'm using seek instead
+				seek(FILE, $offset, 0);
+				read(FILE, $buf, $bytes_to_ship);
+
+				PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 2);
+				print $FH $buf;
+				close(FILE);
+			}
 		}
 		else
 		{

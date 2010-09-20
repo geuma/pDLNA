@@ -22,6 +22,8 @@ use warnings;
 
 use File::Glob qw(bsd_glob);
 use Data::Dumper;
+use File::Basename;
+use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::Log;
@@ -33,6 +35,11 @@ sub new
 	my $params = shift;
 
 	my $self = ();
+	$self->{FILELIST} = {
+		'image' => [],
+		'video' => [],
+		'audio' => [],
+	};
 	$self->{V} = {
 		'F' => PDLNA::ContentType->new(
 			{
@@ -47,20 +54,40 @@ sub new
 			},
 		),
 	};
+	$self->{I} = {
+		'F' => PDLNA::ContentType->new(
+			{
+				'media_type' => 'I',
+				'sort_type' => 'F',
+			},
+		),
+		'T' => PDLNA::ContentType->new(
+			{
+				'media_type' => 'I',
+				'sort_type' => 'T',
+			},
+		),
+	};
+	$self->{A} = {
+		'F' => PDLNA::ContentType->new(
+			{
+				'media_type' => 'A',
+				'sort_type' => 'F',
+			},
+		),
+		'T' => PDLNA::ContentType->new(
+			{
+				'media_type' => 'A',
+				'sort_type' => 'T',
+			},
+		),
+	};
+
 	bless($self, $class);
 
 	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
 	{
-		$self->initialize($directory->{'path'});
-	}
-
-	foreach my $type (keys %{$self})
-	{
-		my $tmp = $self->{$type};
-		foreach my $sort (keys %{$tmp})
-		{
-			$tmp->{$sort}->set_ids_for_groups();
-		}
+		$self->initialize($directory->{'path'}, $directory->{'type'});
 	}
 
 	return $self;
@@ -80,65 +107,152 @@ sub print_object
 	my $self = shift;
 
 	print "Object PDLNA::Content\n";
-	foreach my $type (keys %{$self})
+	foreach my $type ('A','I','V')
 	{
-		my $tmp = $self->{$type};
-		foreach my $sort (keys %{$tmp})
+		foreach my $sort (keys %{$self->{$type}})
 		{
-			$tmp->{$sort}->print_object();
+			$self->{$type}->{$sort}->print_object() if defined($self->{$type}->{$sort});
 		}
 	}
+}
+
+sub return_media_type
+{
+	my $extension = shift;
+	$extension = lc($extension);
+
+	my %file_types = (
+		'image' => [ 'jpg', 'jpeg', ],
+		'video' => [ 'avi', ],
+		'audio' => [ 'mp3', ],
+	);
+
+	foreach my $type (keys %file_types)
+	{
+		foreach (@{$file_types{$type}})
+		{
+			return $type if $extension eq $_;
+		}
+	}
+	return 0;
 }
 
 sub initialize
 {
 	my $self = shift;
 	my $path = shift;
-
-	PDLNA::Log::log("Processing path $path", 1);
+	my $type = shift;
 
 	return 0 if $path =~ /lost\+found/;
-	my $group_object = PDLNA::ContentGroup->new(
-		{
-			'path' => $path,
-		},
-	);
-	foreach my $type (keys %{$self})
-	{
-		my $tmp = $self->{$type};
-		foreach my $sort (keys %{$tmp})
-		{
-			$tmp->{$sort}->add_group($group_object);
-		}
-	}
+	PDLNA::Log::log("Processing path $path", 1);
 
 	$path =~ s/\/$//;
 	foreach my $element (bsd_glob("$path/*"))
 	{
-#		next if $element =~ /^\.\/\_/;
 		if (-d "$element")
 		{
 			$element =~ s/\[/\\[/g;
 			$element =~ s/\]/\\]/g;
-			$self->initialize($element);
+			$self->initialize($element, $type);
 		}
 		elsif (-f "$element")
 		{
-			PDLNA::Log::log("Adding element $element to database.", 1);
-
-			# old
-			print "We found a file: $element\n";
-			my @fileinfo = stat($element);
-			$group_object->add_item(
-				{
-					'filename' => $element,
-					'date' => $fileinfo[9],
-					'size' => $fileinfo[7],
-				},
-			);
+			my $filetype = undef;
+			if ($element =~ /\.(\w{3,4})$/)
+			{
+				$filetype = $1;
+			}
+			my $media_type = return_media_type($filetype);
+			if ($media_type && ($media_type eq $type || $type eq "all"))
+			{
+				PDLNA::Log::log("Adding element $element $filetype to database.", 1);
+				push(@{$self->{FILELIST}->{$media_type}}, $element);
+			}
 		}
 	}
-	$group_object->set_ids_for_items();
+}
+
+sub build_database
+{
+	my $self = shift;
+
+	my %ABR = (
+		'image' => 'I',
+		'video' => 'V',
+		'audio' => 'A',
+	);
+
+	foreach my $type (keys %{$self->{FILELIST}})
+	{
+		foreach my $element (@{$self->{FILELIST}->{$type}})
+		{
+			# SORTING: folders
+			if (defined($self->{$ABR{$type}}->{F}))
+			{
+				my $group_object = $self->{$ABR{$type}}->{F}->get_group_by_path(dirname($element));
+				if (!defined($group_object))
+				{
+					$group_object = PDLNA::ContentGroup->new(
+						{
+							'path' => dirname($element),
+							'name' => dirname($element),
+						},
+					);
+					$self->{$ABR{$type}}->{F}->add_group($group_object);
+				}
+				my @fileinfo = stat($element);
+				$group_object->add_item(
+					{
+						'filename' => $element,
+						'date' => $fileinfo[9],
+						'size' => $fileinfo[7],
+						'type' => $type,
+					},
+				);
+			}
+
+			# SORTING: creation date
+			if (defined($self->{$ABR{$type}}->{T}))
+			{
+				my @fileinfo = stat($element);
+				my $year = time2str("%Y-%m", $fileinfo[9]);
+
+				my $group_object = $self->{$ABR{$type}}->{T}->get_group_by_name($year);
+				if (!defined($group_object))
+				{
+					$group_object = PDLNA::ContentGroup->new(
+						{
+							'path' => dirname($element),
+							'name' => $year,
+						},
+					);
+					$self->{$ABR{$type}}->{T}->add_group($group_object);
+				}
+				$group_object->add_item(
+					{
+						'filename' => $element,
+						'date' => $fileinfo[9],
+						'size' => $fileinfo[7],
+						'type' => $type,
+					},
+				);
+			}
+
+		}
+	}
+
+
+	foreach my $type ('A','I','V')
+	{
+		foreach my $sort (keys %{$self->{$type}})
+		{
+			$self->{$type}->{$sort}->set_ids_for_groups();
+			foreach my $group (@{$self->{$type}->{$sort}->content_groups})
+			{
+				$group->set_ids_for_items();
+			}
+		}
+	}
 }
 
 1;

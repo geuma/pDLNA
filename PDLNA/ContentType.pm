@@ -43,11 +43,13 @@ sub print_object
 
 	my %media_type = (
 		'V' => 'video',
+		'I' => 'image',
+		'A' => 'audio',
 	);
 
 	my %sort_type = (
 		'F' => 'folders',
-		'T' => 'time/year',
+		'T' => 'time of creation',
 	);
 
 	print "Object PDLNA::ContentType\n";
@@ -56,7 +58,7 @@ sub print_object
 	print "\tGroups:        \n";
 	foreach my $group (@{$self->{CONTENT_GROUPS}})
 	{
-		$group->print_object();
+		$group->print_object() if defined($group);
 	}
 	print "\tGroups Amount: ".$self->{CONTENT_GROUPS_AMOUNT}."\n";
 }
@@ -75,6 +77,32 @@ sub add_group
 		push(@{$self->{CONTENT_GROUPS}}, $params);
 	}
 	$self->{CONTENT_GROUPS_AMOUNT}++;
+}
+
+sub get_group_by_path
+{
+	my $self = shift;
+	my $name = shift;
+
+	foreach my $group (@{$self->{CONTENT_GROUPS}})
+	{
+		return $group if ($group->path() eq $name);
+	}
+
+	return undef;
+}
+
+sub get_group_by_name
+{
+	my $self = shift;
+	my $name = shift;
+
+	foreach my $group (@{$self->{CONTENT_GROUPS}})
+	{
+		return $group if ($group->name() eq $name);
+	}
+
+	return undef;
 }
 
 sub set_ids_for_groups

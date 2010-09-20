@@ -33,7 +33,7 @@ sub new
 	my $self = ();
 	$self->{ID} = $$params{'id'};
 	$self->{PATH} = $$params{'path'};
-	$self->{NAME} = basename($self->{PATH});
+	$self->{NAME} = $$params{'name'};
 	$self->{CONTENT_ITEMS} = [];
 	$self->{CONTENT_ITEMS_AMOUNT} = 0;
 
@@ -60,6 +60,12 @@ sub name
 {
 	my $self = shift;
 	return $self->{NAME};
+}
+
+sub path
+{
+	my $self = shift;
+	return $self->{PATH};
 }
 
 sub content_items

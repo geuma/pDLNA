@@ -22,6 +22,9 @@ use warnings;
 
 use File::Basename;
 use Date::Format;
+use Image::Info qw(image_info dim image_type);
+use MP3::Info;
+use Data::Dumper;
 
 use PDLNA::Utils;
 
@@ -36,6 +39,47 @@ sub new
 	$self->{NAME} = basename($$params{'filename'});
 	$self->{DATE} = $$params{'date'};
 	$self->{SIZE} = $$params{'size'};
+	$self->{TYPE} = $$params{'type'};
+
+	$self->{WIDTH} = '';
+	$self->{HEIGHT} = '';
+	$self->{MEDIA_TYPE} = '';
+	$self->{COLOR} = '';
+	$self->{DURATION} = '';
+	$self->{BITRATE} = '',
+	$self->{VBR} = 0,
+
+	$self->{ARTIST} = '';
+	$self->{ALBUM} = '';
+	$self->{TRACKNUM} = '';
+	$self->{TITLE} = '';
+	$self->{GENRE} = '';
+	$self->{YEAR} = '';
+
+	if ($self->{TYPE} eq 'image')
+	{
+		my $info = image_info($self->{PATH});
+		($self->{WIDTH}, $self->{HEIGHT}) = dim($info);
+		$self->{MEDIA_TYPE} = $info->{'file_media_type'};
+	}
+	elsif ($self->{TYPE} eq 'audio')
+	{
+		my $info = get_mp3info($self->{PATH});
+		$self->{DURATION} = $info->{'TIME'};
+		$self->{BITRATE} = $info->{'BITRATE'};
+		$self->{VBR} = $info->{'VBR'};
+
+		my $tag = get_mp3tag($self->{PATH});
+		$self->{ARTIST} = $tag->{'ARTIST'};
+		$self->{ALBUM} = $tag->{'ALBUM'};
+		$self->{TRACKNUM} = $tag->{'TRACKNUM'};
+		$self->{TITLE} = $tag->{'TITLE'};
+		$self->{GENRE} = $tag->{'GENRE'};
+		$self->{YEAR} = $tag->{'YEAR'};
+	}
+	elsif ($self->{TYPE} eq 'video')
+	{
+	}
 
 	bless($self, $class);
 	return $self;
@@ -88,8 +132,22 @@ sub print_object
 	print "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
 	print "\t\t\t\tFilename:      ".$self->{NAME}."\n";
 	print "\t\t\t\tPath:          ".$self->{PATH}."\n";
+	print "\t\t\t\tType:          ".$self->{TYPE}."\n";
 	print "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
 	print "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
+	print "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
+	print "\t\t\t\tMediaType:     ".$self->{MEDIA_TYPE}."\n" if $self->{TYPE} eq 'image';
+	print "\t\t\t\tDuration:      ".$self->{DURATION}."\n" if $self->{TYPE} eq 'audio';
+	print "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n" if $self->{TYPE} eq 'audio';
+	if ($self->{TYPE} eq 'audio')
+	{
+		print "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
+		print "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";
+		print "\t\t\t\tTrackNumber:   ".$self->{TRACKNUM}."\n";
+		print "\t\t\t\tTitle:         ".$self->{TITLE}."\n";
+		print "\t\t\t\tGenre:         ".$self->{GENRE}."\n";
+		print "\t\t\t\tYear:          ".$self->{YEAR}."\n";
+	}
 }
 
 1;
