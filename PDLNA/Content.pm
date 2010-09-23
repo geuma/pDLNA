@@ -47,12 +47,6 @@ sub new
 				'sort_type' => 'F',
 			},
 		),
-		'T' => PDLNA::ContentType->new(
-			{
-				'media_type' => 'V',
-				'sort_type' => 'T',
-			},
-		),
 	};
 	$self->{I} = {
 		'F' => PDLNA::ContentType->new(
@@ -61,24 +55,12 @@ sub new
 				'sort_type' => 'F',
 			},
 		),
-		'T' => PDLNA::ContentType->new(
-			{
-				'media_type' => 'I',
-				'sort_type' => 'T',
-			},
-		),
 	};
 	$self->{A} = {
 		'F' => PDLNA::ContentType->new(
 			{
 				'media_type' => 'A',
 				'sort_type' => 'F',
-			},
-		),
-		'T' => PDLNA::ContentType->new(
-			{
-				'media_type' => 'A',
-				'sort_type' => 'T',
 			},
 		),
 	};
@@ -99,7 +81,7 @@ sub get_content_type
 	my $media_type = shift;
 	my $sort_type = shift;
 
-	return $self->{$media_type}->{$sort_type};
+	return $self->{$media_type}->{$sort_type} if defined($self->{$media_type}->{$sort_type});
 }
 
 sub print_object

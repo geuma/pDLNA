@@ -37,6 +37,12 @@ use PDLNA::Library;
 
 our $content = undef;
 
+our %DLNA_CONTENTFEATURES = (
+	'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+	'video' => 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+	'music' => 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+);
+
 sub initialize_content
 {
 	$content = PDLNA::Content->new();
@@ -146,7 +152,7 @@ sub handle_connection
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
 	{
 		stream_media($FH, $1, $ENV{'METHOD'}, \%CGI);
-		print $FH "\r\n";
+#		print $FH "\r\n";
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media_preview\/(.*)$/)
 	{
@@ -229,6 +235,7 @@ sub ctrl_content_directory_1
 			my $date = $content_item_obj->date();
 			my $beautiful_date = time2str("%Y-%m-%d", $date);
 			my $size = $content_item_obj->size();
+			my $type = $content_item_obj->type();
 
 			my $item_name = $media_type.'_'.$sort_type.'_'.$group_id.'_'.$item_id;
 			my $url = 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'};
@@ -238,12 +245,27 @@ sub ctrl_content_directory_1
 			$response .= '<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
 			$response .= '<Result>&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
 			$response .= '&lt;item id=&quot;'.$item_name.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; restricted=&quot;1&quot;&gt;&lt;dc:title&gt;'.$name.'&lt;/dc:title&gt;';
-			$response .= '&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;'; # TODO adapt videoItem string
-			$response .= '&lt;sec:dcmInfo&gt;CREATIONDATE='.$date.',FOLDER='.$foldername.'&lt;/sec:dcmInfo&gt;';
-			# TODO a lot
+			$response .= '&lt;upnp:class&gt;object.item.'.$type.'Item&lt;/upnp:class&gt;';
+
+			if ($media_type eq 'A')
+			{
+				$response .= '&lt;upnp:album&gt;'.$content_item_obj->album().'&lt;/upnp:album&gt;';
+				$response .= '&lt;dc:creator&gt;'.$content_item_obj->artist().'&lt;/dc:creator&gt;';
+				$response .= '&lt;upnp:genre&gt;'.$content_item_obj->genre().'&lt;/upnp:genre&gt;';
+			}
+			$response .= '&lt;sec:dcmInfo&gt;CREATIONDATE='.$date;
+			$response .= ',YEAR='.$content_item_obj->year() if $media_type eq 'A';
+			$response .= ',FOLDER='.$foldername.'&lt;/sec:dcmInfo&gt;';
 			$response .= '&lt;dc:date&gt;'.$beautiful_date.'&lt;/dc:date&gt;';
 
-			$response .= '&lt;res protocolInfo=&quot;http-get:*:video/x-avi:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000&quot; size=&quot;'.$size.'&quot; duration=&quot;0:17:09&quot;&gt;'.$url.'/media/'.$item_name.'.AVI&lt;/res&gt;';
+			# File specific information
+			$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$content_item_obj->mime_type().':'.$DLNA_CONTENTFEATURES{$type}.'&quot; size=&quot;'.$size.'&quot; ';
+			$response .= 'duration=&quot;0:17:09&quot;&gt;' if $media_type eq 'V'; # TODO get the length of the video
+			$response .= 'duration=&quot;'.$content_item_obj->duration().'&quot;&gt;' if $media_type eq 'A'; # TODO get the length of the music
+			$response .= 'resolution=&quot;'.$content_item_obj->resolution().'&quot;&gt;' if $media_type eq 'I';
+			$response .= $url.'/media/'.$item_name.'.AVI&lt;/res&gt;'; # TODO file extension
+
+			# File preview information
 #			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.MTN&lt;/res&gt;';
 #			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.TMTN&lt;/res&gt;';
 			$response .= '&lt;/item&gt;';
@@ -252,8 +274,25 @@ sub ctrl_content_directory_1
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
 	{
-		my $media_type = 'V' if $xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 32;
-		my $sort_type = 'F' if $xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 32;
+		my $media_type = '';
+		my $sort_type = '';
+		if ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 14)
+		{
+			$media_type = 'I';
+			$sort_type = 'F';
+		}
+		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 22)
+		{
+			$media_type = 'A';
+			$sort_type = 'F';
+		}
+		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 32)
+		{
+			$media_type = 'V';
+			$sort_type = 'F';
+		}
+		PDLNA::Log::log('Getting object for '.$media_type.'_'.$sort_type.'.', 2);
+
 		my $index = $xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'Index'};
 
 		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
@@ -373,21 +412,94 @@ sub stream_media
 		my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
 		my $path = $content_item_obj->path();
 		my $size = $content_item_obj->size();
+		my $type = $content_item_obj->type();
 
+		my $response = "";
 		if (-f $path)
 		{
 			PDLNA::Log::log('Streaming '.$path.'.', 1);
+			if ($media_type eq 'I')
+			{
+				if ($method eq 'HEAD')
+				{
+					$response .= "HTTP/1.0 200 OK\r\n";
+					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+					$response .= "Content-Length: ".$size."\r\n";
+					$response .= "Cache-Control: no-cache\r\n";
+					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+					$response .= "\r\n";
+
+					print $FH $response;
+				}
+				elsif ($method eq 'GET')
+				{
+					PDLNA::Log::log('Delivering image: '.$path.'.', 2);
+					$response .= "HTTP/1.0 200 OK\r\n";
+					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+					$response .= "Content-Length: ".$size."\r\n";
+					$response .= "Cache-Control: no-cache\r\n";
+					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+					$response .= "transferMode.dlna.org: Interactive\r\n";
+					$response .= "\r\n";
+
+					print $FH $response;
+
+					open(FILE, $path);
+#					my @foo = <FILE>;
+#					print STDERR "length of foo: ".$#foo."\n";
+#					for (my $i = 0; $i < $#foo; $i++)
+#					{
+#						print $FH $foo[$i];
+#						sleep 1;
+#						print STDERR "$i - ".$#foo."\n";
+#					}
+					while (<FILE>)
+					{
+						print $FH $_;
+					}
+					close(FILE);
+#					print STDERR "finished\n";
+#
+#					$response .= "\r\n";
+#
+#					print $FH $response;
+#					print STDERR "written\n";
+				}
+			}
+			else
+			{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 			if ($method eq "HEAD")
 			{
-				print $FH "HTTP/1.0 200 OK\r\n";
-				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-				print $FH "Content-Type: video/x-avi\r\n";
-				print $FH "Content-Length: ".$size."\r\n";
-				print $FH "Accept-Ranges: bytes\r\n";
-				print $FH "Connection: close\r\n";
-				print $FH "transferMode.dlna.org:Streaming\r\n";
-				print $FH "contentFeatures.dlna.org:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000\r\n";
-				print $FH "realTimeInfo.dlna.org: DLNA.ORG_TLAG=*\r\n";
+				$response .= "HTTP/1.0 200 OK\r\n";
+				$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+				$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+				$response .= "Content-Length: ".$size."\r\n";
+				$response .= "Cache-Control: no-cache\r\n";
+				$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+
+
+
+#				print $FH "Accept-Ranges: bytes\r\n" if $media_type eq 'V';
+#				print $FH "Connection: close\r\n";
+#				print $FH "transferMode.dlna.org:Streaming\r\n" if $media_type eq 'V';
+#				print $FH "contentFeatures.dlna.org:".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#				print $FH "realTimeInfo.dlna.org: DLNA.ORG_TLAG=*\r\n" if $media_type eq 'V';
 			}
 			elsif ($method eq "GET")
 			{
@@ -402,14 +514,14 @@ sub stream_media
 
 				print $FH "HTTP/1.0 206 Partial Content\r\n";
 				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-				print $FH "Content-Type: video/x-avi\r\n";
+				print $FH "Content-Type: ".$content_item_obj->mime_type()."\r\n";
 				print $FH "Content-Length: ".$bytes_to_ship."\r\n";
 				print $FH "Cache-Control: no-cache\r\n";
-				print $FH "contentFeatures.dlna.org:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000\r\n";
+				print $FH "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
 				$offset_bytes_ship--;
-				print $FH "Content-Range: bytes ".$offset."-".$offset_bytes_ship."/".$size."\r\n";
-				print $FH "transferMode.dlna.org:Streaming\r\n";
-				print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n";
+				print $FH "Content-Range: bytes ".$offset."-".$offset_bytes_ship."/".$size."\r\n" if $media_type eq 'V';
+				print $FH "transferMode.dlna.org:Streaming\r\n" if $media_type eq 'V';
+				print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n" if $media_type eq 'V';
 				print $FH "\r\n";
 
 				open(FILE, $path);
@@ -426,6 +538,9 @@ sub stream_media
 				print $FH $buf;
 				close(FILE);
 			}
+			}
+			#print STDERR $response;
+#			print $FH $response;
 		}
 		else
 		{

@@ -24,6 +24,7 @@ use File::Basename;
 use Date::Format;
 use Image::Info qw(image_info dim image_type);
 use MP3::Info;
+use File::MimeInfo;
 use Data::Dumper;
 
 use PDLNA::Utils;
@@ -41,26 +42,26 @@ sub new
 	$self->{SIZE} = $$params{'size'};
 	$self->{TYPE} = $$params{'type'};
 
+	$self->{MIME_TYPE} = mimetype($self->{PATH});
+
 	$self->{WIDTH} = '';
 	$self->{HEIGHT} = '';
-	$self->{MEDIA_TYPE} = '';
 	$self->{COLOR} = '';
 	$self->{DURATION} = '';
 	$self->{BITRATE} = '',
 	$self->{VBR} = 0,
 
-	$self->{ARTIST} = '';
-	$self->{ALBUM} = '';
-	$self->{TRACKNUM} = '';
-	$self->{TITLE} = '';
-	$self->{GENRE} = '';
-	$self->{YEAR} = '';
+	$self->{ARTIST} = 'n/A';
+	$self->{ALBUM} = 'n/A';
+	$self->{TRACKNUM} = 'n/A';
+	$self->{TITLE} = 'n/A';
+	$self->{GENRE} = 'n/A';
+	$self->{YEAR} = 'n/A'; # a number is needed, but what if we have no year ...
 
 	if ($self->{TYPE} eq 'image')
 	{
 		my $info = image_info($self->{PATH});
 		($self->{WIDTH}, $self->{HEIGHT}) = dim($info);
-		$self->{MEDIA_TYPE} = $info->{'file_media_type'};
 	}
 	elsif ($self->{TYPE} eq 'audio')
 	{
@@ -70,12 +71,12 @@ sub new
 		$self->{VBR} = $info->{'VBR'};
 
 		my $tag = get_mp3tag($self->{PATH});
-		$self->{ARTIST} = $tag->{'ARTIST'};
-		$self->{ALBUM} = $tag->{'ALBUM'};
-		$self->{TRACKNUM} = $tag->{'TRACKNUM'};
-		$self->{TITLE} = $tag->{'TITLE'};
-		$self->{GENRE} = $tag->{'GENRE'};
-		$self->{YEAR} = $tag->{'YEAR'};
+		$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+		$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+		$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+		$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+		$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+		$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
@@ -124,6 +125,54 @@ sub path
 	return $self->{PATH};
 }
 
+sub type
+{
+	my $self = shift;
+	return $self->{TYPE};
+}
+
+sub mime_type
+{
+	my $self = shift;
+	return $self->{MIME_TYPE};
+}
+
+sub resolution
+{
+	my $self = shift;
+	return $self->{WIDTH}.'x'.$self->{HEIGHT};
+}
+
+sub duration
+{
+	my $self = shift;
+	return $self->{DURATION};
+}
+
+sub artist
+{
+	my $self = shift;
+	return $self->{ARTIST};
+}
+
+sub album
+{
+	my $self = shift;
+	return $self->{ALBUM};
+}
+
+sub genre
+{
+	my $self = shift;
+	return $self->{GENRE};
+}
+
+sub year
+{
+	my $self = shift;
+	return $self->{YEAR};
+}
+
 sub print_object
 {
 	my $self = shift;
@@ -135,12 +184,13 @@ sub print_object
 	print "\t\t\t\tType:          ".$self->{TYPE}."\n";
 	print "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
 	print "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
+	print "\t\t\t\tMimeType:      ".$self->{MIME_TYPE}."\n";
+
 	print "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
-	print "\t\t\t\tMediaType:     ".$self->{MEDIA_TYPE}."\n" if $self->{TYPE} eq 'image';
-	print "\t\t\t\tDuration:      ".$self->{DURATION}."\n" if $self->{TYPE} eq 'audio';
-	print "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n" if $self->{TYPE} eq 'audio';
 	if ($self->{TYPE} eq 'audio')
 	{
+		print "\t\t\t\tDuration:      ".$self->{DURATION}."\n";
+		print "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
 		print "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
 		print "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";
 		print "\t\t\t\tTrackNumber:   ".$self->{TRACKNUM}."\n";

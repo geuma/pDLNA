@@ -43,8 +43,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.20',
-	'PROGRAM_DATE' => '2010-09-20',
+	'PROGRAM_VERSION' => '0.22',
+	'PROGRAM_DATE' => '2010-09-23',
 	'PROGRAM_WEBSITE' => 'http://pdlna.urandom.at',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
