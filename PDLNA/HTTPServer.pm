@@ -23,6 +23,7 @@ use warnings;
 use Data::Dumper;
 use XML::Simple;
 use Date::Format;
+use Image::Resize;
 
 use Socket;
 use IO::Select;
@@ -39,6 +40,8 @@ our $content = undef;
 
 our %DLNA_CONTENTFEATURES = (
 	'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+	'image_sm' => 'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+	'image_tn' => 'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
 	'video' => 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
 	'music' => 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
 );
@@ -152,15 +155,10 @@ sub handle_connection
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
 	{
 		stream_media($FH, $1, $ENV{'METHOD'}, \%CGI);
-#		print $FH "\r\n";
 	}
-	elsif ($ENV{'OBJECT'} =~ /^\/media_preview\/(.*)$/)
+	elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/)
 	{
-		print $FH "HTTP/1.0 200 OK\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
-		preview_media($FH);
-		print $FH "\r\n";
+		preview_media($FH, $1, $ENV{'METHOD'}, \%CGI);
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/)
 	{
@@ -266,6 +264,12 @@ sub ctrl_content_directory_1
 			$response .= $url.'/media/'.$item_name.'.AVI&lt;/res&gt;'; # TODO file extension
 
 			# File preview information
+			if ($media_type eq 'I')
+			{
+				my $mime = 'image/jpeg';
+				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_sm'}.'&quot; resolution=&quot;&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_SM&lt;/res&gt;';
+				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_TN&lt;/res&gt;';
+			}
 #			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.MTN&lt;/res&gt;';
 #			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.TMTN&lt;/res&gt;';
 			$response .= '&lt;/item&gt;';
@@ -559,7 +563,68 @@ sub stream_media
 
 sub preview_media
 {
-	print STDERR "Preview Media\n";
+	my $FH = shift;
+	my $content_id = shift;
+	my $method = shift;
+	my $CGI = shift;
+
+	if ($content_id =~ /^(\w)_(\w)_(\d+)_(\d+)/)
+	{
+		my $media_type = $1;
+		my $sort_type = $2;
+		my $group_id = $3;
+		my $item_id = $4;
+
+		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
+		my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
+		my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
+		my $path = $content_item_obj->path();
+		my $size = $content_item_obj->size();
+		my $type = $content_item_obj->type();
+
+		my $response = "";
+		if (-f $path)
+		{
+			PDLNA::Log::log('Delivering preview for: '.$path.'.', 2);
+
+			my $image = Image::Resize->new($path);
+			my $preview_size = 160;
+			if ($content_id =~ /JPEG_SM$/)
+			{
+				$preview_size = 120;
+			}
+			my $preview = $image->resize($preview_size, $preview_size);
+
+			$response .= "HTTP/1.0 200 OK\r\n";
+			$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+			$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+			$response .= "Content-Length: ".$size."\r\n";
+			$response .= "Cache-Control: no-cache\r\n";
+			$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+			$response .= "transferMode.dlna.org: Interactive\r\n";
+			$response .= "\r\n";
+
+			$response .= $preview->jpeg();
+
+			$response .= "\r\n";
+
+			print $FH $response;
+
+			PDLNA::Log::log('Delivering preview for: '.$path.' done.', 2);
+		}
+		else
+		{
+			print $FH "HTTP/1.0 404 Not found\r\n";
+			print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+			print $FH "\r\n";
+		}
+	}
+	else
+	{
+		print $FH "HTTP/1.0 404 Not found\r\n";
+		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+		print $FH "\r\n";
+	}
 }
 
 1;
