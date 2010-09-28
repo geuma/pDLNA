@@ -43,9 +43,9 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.23',
-	'PROGRAM_DATE' => '2010-09-23',
-	'PROGRAM_WEBSITE' => 'http://pdlna.urandom.at',
+	'PROGRAM_VERSION' => '0.24',
+	'PROGRAM_DATE' => '2010-09-28',
+	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
 	'PROGRAM_DESC' => 'perl DLNA MediaServer',

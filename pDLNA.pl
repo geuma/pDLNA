@@ -21,12 +21,14 @@ use threads;
 use Getopt::Long::Descriptive;
 
 use lib ('./pDLNA');
-use PDLNA::SSDP;
 use PDLNA::Config;
+use PDLNA::DeviceList;
 use PDLNA::HTTPServer;
 use PDLNA::Log;
+use PDLNA::SSDP;
 
 our @THREADS = ();
+my $device_list = PDLNA::DeviceList->new();
 
 #
 # SUBS
@@ -77,14 +79,15 @@ PDLNA::SSDP::add_sockets(); # add sockets for SSDP
 # send some byebye messages
 PDLNA::SSDP::byebye();
 PDLNA::SSDP::byebye();
-sleep(3);
+sleep(1);
+push(@THREADS, threads->create('PDLNA::SSDP::act_on_ssdp_message', $device_list)); # start to listen for SEARCH messages in a thread
+sleep(1);
 
 # and now we are joing the group
 PDLNA::SSDP::alive();
 PDLNA::SSDP::alive();
 PDLNA::SSDP::alive();
 
-push(@THREADS, threads->create('PDLNA::SSDP::act_on_ssdp_message')); # start to listen for SEARCH messages in a thread
 push(@THREADS, threads->create('PDLNA::SSDP::send_alive_periodic')); # start to send out periodic alive messages in a thread
 
 while(1)
