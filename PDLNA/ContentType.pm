@@ -52,15 +52,18 @@ sub print_object
 		'T' => 'time of creation',
 	);
 
-	print "Object PDLNA::ContentType\n";
-	print "\tMedia Type:    ".$media_type{$self->{MEDIA_TYPE}}."\n";
-	print "\tSort Type:     ".$sort_type{$self->{SORT_TYPE}}."\n";
-	print "\tGroups:        \n";
+    my $string = '';
+	$string .= "\tObject PDLNA::ContentType\n";
+	$string .= "\t\tMedia Type:    ".$media_type{$self->{MEDIA_TYPE}}."\n";
+	$string .= "\t\tSort Type:     ".$sort_type{$self->{SORT_TYPE}}."\n";
+	$string .= "\t\tGroups:        \n";
 	foreach my $group (@{$self->{CONTENT_GROUPS}})
 	{
-		$group->print_object() if defined($group);
+		$string .= $group->print_object() if defined($group);
 	}
-	print "\tGroups Amount: ".$self->{CONTENT_GROUPS_AMOUNT}."\n";
+	$string .= "\t\tGroups Amount: ".$self->{CONTENT_GROUPS_AMOUNT}."\n";
+
+	return $string;
 }
 
 sub add_group

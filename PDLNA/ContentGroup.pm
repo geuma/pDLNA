@@ -84,16 +84,20 @@ sub print_object
 {
 	my $self = shift;
 
-	print "\tObject PDLNA::ContentGroup\n";
-	print "\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID}, 4, '0')."\n";
-	print "\t\tPath:          ".$self->{PATH}."\n";
-	print "\t\tName:          ".$self->{NAME}."\n";
-	print "\t\tItems:         \n";
+    my $string = '';
+	$string .= "\t\tObject PDLNA::ContentGroup\n";
+	$string .= "\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID}, 4, '0')."\n";
+	$string .= "\t\t\tPath:          ".$self->{PATH}."\n";
+	$string .= "\t\t\tName:          ".$self->{NAME}."\n";
+	$string .= "\t\t\tItems:         \n";
 	foreach my $item (@{$self->{CONTENT_ITEMS}})
 	{
-		$item->print_object();
+		$string .= $item->print_object();
 	}
-	print "\t\tItems Amount:  ".$self->{CONTENT_ITEMS_AMOUNT}."\n";
+	$string .= "\t\t\tItems Amount:  ".$self->{CONTENT_ITEMS_AMOUNT}."\n";
+	$string .= "\t\tObject PDLNA::ContentGroup END\n";
+
+	return $string;
 }
 
 sub add_item

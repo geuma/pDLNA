@@ -88,14 +88,17 @@ sub print_object
 {
 	my $self = shift;
 
-	print "Object PDLNA::Content\n";
+	my $string = "\n\tObject PDLNA::Content\n";
 	foreach my $type ('A','I','V')
 	{
 		foreach my $sort (keys %{$self->{$type}})
 		{
-			$self->{$type}->{$sort}->print_object() if defined($self->{$type}->{$sort});
+			$string .= $self->{$type}->{$sort}->print_object() if defined($self->{$type}->{$sort});
 		}
 	}
+	$string .= "\tObject PDLNA::Content END\n";
+
+	return $string;
 }
 
 sub return_media_type
@@ -126,7 +129,7 @@ sub initialize
 	my $type = shift;
 
 	return 0 if $path =~ /lost\+found/;
-	PDLNA::Log::log("Processing path $path", 1);
+	PDLNA::Log::log("Processing directory '$path'.", 2);
 
 	$path =~ s/\/$//;
 	foreach my $element (bsd_glob("$path/*"))
@@ -147,7 +150,7 @@ sub initialize
 			my $media_type = return_media_type($filetype);
 			if ($media_type && ($media_type eq $type || $type eq "all"))
 			{
-				PDLNA::Log::log("Adding element $element $filetype to database.", 1);
+				PDLNA::Log::log("Adding $media_type element '$element' to database.", 2);
 				push(@{$self->{FILELIST}->{$media_type}}, $element);
 			}
 		}

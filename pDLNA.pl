@@ -57,9 +57,10 @@ my ($opt, $usage) = describe_options(
 	[ 'help|h',	'print usage method and exit' ],
 );
 print($usage->text), exit if $opt->help();
-unless (PDLNA::Config::parse_config($opt->config))
+my @config_file_error = ();
+unless (PDLNA::Config::parse_config($opt->config, \@config_file_error))
 {
-	print STDERR "Config is bad!"; # TODO we should make this a little bit more beautiful
+	PDLNA::Log::fatal(join("\n", @config_file_error))
 }
 PDLNA::HTTPServer::initialize_content();
 
@@ -69,7 +70,7 @@ PDLNA::HTTPServer::initialize_content();
 
 $SIG{INT} = \&exit_daemon; # currently we aren't a daemon ... so we just want to shut down after a SIGINT
 
-PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName $CONFIG{'FRIENDLY_NAME'}", 0);
+PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0);
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1);
 
 push(@THREADS, threads->create('PDLNA::HTTPServer::start_webserver')); # starting the HTTP server in a thread
@@ -80,7 +81,7 @@ PDLNA::SSDP::add_sockets(); # add sockets for SSDP
 PDLNA::SSDP::byebye();
 PDLNA::SSDP::byebye();
 sleep(1);
-push(@THREADS, threads->create('PDLNA::SSDP::act_on_ssdp_message', $device_list)); # start to listen for SEARCH messages in a thread
+push(@THREADS, threads->create('PDLNA::SSDP::act_on_ssdp_message', \$device_list)); # start to listen for SEARCH messages in a thread
 sleep(1);
 
 # and now we are joing the group

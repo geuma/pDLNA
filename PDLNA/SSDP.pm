@@ -125,7 +125,7 @@ sub act_on_ssdp_message
 
 			if ($nts_type eq 'alive')
 			{
-				$device_list->add({
+				$$device_list->add({
 					'ip' => $peer_ip_addr,
 					'uuid' => $uuid,
 					'ssdp_banner' => $server_banner,
@@ -133,12 +133,14 @@ sub act_on_ssdp_message
 					'time_of_expire' => $time,
 					'nt' => $nt_type,
 				});
+				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' to database.', 2);
 			}
 			elsif ($nts_type eq 'byebye')
 			{
-				$device_list->del($ip, $nt_type);
+				$$device_list->del($ip, $nt_type);
+				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' from database.', 2);
 			}
-			PDLNA::Log::log($device_list->print_object(), 3);
+			PDLNA::Log::log($$device_list->print_object(), 3);
 		}
 		elsif ($data =~ /M-SEARCH/i) # we are matching case insensitive, because some clients don't write it capitalized
 		{
@@ -158,11 +160,11 @@ sub act_on_ssdp_message
 				{
 					$man = $1;
 				}
-				if ($line =~ /^ST:\s*(.+)$/i)
+				elsif ($line =~ /^ST:\s*(.+)$/i)
 				{
 					$st = $1;
 				}
-				if ($line =~ /^MX:\s*(\d+)$/i)
+				elsif ($line =~ /^MX:\s*(\d+)$/i)
 				{
 					$mx = $1;
 				}
@@ -206,7 +208,7 @@ sub ssdp_message
 	$msg .= "USN: $$params{'usn'}\r\n";
 	if ($$params{'response'})
 	{
-		$msg .= "DATE: ".time2str("%a, %d %b %Y %H:%M:%S GMT", time())."\r\n";
+		$msg .= "DATE: ".time2str("%a, %d %b %Y %H:%M:%S GMT", time())."\r\n"; # TODO what shall we do with the timezone
 		$msg .= "CONTENT-LENGTH: 0\r\n";
 	}
 	$msg .= "\r\n";

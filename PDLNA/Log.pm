@@ -20,6 +20,8 @@ package PDLNA::Log;
 use strict;
 use warnings;
 
+use Date::Format;
+
 use PDLNA::Config;
 
 sub log
@@ -27,10 +29,22 @@ sub log
 	my $message = shift;
 	my $debuglevel = shift;
 
-	my $time = localtime();
-	$message = $time . ' ' . $message;
+	$message = add_date($message);
 
-	write_log_msg($message) if ($debuglevel <= $CONFIG{'DEBUG'});
+	write_log_msg($message) if (!defined($debuglevel) || $debuglevel <= $CONFIG{'DEBUG'});
+}
+
+sub fatal
+{
+	my $message = shift;
+	PDLNA::Log::log($message);
+	exit 1;
+}
+
+sub add_date
+{
+	my $message = shift;
+	return time2str($CONFIG{'LOG_DATE_FORMAT'}, time()).' '.$message;
 }
 
 sub write_log_msg

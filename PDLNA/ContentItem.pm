@@ -177,27 +177,31 @@ sub print_object
 {
 	my $self = shift;
 
-	print "\t\t\tObject PDLNA::ContentItem\n";
-	print "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
-	print "\t\t\t\tFilename:      ".$self->{NAME}."\n";
-	print "\t\t\t\tPath:          ".$self->{PATH}."\n";
-	print "\t\t\t\tType:          ".$self->{TYPE}."\n";
-	print "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
-	print "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
-	print "\t\t\t\tMimeType:      ".$self->{MIME_TYPE}."\n";
+    my $string = '';
+	$string .= "\t\t\tObject PDLNA::ContentItem\n";
+	$string .= "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
+	$string .= "\t\t\t\tFilename:      ".$self->{NAME}."\n";
+	$string .= "\t\t\t\tPath:          ".$self->{PATH}."\n";
+	$string .= "\t\t\t\tType:          ".$self->{TYPE}."\n";
+	$string .= "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
+	$string .= "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
+	$string .= "\t\t\t\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
-	print "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
+	$string .= "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
 	if ($self->{TYPE} eq 'audio')
 	{
-		print "\t\t\t\tDuration:      ".$self->{DURATION}."\n";
-		print "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
-		print "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
-		print "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";
-		print "\t\t\t\tTrackNumber:   ".$self->{TRACKNUM}."\n";
-		print "\t\t\t\tTitle:         ".$self->{TITLE}."\n";
-		print "\t\t\t\tGenre:         ".$self->{GENRE}."\n";
-		print "\t\t\t\tYear:          ".$self->{YEAR}."\n";
+		$string .= "\t\t\t\tDuration:      ".$self->{DURATION}."\n";
+		$string .= "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
+		$string .= "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
+		$string .= "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";
+		$string .= "\t\t\t\tTrackNumber:   ".$self->{TRACKNUM}."\n";
+		$string .= "\t\t\t\tTitle:         ".$self->{TITLE}."\n";
+		$string .= "\t\t\t\tGenre:         ".$self->{GENRE}."\n";
+		$string .= "\t\t\t\tYear:          ".$self->{YEAR}."\n";
 	}
+	$string .= "\t\t\tObject PDLNA::ContentItem END\n";
+
+	return $string;
 }
 
 1;

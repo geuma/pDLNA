@@ -50,7 +50,7 @@ sub initialize_content
 {
 	$content = PDLNA::Content->new();
 	$content->build_database();
-	$content->print_object();
+	PDLNA::Log::log($content->print_object(), 3);
 }
 
 sub start_webserver
