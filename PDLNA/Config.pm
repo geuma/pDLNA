@@ -26,6 +26,8 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
 use Config::ApacheFormat;
+use IO::Socket;
+use Net::Interface qw(:lower);
 use Net::IP;
 use Sys::Info::OS;
 
@@ -40,11 +42,13 @@ our %CONFIG = (
 	'LOG_FILE' => 'STDERR',
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'DEBUG' => 0,
+	'TMP_DIR' => '/tmp',
+	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.25',
-	'PROGRAM_DATE' => '2010-09-29',
+	'PROGRAM_VERSION' => '0.26',
+	'PROGRAM_DATE' => '2010-10-02',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -94,13 +98,52 @@ sub parse_config
 		return 0;
 	}
 
+	#
+	# FRIENDLY NAME PARSING
+	#
 	$CONFIG{'FRIENDLY_NAME'} = $cfg->get('FriendlyName') if defined($cfg->get('FriendlyName'));
 	if ($CONFIG{'FRIENDLY_NAME'} !~ /^[\w\-\s\.]{1,32}$/)
 	{
 		push(@{$errormsg}, 'Invalid FriendlyName: Please use letters, numbers, dots, dashes, underscores and or spaces and the FriendlyName requires a name that is 32 characters or less in length.');
 	}
+
+	#
+	# INTERFACE CONFIG PARSING
+	#
+	$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface') if defined($cfg->get('ListenInterface'));
+	if (!defined($CONFIG{'LISTEN_INTERFACE'}))
+	{
+		my @all_ifs = Net::Interface->interfaces();
+		foreach my $interface (@all_ifs)
+		{
+			# we are taking the first interface which is not a loopback device
+			unless ($interface =~ /^lo/i)
+			{
+				$CONFIG{'LISTEN_INTERFACE'} = "$interface";
+				last;
+			}
+		}
+	}
+
+	my $interface_object = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
+	if (!defined($interface_object))
+	{
+		push(@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.');
+	}
+
+	#
+	# IP ADDR CONFIG PARSING
+	#
 	$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') if defined($cfg->get('ListenIPAddress'));
-	if (defined($CONFIG{'LOCAL_IPADDR'}))
+	if (!defined($CONFIG{'LOCAL_IPADDR'}))
+	{
+		if (defined($interface_object))
+		{
+			my $address = $interface_object->address(undef, 0);
+			$CONFIG{'LOCAL_IPADDR'} = inet_ntoa($address);
+		}
+	}
+	else
 	{
 		if (my $ip = new Net::IP($CONFIG{'LOCAL_IPADDR'}))
 		{
@@ -111,48 +154,83 @@ sub parse_config
 			push(@{$errormsg}, 'Invalid ListenIPAddress: '.Net::IP::Error().'.');
 		}
 	}
-	else
+
+	if (defined($interface_object))
 	{
-		push(@{$errormsg}, 'Invalid ListenIPAddress: Please specify a valid IPv4 address.');
+		my @addresses = $interface_object->address();
+		my $found = 0;
+		foreach my $addr (@addresses)
+		{
+			$found = 1 if $CONFIG{'LOCAL_IPADDR'} eq inet_ntoa($addr);
+		}
+
+		unless ($found)
+		{
+			push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.');
+		}
 	}
-	$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface') if defined($cfg->get('ListenInterface'));
-	# TODO listen iface check
-	if (!defined($CONFIG{'LISTEN_INTERFACE'}))
-	{
-		push(@{$errormsg}, 'Invalid ListenInterface: Please specify a valid network interace (e.g. eth0).');
-	}
+
+	#
+	# HTTP PORT PARSING
+	#
 	$CONFIG{'HTTP_PORT'} = int($cfg->get('HTTPPort')) if defined($cfg->get('HTTPPort'));
 	if ($CONFIG{'HTTP_PORT'} < 0 && $CONFIG{'HTTP_PORT'} > 65535)
 	{
 		push(@{$errormsg}, 'Invalid HTTPPort: Please specify a valid TCP port which is > 0 and < 65536.');
 	}
+
+	#
+	# CHACHE CONTROL PARSING
+	#
 	$CONFIG{'CACHE_CONTROL'} = int($cfg->get('CacheControl')) if defined($cfg->get('CacheControl'));
 	if ($CONFIG{'CACHE_CONTROL'} < 60 && $CONFIG{'CACHE_CONTROL'} > 18000)
 	{
 		push(@{$errormsg}, 'Invalid CacheControl: Please specify the CacheControl between 60 and 18000 seconds.');
 	}
+
+	#
+	# LOG FILE PARSING
+	#
 	$CONFIG{'LOG_FILE'} = $cfg->get('LogFile') if defined($cfg->get('LogFile'));
 	if ($CONFIG{'LOG_FILE'} ne 'STDERR')
 	{
 		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR]');
 	}
+
+	#
+	# LOG LEVEL PARSING
+	#
 	$CONFIG{'DEBUG'} = int($cfg->get('LogLevel')) if defined($cfg->get('LogLevel'));
 	if ($CONFIG{'DEBUG'} < 0)
 	{
 		push(@{$errormsg}, 'Invalid LogLevel: Please specify the LogLevel with a positive integer.');
 	}
 
-	# Directory parsing
+	# TODO log date format
+	# TODO tmp directory
+	# TODO mplayer bin
+
+	#
+	# MEDIA DIRECTORY PARSING
+	#
 	foreach my $directory_block ($cfg->get('Directory'))
 	{
 		my $block = $cfg->block(Directory => $directory_block->[1]);
+		if (!-d $directory_block->[1])
+		{
+			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' is not a directory.');
+		}
+		if ($block->get('type') !~ /^(audio|video|image|all)$/)
+		{
+			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid type.');
+		}
+
 		push(@{$CONFIG{'DIRECTORIES'}}, {
 				'path' => $directory_block->[1],
 				'type' => $block->get('type'),
 			}
 		);
 	}
-	# TODO directories error handling
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;

@@ -20,6 +20,8 @@ package PDLNA::Utils;
 use strict;
 use warnings;
 
+use Digest::SHA1;
+
 sub add_leading_char
 {
 	my $string = shift || '';
@@ -32,6 +34,14 @@ sub add_leading_char
 	}
 
 	return $string;
+}
+
+# well, it is not real random ... but it's adequate
+sub get_randid
+{
+	my $sha1 = Digest::SHA1->new;
+	$sha1->add(time());
+	return $sha1->hexdigest;
 }
 
 1;

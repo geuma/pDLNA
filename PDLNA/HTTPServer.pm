@@ -139,26 +139,19 @@ sub handle_connection
 
 	if ($ENV{'OBJECT'} eq '/ServerDesc.xml')
 	{
-		print $FH "HTTP/1.0 200 OK\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
-		server_description($FH);
+		print $FH server_description();
 	}
 	elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1')
 	{
-		print $FH "HTTP/1.0 200 OK\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
-		ctrl_content_directory_1($FH, $post_xml, $CGI{'SOAPACTION'});
-		print $FH "\r\n";
+		print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'});
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
 	{
-		stream_media($FH, $1, $ENV{'METHOD'}, \%CGI);
+		print $FH stream_media($1, $ENV{'METHOD'}, \%CGI);
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/)
 	{
-		preview_media($FH, $1, $ENV{'METHOD'}, \%CGI);
+		print $FH preview_media($1, $ENV{'METHOD'}, \%CGI);
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/)
 	{
@@ -166,17 +159,34 @@ sub handle_connection
 	}
 	else
 	{
-		print $FH "HTTP/1.0 404 Not found\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
+		print $FH http_header({
+			'statuscode' => 501,
+		});
 	}
 
 	close($FH);
 }
 
+sub http_header
+{
+	my $params = shift;
+
+	my %HTTP_CODES = (
+		200 => 'OK',
+		404 => 'Not found',
+		501 => 'Not implemented',
+	);
+
+	my $response = '';
+	$response .= "HTTP/1.0 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}}."\r\n";
+	$response .= "Server: ".$CONFIG{'PROGRAM_NAME'}." v".$CONFIG{'PROGRAM_VERSION'}." Webserver\r\n";
+	$response .= "\r\n";
+
+	return $response;
+}
+
 sub ctrl_content_directory_1
 {
-	my $FH = shift;
 	my $xml = shift;
 	my $action = shift;
 
@@ -191,6 +201,10 @@ sub ctrl_content_directory_1
 		{
 			my $media_type = $1;
 			my $sort_type = $2;
+
+			$response = http_header({
+				'statuscode' => 200,
+			});
 
 			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 			$response .= '<s:Body>';
@@ -235,14 +249,21 @@ sub ctrl_content_directory_1
 			my $size = $content_item_obj->size();
 			my $type = $content_item_obj->type();
 
+			$response = http_header({
+				'statuscode' => 200,
+			});
+
 			my $item_name = $media_type.'_'.$sort_type.'_'.$group_id.'_'.$item_id;
 			my $url = 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'};
 
 			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 			$response .= '<s:Body>';
 			$response .= '<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-			$response .= '<Result>&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
-			$response .= '&lt;item id=&quot;'.$item_name.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; restricted=&quot;1&quot;&gt;&lt;dc:title&gt;'.$name.'&lt;/dc:title&gt;';
+			$response .= '<Result>';
+			$response .= '&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
+
+			$response .= '&lt;item id=&quot;'.$item_name.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; restricted=&quot;1&quot;&gt;';
+			$response .= '&lt;dc:title&gt;'.$name.'&lt;/dc:title&gt;';
 			$response .= '&lt;upnp:class&gt;object.item.'.$type.'Item&lt;/upnp:class&gt;';
 
 			if ($media_type eq 'A')
@@ -251,7 +272,11 @@ sub ctrl_content_directory_1
 				$response .= '&lt;dc:creator&gt;'.$content_item_obj->artist().'&lt;/dc:creator&gt;';
 				$response .= '&lt;upnp:genre&gt;'.$content_item_obj->genre().'&lt;/upnp:genre&gt;';
 			}
-			$response .= '&lt;sec:dcmInfo&gt;CREATIONDATE='.$date;
+			$response .= '&lt;sec:dcmInfo&gt;';
+
+			$response .= 'WIDTH=1920,HEIGHT=1080,COMPOSCORE=0,COMPOID=8192,COLORSCORE=26777,COLORID=2,MONTHLY=9,ORT=1,' if $media_type eq 'I';
+
+			$response .= 'CREATIONDATE='.$date;
 			$response .= ',YEAR='.$content_item_obj->year() if $media_type eq 'A';
 			$response .= ',FOLDER='.$foldername.'&lt;/sec:dcmInfo&gt;';
 			$response .= '&lt;dc:date&gt;'.$beautiful_date.'&lt;/dc:date&gt;';
@@ -259,21 +284,26 @@ sub ctrl_content_directory_1
 			# File specific information
 			$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$content_item_obj->mime_type().':'.$DLNA_CONTENTFEATURES{$type}.'&quot; size=&quot;'.$size.'&quot; ';
 			$response .= 'duration=&quot;0:17:09&quot;&gt;' if $media_type eq 'V'; # TODO get the length of the video
-			$response .= 'duration=&quot;'.$content_item_obj->duration().'&quot;&gt;' if $media_type eq 'A'; # TODO get the length of the music
+			$response .= 'duration=&quot;'.$content_item_obj->duration().'&quot;&gt;' if $media_type eq 'A';
 			$response .= 'resolution=&quot;'.$content_item_obj->resolution().'&quot;&gt;' if $media_type eq 'I';
-			$response .= $url.'/media/'.$item_name.'.AVI&lt;/res&gt;'; # TODO file extension
+			$response .= $url.'/media/'.$item_name.'.JPEG_LRG&lt;/res&gt;'; # TODO file extension
 
 			# File preview information
-			if ($media_type eq 'I')
+			if ($media_type eq 'I' || $media_type eq 'V')
 			{
 				my $mime = 'image/jpeg';
 				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_sm'}.'&quot; resolution=&quot;&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_SM&lt;/res&gt;';
 				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_TN&lt;/res&gt;';
 			}
-#			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.MTN&lt;/res&gt;';
-#			$response .= '&lt;res protocolInfo=&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot;&gt;'.$url.'/media_preview/'.$item_name.'.TMTN&lt;/res&gt;';
+
 			$response .= '&lt;/item&gt;';
 			$response .= '&lt;/DIDL-Lite&gt;</Result><NumberReturned>1</NumberReturned><TotalMatches>1</TotalMatches><UpdateID>0</UpdateID></u:BrowseResponse></s:Body></s:Envelope>';
+		}
+		else
+		{
+			$response = http_header({
+				'statuscode' => 501,
+			});
 		}
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
@@ -309,6 +339,10 @@ sub ctrl_content_directory_1
 		}
 		my $content_item_obj = $groups[$i]->content_items()->[$index];
 
+		$response = http_header({
+			'statuscode' => 200,
+		});
+
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 		$response .= '<s:Body>';
 		$response .= '<u:X_GetObjectIDfromIndexResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
@@ -320,6 +354,10 @@ sub ctrl_content_directory_1
 	# X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>) ... so it's still a TODO
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetIndexfromRID"')
 	{
+		$response = http_header({
+			'statuscode' => 200,
+		});
+
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 		$response .= '<s:Body>';
 		$response .= '<u:X_GetIndexfromRIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
@@ -328,16 +366,20 @@ sub ctrl_content_directory_1
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
 	}
+	else
+	{
+		$response = http_header({
+			'statuscode' => 501,
+		});
+	}
 
 	print STDERR $response."\n";
-	print $FH $response;
+	return $response;
 }
 
 sub server_description
 {
-	my $FH = shift;
-
-	my $xml_response = XML::Simple->new();
+	my $xml_obj = XML::Simple->new();
 	my $xml_serverdesc = {
 		'xmlns' => 'urn:schemas-upnp-org:device-1-0',
 		'specVersion' =>
@@ -384,7 +426,11 @@ sub server_description
 		'xmlns:dlna' => 'urn:schemas-dlna-org:device-1-0',
 		'xmlns:sec' => 'http://www.sec.co.kr/dlna'
 	};
-	my $response = $xml_response->XMLout(
+
+	my $response = http_header({
+		'statuscode' => 200,
+	});
+	$response .= $xml_obj->XMLout(
 		$xml_serverdesc,
 		RootName => 'root',
 		XMLDecl => '<?xml version="1.0" encoding="UTF-8"?>',
@@ -394,12 +440,11 @@ sub server_description
 		NoAttr => 1,
 	);
 
-	print $FH $response;
+	return $response;
 }
 
 sub stream_media
 {
-	my $FH = shift;
 	my $content_id = shift;
 	my $method = shift;
 	my $CGI = shift;
@@ -421,149 +466,126 @@ sub stream_media
 		my $response = "";
 		if (-f $path)
 		{
-			PDLNA::Log::log('Streaming '.$path.'.', 1);
 			if ($media_type eq 'I')
 			{
 				if ($method eq 'HEAD')
 				{
-					$response .= "HTTP/1.0 200 OK\r\n";
-					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
-					$response .= "Content-Length: ".$size."\r\n";
-					$response .= "Cache-Control: no-cache\r\n";
-					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
-					$response .= "\r\n";
-
-					print $FH $response;
+					$response = http_header({
+						'statuscode' => 200,
+					});
+#					$response .= "HTTP/1.0 200 OK\r\n";
+#					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+#					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+#					$response .= "Content-Length: ".$size."\r\n";
+#					$response .= "Cache-Control: no-cache\r\n";
+#					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#					$response .= "\r\n";
 				}
 				elsif ($method eq 'GET')
 				{
-					PDLNA::Log::log('Delivering image: '.$path.'.', 2);
-					$response .= "HTTP/1.0 200 OK\r\n";
-					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
-					$response .= "Content-Length: ".$size."\r\n";
-					$response .= "Cache-Control: no-cache\r\n";
-					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
-					$response .= "transferMode.dlna.org: Interactive\r\n";
-					$response .= "\r\n";
+					PDLNA::Log::log('Streaming '.$path.'.', 1);
 
-					print $FH $response;
+					$response = http_header({
+						'statuscode' => 200,
+					});
+#					$response .= "HTTP/1.0 200 OK\r\n";
+#					$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+#					$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+#					$response .= "Content-Length: ".$size."\r\n";
+#					$response .= "Cache-Control: no-cache\r\n";
+#					$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#					$response .= "transferMode.dlna.org:Interactive\r\n";
+#					$response .= "\r\n";
 
 					open(FILE, $path);
-#					my @foo = <FILE>;
-#					print STDERR "length of foo: ".$#foo."\n";
-#					for (my $i = 0; $i < $#foo; $i++)
-#					{
-#						print $FH $foo[$i];
-#						sleep 1;
-#						print STDERR "$i - ".$#foo."\n";
-#					}
+#					binmode(FILE);
 					while (<FILE>)
 					{
-						print $FH $_;
+						$response .= $_;
 					}
+#					$response .= <FILE>; # does not work at all
 					close(FILE);
-#					print STDERR "finished\n";
-#
+#					$response .= `cat $path`;
 #					$response .= "\r\n";
-#
-#					print $FH $response;
-#					print STDERR "written\n";
+					PDLNA::Log::log('Streaming '.$path.' END.', 1);
 				}
 			}
-			else
-			{
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-			if ($method eq "HEAD")
-			{
-				$response .= "HTTP/1.0 200 OK\r\n";
-				$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-				$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
-				$response .= "Content-Length: ".$size."\r\n";
-				$response .= "Cache-Control: no-cache\r\n";
-				$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
-
-
-
+#			if ($method eq "HEAD")
+#			{
+#				$response .= "HTTP/1.0 200 OK\r\n";
+#				$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+#				$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+#				$response .= "Content-Length: ".$size."\r\n";
+#				$response .= "Cache-Control: no-cache\r\n";
+#				$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#
+#
+#
 #				print $FH "Accept-Ranges: bytes\r\n" if $media_type eq 'V';
 #				print $FH "Connection: close\r\n";
 #				print $FH "transferMode.dlna.org:Streaming\r\n" if $media_type eq 'V';
 #				print $FH "contentFeatures.dlna.org:".$DLNA_CONTENTFEATURES{$type}."\r\n";
 #				print $FH "realTimeInfo.dlna.org: DLNA.ORG_TLAG=*\r\n" if $media_type eq 'V';
-			}
-			elsif ($method eq "GET")
-			{
-				my $offset = 0;
-				if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
-				{
-					$offset = $1;
-				}
-				my $bytes_to_ship = 10240;
-				my $offset_bytes_ship = $offset + $bytes_to_ship;
-				PDLNA::Log::log('Offset: '.$offset.' | Bytes To Ship: '.$bytes_to_ship.' | Offset + Bytes To Ship: '.$offset_bytes_ship.'.', 2);
-
-				print $FH "HTTP/1.0 206 Partial Content\r\n";
-				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-				print $FH "Content-Type: ".$content_item_obj->mime_type()."\r\n";
-				print $FH "Content-Length: ".$bytes_to_ship."\r\n";
-				print $FH "Cache-Control: no-cache\r\n";
-				print $FH "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
-				$offset_bytes_ship--;
-				print $FH "Content-Range: bytes ".$offset."-".$offset_bytes_ship."/".$size."\r\n" if $media_type eq 'V';
-				print $FH "transferMode.dlna.org:Streaming\r\n" if $media_type eq 'V';
-				print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n" if $media_type eq 'V';
-				print $FH "\r\n";
-
-				open(FILE, $path);
-				my $buf = undef;
-
-				# using read with offset isn't working - why is it ignoring my offset
-				#read(FILE, $buf, $bytes_to_ship, $offset);
-
-				# so I'm using seek instead
-				seek(FILE, $offset, 0);
-				read(FILE, $buf, $bytes_to_ship);
-
-				PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 2);
-				print $FH $buf;
-				close(FILE);
-			}
-			}
+#			}
+#			elsif ($method eq "GET")
+#			{
+#				my $offset = 0;
+#				if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
+#				{
+#					$offset = $1;
+#				}
+#				my $bytes_to_ship = 10240;
+#				my $offset_bytes_ship = $offset + $bytes_to_ship;
+#				PDLNA::Log::log('Offset: '.$offset.' | Bytes To Ship: '.$bytes_to_ship.' | Offset + Bytes To Ship: '.$offset_bytes_ship.'.', 2);
+#
+#				print $FH "HTTP/1.0 206 Partial Content\r\n";
+#				print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+#				print $FH "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+#				print $FH "Content-Length: ".$bytes_to_ship."\r\n";
+#				print $FH "Cache-Control: no-cache\r\n";
+#				print $FH "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#				$offset_bytes_ship--;
+#				print $FH "Content-Range: bytes ".$offset."-".$offset_bytes_ship."/".$size."\r\n" if $media_type eq 'V';
+#				print $FH "transferMode.dlna.org:Streaming\r\n" if $media_type eq 'V';
+#				print $FH "MediaInfo.sec: SEC_Duration=1280360;\r\n" if $media_type eq 'V';
+#				print $FH "\r\n";
+#
+#				open(FILE, $path);
+#				my $buf = undef;
+#
+#				# using read with offset isn't working - why is it ignoring my offset
+#				#read(FILE, $buf, $bytes_to_ship, $offset);
+#
+#				# so I'm using seek instead
+#				seek(FILE, $offset, 0);
+#				read(FILE, $buf, $bytes_to_ship);
+#
+#				PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 2);
+#				print $FH $buf;
+#				close(FILE);
+#			}
+#			}
 			#print STDERR $response;
 #			print $FH $response;
+			return $response;
 		}
 		else
 		{
-			print $FH "HTTP/1.0 404 Not found\r\n";
-			print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-			print $FH "\r\n";
+			return http_header({
+				'statuscode' => 404,
+			});
 		}
 	}
 	else
 	{
-		print $FH "HTTP/1.0 404 Not found\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
+		return http_header({
+			'statuscode' => 404,
+		});
 	}
 }
 
 sub preview_media
 {
-	my $FH = shift;
 	my $content_id = shift;
 	my $method = shift;
 	my $CGI = shift;
@@ -574,6 +596,13 @@ sub preview_media
 		my $sort_type = $2;
 		my $group_id = $3;
 		my $item_id = $4;
+
+		if ($media_type eq 'A')
+		{
+			return http_header({
+				'statuscode' => 501,
+			});
+		}
 
 		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
 		my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
@@ -587,6 +616,22 @@ sub preview_media
 		{
 			PDLNA::Log::log('Delivering preview for: '.$path.'.', 2);
 
+			my $randid = undef;
+			if ($media_type eq 'V')
+			{
+				$randid = PDLNA::Utils::get_randid();
+				# this way is a little bit ugly ... but works for me
+				system("$CONFIG{'MPLAYER_BIN'} -vo jpeg:outdir=$CONFIG{'TMP_DIR'}/$randid/ -frames 1 -ss 10 '$path' > /dev/null 2>&1");
+				$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
+				unless (defined($path))
+				{
+					return http_header({
+						'statuscode' => 404,
+					});
+				}
+			}
+
+			# image scaling stuff
 			my $image = Image::Resize->new($path);
 			my $preview_size = 160;
 			if ($content_id =~ /JPEG_SM$/)
@@ -595,35 +640,44 @@ sub preview_media
 			}
 			my $preview = $image->resize($preview_size, $preview_size);
 
-			$response .= "HTTP/1.0 200 OK\r\n";
-			$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-			$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
-			$response .= "Content-Length: ".$size."\r\n";
-			$response .= "Cache-Control: no-cache\r\n";
-			$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
-			$response .= "transferMode.dlna.org: Interactive\r\n";
-			$response .= "\r\n";
+			# remove tmp files from thumbnail generation
+			if ($media_type eq 'V')
+			{
+				unlink($path);
+				rmdir("$CONFIG{'TMP_DIR'}/$randid");
+			}
+
+			# the response itself
+			$response = http_header({
+				'statuscode' => 200,
+			});
+#			$response .= "HTTP/1.0 200 OK\r\n";
+#			$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+#			$response .= "Content-Type: ".$content_item_obj->mime_type()."\r\n";
+#			$response .= "Content-Length: ".$size."\r\n";
+#			$response .= "Cache-Control: no-cache\r\n";
+#			$response .= "contentFeatures.dlna.org: ".$DLNA_CONTENTFEATURES{$type}."\r\n";
+#			$response .= "transferMode.dlna.org: Interactive\r\n";
+#			$response .= "\r\n";
 
 			$response .= $preview->jpeg();
 
 			$response .= "\r\n";
 
-			print $FH $response;
-
-			PDLNA::Log::log('Delivering preview for: '.$path.' done.', 2);
+			return $response;
 		}
 		else
 		{
-			print $FH "HTTP/1.0 404 Not found\r\n";
-			print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-			print $FH "\r\n";
+			return http_header({
+				'statuscode' => 404,
+			});
 		}
 	}
 	else
 	{
-		print $FH "HTTP/1.0 404 Not found\r\n";
-		print $FH "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
-		print $FH "\r\n";
+		return http_header({
+			'statuscode' => 404,
+		});
 	}
 }
 
