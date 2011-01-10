@@ -41,14 +41,15 @@ our %CONFIG = (
 	'CACHE_CONTROL' => 1800,
 	'LOG_FILE' => 'STDERR',
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
+	'LOG_CATEGORY' => [],
 	'DEBUG' => 0,
 	'TMP_DIR' => '/tmp',
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.26',
-	'PROGRAM_DATE' => '2010-10-02',
+	'PROGRAM_VERSION' => '0.30',
+	'PROGRAM_DATE' => '2011-01-09',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -195,6 +196,22 @@ sub parse_config
 	if ($CONFIG{'LOG_FILE'} ne 'STDERR')
 	{
 		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR]');
+	}
+
+	#
+	# LOG CATEGORY
+	#
+	if (defined($cfg->get('LogCategory')))
+	{
+		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
+		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
+		{
+			unless ($category =~ /^(discovery|httpdir|httpstream|library)$/)
+			{
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [ssdp|httpdir|httpstream|library]');
+			}
+		}
+		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
 	}
 
 	#

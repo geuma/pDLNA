@@ -149,6 +149,26 @@ sub duration
 	return $self->{DURATION};
 }
 
+# TODO make it more beautiful
+sub duration_seconds
+{
+	my $self = shift;
+
+	my $seconds = 0;
+	my @foo = split(':', $self->{DURATION});
+
+	my $i = 0;
+	foreach my $bar (reverse @foo)
+	{
+		$seconds += $bar if $i == 0;
+		$seconds += $bar*60 if $i == 1;
+		$seconds += $bar*3600 if $i == 2;
+		$i++;
+	}
+
+	return $seconds;
+}
+
 sub artist
 {
 	my $self = shift;
@@ -190,7 +210,7 @@ sub print_object
 	$string .= "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
 	if ($self->{TYPE} eq 'audio')
 	{
-		$string .= "\t\t\t\tDuration:      ".$self->{DURATION}."\n";
+		$string .= "\t\t\t\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
 		$string .= "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
 		$string .= "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
 		$string .= "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";

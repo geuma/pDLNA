@@ -28,10 +28,17 @@ sub log
 {
 	my $message = shift;
 	my $debuglevel = shift;
+	my $category = shift || undef;
 
 	$message = add_date($message);
 
-	write_log_msg($message) if (!defined($debuglevel) || $debuglevel <= $CONFIG{'DEBUG'});
+	if (
+		(!defined($debuglevel) || $debuglevel <= $CONFIG{'DEBUG'}) &&
+		(defined($category) && grep(/^$category$/, @{$CONFIG{'LOG_CATEGORY'}}))
+	)
+	{
+		write_log_msg($message);
+	}
 }
 
 sub fatal

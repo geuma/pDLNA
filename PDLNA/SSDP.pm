@@ -42,7 +42,7 @@ our @NTS = (
 
 sub add_sockets
 {
-	PDLNA::Log::log('Creating SSDP sending socket.', 1);
+	PDLNA::Log::log('Creating SSDP sending socket.', 1, 'discovery');
 	# socket for sending NOTIFY messages
 	$multicast_socket = IO::Socket::INET->new(
 		LocalAddr => $CONFIG{'LOCAL_IPADDR'},
@@ -52,7 +52,7 @@ sub add_sockets
 		Blocking => 0,
 	) || PDLNA::Log::fatal('Cannot bind to SSDP sending socket: '.$!);
 
-	PDLNA::Log::log('Creating SSDP listening socket (bind '.$ssdp_proto.' '.$multicast_group.':'.$ssdp_port.').', 1);
+	PDLNA::Log::log('Creating SSDP listening socket (bind '.$ssdp_proto.' '.$multicast_group.':'.$ssdp_port.').', 1, 'discovery');
 	# socket for listening to M-SEARCH messages
 	$multicast_listen_socket = IO::Socket::Multicast->new(
 		Proto => $ssdp_proto,
@@ -70,7 +70,7 @@ sub act_on_ssdp_message
 {
 	my $device_list = shift;
 
-	PDLNA::Log::log('Starting SSDP messages receiver thread.', 1);
+	PDLNA::Log::log('Starting SSDP messages receiver thread.', 1, 'discovery');
 	while(1)
 	{
 		my $data = undef;
@@ -133,14 +133,14 @@ sub act_on_ssdp_message
 					'time_of_expire' => $time,
 					'nt' => $nt_type,
 				});
-				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' to database.', 2);
+				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' to database.', 2, 'discovery');
 			}
 			elsif ($nts_type eq 'byebye')
 			{
 				$$device_list->del($ip, $nt_type);
-				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' from database.', 2);
+				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' from database.', 2, 'discovery');
 			}
-			PDLNA::Log::log($$device_list->print_object(), 3);
+			PDLNA::Log::log($$device_list->print_object(), 3, 'discovery');
 		}
 		elsif ($data =~ /M-SEARCH/i) # we are matching case insensitive, because some clients don't write it capitalized
 		{
@@ -172,7 +172,7 @@ sub act_on_ssdp_message
 
 			if (defined($man) && $man eq '"ssdp:discover"')
 			{
-				PDLNA::Log::log('Received a SSDP M-SEARCH message by '.$peer_ip_addr.':'.$peer_src_port.' for a '.$st.' with an mx of '.$mx.'.', 1);
+				PDLNA::Log::log('Received a SSDP M-SEARCH message by '.$peer_ip_addr.':'.$peer_src_port.' for a '.$st.' with an mx of '.$mx.'.', 1, 'discovery');
 				send_announce($peer_ip_addr, $peer_src_port, $st, $mx);
 			}
 		}
@@ -218,7 +218,7 @@ sub ssdp_message
 
 sub byebye
 {
-	PDLNA::Log::log('Sending SSDP byebye NOTIFY messages.', 1);
+	PDLNA::Log::log('Sending SSDP byebye NOTIFY messages.', 1, 'discovery');
 	for (1..2)
 	{
 		foreach my $nt (@NTS)
@@ -240,7 +240,7 @@ sub byebye
 
 sub send_alive_periodic
 {
-	PDLNA::Log::log('Starting thread for sending periodic SSDP alive messages.', 1);
+	PDLNA::Log::log('Starting thread for sending periodic SSDP alive messages.', 1, 'discovery');
 	while(1)
 	{
 		alive();
@@ -260,7 +260,7 @@ sub generate_usn
 
 sub alive
 {
-	PDLNA::Log::log('Sending SSDP alive NOTIFY messages.', 1);
+	PDLNA::Log::log('Sending SSDP alive NOTIFY messages.', 1, 'discovery');
 
 	for (1..2)
 	{
@@ -295,7 +295,7 @@ sub send_announce
 
 	foreach my $st (@STS)
 	{
-		PDLNA::Log::log('Sending SSDP M-SEARCH response messages for '.$st.'.', 1);
+		PDLNA::Log::log('Sending SSDP M-SEARCH response messages for '.$st.'.', 1, 'discovery');
 		my $data = ssdp_message({
 			'response' => 1,
 			'nts' => 'alive',
