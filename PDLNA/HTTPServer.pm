@@ -1,7 +1,7 @@
 package PDLNA::HTTPServer;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ package PDLNA::HTTPServer;
 use strict;
 use warnings;
 
+use Fcntl;
 use Data::Dumper;
 use XML::Simple;
 use Date::Format;
@@ -181,19 +182,19 @@ sub http_header
 		501 => 'Not implemented',
 	);
 
-	my $response = '';
-	$response .= "HTTP/1.0 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}}."\r\n";
-	$response .= "Server: ".$CONFIG{'PROGRAM_NAME'}." v".$CONFIG{'PROGRAM_VERSION'}." Webserver\r\n";
+	my @response = ();
+	push(@response, "HTTP/1.0 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}});
+	push(@response, "Server: ".$CONFIG{'PROGRAM_NAME'}." v".$CONFIG{'PROGRAM_VERSION'}." Webserver");
 	if (defined($$params{'additional_header'}))
 	{
 		foreach my $header (@{$$params{'additional_header'}})
 		{
-			$response .= $header."\r\n";
+			push(@response, $header);
 		}
 	}
-	$response .= "\r\n";
 
-	return $response;
+	PDLNA::Log::log("HTTP Response Header:\n\t".join("\n\t",@response), 1, $$params{'log'}) if defined($$params{'log'});
+	return join("\r\n", @response)."\r\n\r\n";
 }
 
 sub ctrl_content_directory_1
@@ -384,7 +385,6 @@ sub ctrl_content_directory_1
 		});
 	}
 
-#	print STDERR $response."\n";
 	return $response;
 }
 
@@ -515,31 +515,43 @@ sub stream_media
 				if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
 				{
 					PDLNA::Log::log('Streaming content for: '.$path.'.', 1, 'httpstream');
-					push(@additional_header, 'transferMode.dlna.org:Streaming');
 
 					my $statuscode = 200;
 
 					my $offset = 0;
-					my $bytes_to_ship = 5242880;
-# This stuff is breaking the streaming of audio at the moment
-#					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
-#					{
-#						$offset = $1;
-#						$bytes_to_ship += $offset;
-#
-#						# we need to calculate a new Content-Length
-#						my $content_length = $size-$offset+1;
-#						$additional_header[1] = 'Content-Type: '.$content_length if $content_length < $size;
-#						push(@additional_header, 'Content-Range: bytes '.$offset.'-'.$bytes_to_ship.'/'.$size);
-#						$statuscode = 206 if $size > $bytes_to_ship;
-#					}
+					my $bytes_to_ship = 52428800; # 50 megabytes
 
+					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
+					{
+						PDLNA::Log::log('We got a RANGE HTTP Header from client.', 1, 'httpstream');
+						$statuscode = 206;
+						$offset = $1;
 
+						my $size2 = $size-1;
+						$size2 = $bytes_to_ship-1;
 
+						my $deliversize = $offset + $bytes_to_ship;
+						if ($deliversize >= $size)
+						{
+							$size2 = $size-1;
+						}
+
+						push(@additional_header, 'Content-Range: bytes '.$offset.'-'.$size2.'/'.$size);
+
+						# we need to calculate a new Content-Length
+						my $content_length = $size-$offset;
+						$additional_header[1] = 'Content-Length: '.$content_length;
+					}
+					push(@additional_header, 'transferMode.dlna.org:Streaming');
+
+					#
+					# THE RESPONSE
+					#
 
 					$response = http_header({
 						'statuscode' => $statuscode,
 						'additional_header' => \@additional_header,
+						'log' => 'httpstream',
 					});
 
 					open(FILE, $path);
@@ -549,13 +561,13 @@ sub stream_media
 					#read(FILE, $buf, $bytes_to_ship, $offset);
 
 					# so I'm using seek instead
-					seek(FILE, $offset, 0);
-					read(FILE, $buf, $bytes_to_ship);
-
-#					PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 2, 'httpstream');
+					sysseek(FILE, $offset, 1);
+					sysread(FILE, $buf, $bytes_to_ship);
+#							use bytes;
+#							PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 1, 'httpstream');
+#							no bytes;
 					$response .= $buf;
 					close(FILE);
-
 
 				}
 				elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files

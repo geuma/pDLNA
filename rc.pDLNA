@@ -1,0 +1,109 @@
+#!/bin/sh
+#
+# pDLNA - a perl DLNA media server
+# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+BIN="./pDLNA.pl"
+PRG="pDLNA"
+
+CFGFILE="/etc/pdlna.conf"
+if [ "x$CFGFILE" = "x" ]; then
+	CFGFILE="/etc/pdlna.conf"
+fi
+
+PIDFILE=`grep ^PIDFile $CFGFILE | awk {'print $2'}`
+if [ "x$PIDFILE" = "x" ]; then
+	PIDFILE="/var/run/pdlna.pid"
+fi
+
+start() {
+	PRG_PID=""
+	if [ -f $PIDFILE ]; then
+		PRG_PID=`cat $PIDFILE`
+		if [ "x$PRG_PID" = "x" ]; then
+			echo "Starting $PRG ..."
+			$BIN -f $CFGFILE
+		else
+			if [ -d "/proc/$PRG_PID" ]; then
+				echo "$PRG is already running with PID $PRG_PID";
+			else
+				echo "Starting $PRG ..."
+				$BIN -f $CFGFILE
+			fi
+		fi
+	else
+		echo "Starting $PRG ..."
+		$BIN -f $CFGFILE
+	fi
+}
+
+stop() {
+	PRG_PID=""
+	if [ -e $PIDFILE ]; then
+		PRG_PID=`cat $PIDFILE`
+	fi
+
+	if [ "x$PRG_PID" = "x" ]; then
+		echo "$PRG is NOT running."
+	else
+		if [ -d "/proc/$PRG_PID" ]; then
+			echo "Stopping $PRG ..."
+			/bin/rm -f $PIDFILE
+			kill $PRG_PID
+		else
+			/bin/rm -f $PIDFILE
+		fi
+	fi
+}
+
+status () {
+	PRG_PID=""
+	if [ -e $PIDFILE ]; then
+		PRG_PID=`cat $PIDFILE`
+	fi
+
+	if [ "x$PRG_PID" = "x" ]; then
+		echo "$PRG is NOT running."
+	else
+		if [ -d "/proc/$PRG_PID" ]; then
+			echo "$PRG is running with PID $PRG_PID";
+		else
+			/bin/rm -f $PIDFILE
+			echo "$PRG is NOT running."
+		fi
+	fi
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		sleep 10
+		start
+		;;
+	status)
+		status
+		;;
+	*)
+		echo "usage: $0 {start|stop|restart|status}"
+		exit
+esac

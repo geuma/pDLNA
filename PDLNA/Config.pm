@@ -1,7 +1,7 @@
 package PDLNA::Config;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ our %CONFIG = (
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
 	'CACHE_CONTROL' => 1800,
+	'PIDFILE' => '/var/run/pdlna.pid',
 	'LOG_FILE' => 'STDERR',
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'LOG_CATEGORY' => [],
@@ -48,8 +49,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.30',
-	'PROGRAM_DATE' => '2011-01-09',
+	'PROGRAM_VERSION' => '0.33',
+	'PROGRAM_DATE' => '2011-01-30',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -190,12 +191,28 @@ sub parse_config
 	}
 
 	#
+	# PID FILE PARSING
+	#
+	$CONFIG{'PIDFILE'} = $cfg->get('PIDFile') if defined($cfg->get('PIDFile'));
+	if (defined($CONFIG{'PIDFILE'}) && $CONFIG{'PIDFILE'} =~ /^\/[\w\.\_\-\/]+\w$/)
+	{
+		if (-e $CONFIG{'PIDFILE'})
+		{
+			push(@{$errormsg}, 'Warning PIDFile: The file named '.$CONFIG{'PIDFILE'}.' is already existing. Please change the filename or delete the file.');
+		}
+	}
+	else
+	{
+		push(@{$errormsg}, 'Invalid PIDFile: Please specify a valid filename (full path) for the PID file.');
+	}
+
+	#
 	# LOG FILE PARSING
 	#
 	$CONFIG{'LOG_FILE'} = $cfg->get('LogFile') if defined($cfg->get('LogFile'));
-	if ($CONFIG{'LOG_FILE'} ne 'STDERR')
+	unless ($CONFIG{'LOG_FILE'} eq 'STDERR' || $CONFIG{'LOG_FILE'} =~ /^\/[\w\.\_\-\/]+\w$/)
 	{
-		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR]');
+		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR|<full path to LogFile>]');
 	}
 
 	#
@@ -208,7 +225,7 @@ sub parse_config
 		{
 			unless ($category =~ /^(discovery|httpdir|httpstream|library)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [ssdp|httpdir|httpstream|library]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
