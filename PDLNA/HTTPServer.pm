@@ -51,7 +51,7 @@ sub initialize_content
 {
 	$content = PDLNA::Content->new();
 	$content->build_database();
-	PDLNA::Log::log($content->print_object(), 3);
+	PDLNA::Log::log($content->print_object(), 3, 'library');
 }
 
 sub start_webserver
@@ -114,6 +114,7 @@ sub handle_connection
 
 			$ENV{'METHOD'} = $parts[0];
 			$ENV{'OBJECT'} = $parts[1];
+			$ENV{'HTTP_VERSION'} = $parts[2];
 		}
 		else
 		{
@@ -130,39 +131,55 @@ sub handle_connection
 		$post_xml = $xmlsimple->XMLin($CGI{'POSTDATA'});
 	}
 
-#	PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1);
-#	PDLNA::Log::log('HTTP Connection: CGI hash:', 2);
-#	foreach my $key (keys %CGI)
-#	{
-#		PDLNA::Log::log("\t".$key.' -> '.$CGI{$key}, 2);
-#	}
-#	PDLNA::Log::log('--------------', 2);
+	if (length(@{$CONFIG{'ALLOWED_CLIENTS'}}) > 0 && grep(/^$peer_ip_addr$/, @{$CONFIG{'ALLOWED_CLIENTS'}}))
+	{
+		PDLNA::Log::log('Received HTTP Request from allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 
-	if ($ENV{'OBJECT'} eq '/ServerDesc.xml')
-	{
-		PDLNA::Log::log('Delivering server description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
-		print $FH server_description();
-	}
-	elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1')
-	{
-		print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'});
-	}
-	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
-	{
-		print $FH stream_media($1, $ENV{'METHOD'}, \%CGI);
-	}
-	elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/)
-	{
-		print $FH preview_media($1, $ENV{'METHOD'}, \%CGI);
-	}
-	elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/)
-	{
-		print $FH PDLNA::Library::show_library(\$content);
+		if ($ENV{'OBJECT'} eq '/ServerDesc.xml')
+		{
+			PDLNA::Log::log('New HTTP Connection: Delivering server description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
+			print $FH server_description();
+		}
+		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1')
+		{
+			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
+			PDLNA::Log::log("\t". Dumper $post_xml, 2, 'httpdir');
+			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'});
+		}
+		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/)
+		{
+			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
+			PDLNA::Log::log('HTTP Request Header: '.join("\n\t", %CGI), 2, 'httpstream');
+
+
+
+#		foreach my $key (keys %CGI)
+#		{
+#			PDLNA::Log::log("\t".$key.' -> '.$CGI{$key}, 2, 'httpstream');
+#		}
+			print $FH stream_media($1, $ENV{'METHOD'}, \%CGI);
+		}
+		elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/)
+		{
+			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
+			print $FH preview_media($1, $ENV{'METHOD'}, \%CGI);
+		}
+		elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/) # this is just to be something different (not DLNA stuff)
+		{
+			print $FH PDLNA::Library::show_library(\$content);
+		}
+		else
+		{
+			print $FH http_header({
+				'statuscode' => 501,
+			});
+		}
 	}
 	else
 	{
+		PDLNA::Log::log('Received HTTP Request from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 		print $FH http_header({
-			'statuscode' => 501,
+			'statuscode' => 403,
 		});
 	}
 
@@ -177,13 +194,14 @@ sub http_header
 		200 => 'OK',
 		206 => 'Partial Content',
 		400 => 'Bad request',
+		403 => 'Forbidden',
 		404 => 'Not found',
 		406 => 'Not acceptable',
 		501 => 'Not implemented',
 	);
 
 	my @response = ();
-	push(@response, "HTTP/1.0 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}});
+	push(@response, "HTTP/1.1 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}});
 	push(@response, "Server: ".$CONFIG{'PROGRAM_NAME'}." v".$CONFIG{'PROGRAM_VERSION'}." Webserver");
 	if (defined($$params{'additional_header'}))
 	{
@@ -204,11 +222,8 @@ sub ctrl_content_directory_1
 
 	my $response = undef;
 
-	PDLNA::Log::log('HTTP Connection SOAPACTION: '.$action, 2, 'httpdir');
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		PDLNA::Log::log('HTTP Connection ObjectID: '.$xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, 2, 'httpdir');
-#		print STDERR Dumper $xml;
 		if ($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'} =~ /^(\w)_(\w)$/)
 		{
 			my $media_type = $1;
@@ -298,7 +313,7 @@ sub ctrl_content_directory_1
 			$response .= 'duration=&quot;0:17:09&quot;&gt;' if $media_type eq 'V'; # TODO get the length of the video
 			$response .= 'duration=&quot;'.$content_item_obj->duration().'&quot;&gt;' if $media_type eq 'A';
 			$response .= 'resolution=&quot;'.$content_item_obj->resolution().'&quot;&gt;' if $media_type eq 'I';
-			$response .= $url.'/media/'.$item_name.'.JPEG_LRG&lt;/res&gt;'; # TODO file extension
+			$response .= $url.'/media/'.$item_name.'.'.$content_item_obj->file_extension().'&lt;/res&gt;';
 
 			# File preview information
 			if ($media_type eq 'I' || $media_type eq 'V')
@@ -373,7 +388,7 @@ sub ctrl_content_directory_1
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
 		$response .= '<s:Body>';
 		$response .= '<u:X_GetIndexfromRIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<Index>0</Index>';
+		$response .= '<Index>0</Index>'; # we are setting it to 0 - so take the first item in the list to be active
 		$response .= '</u:X_GetIndexfromRIDResponse>';
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
@@ -406,7 +421,8 @@ sub server_description
 			'dlna:X_DLNADOC' => 'DMS-1.50',
 			'deviceType' => 'urn:schemas-upnp-org:device:MediaServer:1',
 			'serialNumber' => $CONFIG{'PROGRAM_SERIAL'},
-			'sec:ProductCap' => 'smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec',
+			#'sec:ProductCap' => 'smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec',
+			'sec:ProductCap' => 'smi,DCM10',
 			'UDN' => $CONFIG{'UUID'},
 			'manufacturerURL' => $CONFIG{'PROGRAM_WEBSITE'},
 			'manufacturer' => $CONFIG{'PROGRAM_AUTHOR'},
@@ -479,6 +495,7 @@ sub stream_media
 		{
 			my @additional_header = (
 				'Content-Type: '.$content_item_obj->mime_type(),
+				#'Content-Type: video/x-avi',
 				'Content-Length: '.$size,
 				'Cache-Control: no-cache',
 			);
@@ -488,20 +505,31 @@ sub stream_media
 				if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 				{
 					# found no documentation for this header ... but i think it might be the correct answer
-					push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$type});
+					push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
 				}
 				else
 				{
-					PDLNA::Log::log('Invalid contentFeatures.dlna.org: '.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
+					PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
 					return http_header({
 						'statuscode' => 400,
 					});
 				}
 			}
+			elsif (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
+			{
+				# if GETCAPTIONINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
+				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+			}
+			elsif (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
+			{
+				# if GETMEDIAINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
+				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+			}
 
 			if (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
 			{
 				# found no documentation for this header ... but i think it might be the correct answer to deliver the duration in milliseconds
+				# device might use this value to show the progress bar
 				push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$content_item_obj->duration_seconds().'000;')
 			}
 
@@ -516,32 +544,36 @@ sub stream_media
 				{
 					PDLNA::Log::log('Streaming content for: '.$path.'.', 1, 'httpstream');
 
-					my $statuscode = 200;
+					my $statuscode = 206;
 
-					my $offset = 0;
 					my $bytes_to_ship = 52428800; # 50 megabytes
+					my ($lowrange, $highrange) = 0;
 
-					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-$/)
+					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
 					{
-						PDLNA::Log::log('We got a RANGE HTTP Header from client.', 1, 'httpstream');
-						$statuscode = 206;
-						$offset = $1;
+						#if ($lowrange > 0) {
+						PDLNA::Log::log('We got a RANGE HTTP Header ('.$$CGI{'RANGE'}.') from client.', 1, 'httpstream');
 
-						my $size2 = $size-1;
-						$size2 = $bytes_to_ship-1;
-
-						my $deliversize = $offset + $bytes_to_ship;
-						if ($deliversize >= $size)
-						{
-							$size2 = $size-1;
+						$lowrange = $1;
 						}
+						$highrange = $size-1;
+						$highrange = $lowrange+$bytes_to_ship;
 
-						push(@additional_header, 'Content-Range: bytes '.$offset.'-'.$size2.'/'.$size);
-
-						# we need to calculate a new Content-Length
-						my $content_length = $size-$offset;
+						#my $content_length = $size - $lowrange;
+						my $content_length = $size;
 						$additional_header[1] = 'Content-Length: '.$content_length;
-					}
+#						if ($content_length < $bytes_to_ship)
+#						{
+#							$bytes_to_ship = $content_length;
+#						}
+
+						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$size);
+						#}
+#					}
+#					else
+#					{
+#						PDLNA::Log::log('We got NO RANGE HTTP Header from client.', 1, 'httpstream');
+#					}
 					push(@additional_header, 'transferMode.dlna.org:Streaming');
 
 					#
@@ -554,19 +586,24 @@ sub stream_media
 						'log' => 'httpstream',
 					});
 
-					open(FILE, $path);
-					my $buf = undef;
 
-					# using read with offset isn't working - why is it ignoring my offset
-					#read(FILE, $buf, $bytes_to_ship, $offset);
+#					if ($method eq 'GET')
+#					{
+						open(FILE, $path);
+						my $buf = undef;
 
-					# so I'm using seek instead
-					sysseek(FILE, $offset, 1);
-					sysread(FILE, $buf, $bytes_to_ship);
-#							use bytes;
-#							PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 1, 'httpstream');
-#							no bytes;
-					$response .= $buf;
+						# using read with offset isn't working - why is it ignoring my offset
+						#read(FILE, $buf, $bytes_to_ship, $offset);
+
+						# so I'm using seek instead
+						sysseek(FILE, $lowrange, 1);
+						sysread(FILE, $buf, $bytes_to_ship);
+								use bytes;
+								PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 3, 'httpstream');
+								no bytes;
+						$response .= $buf;
+						$response .= "\r\n";
+#					}
 					close(FILE);
 
 				}
@@ -601,6 +638,7 @@ sub stream_media
 				$response = http_header({
 					'statuscode' => 200,
 					'additional_header' => \@additional_header,
+					'log' => 'httpstream',
 				});
 			}
 			return $response;

@@ -38,6 +38,7 @@ sub new
 	$self->{ID} = $$params{'id'};
 	$self->{PATH} = $$params{'filename'};
 	$self->{NAME} = basename($$params{'filename'});
+	$self->{FILE_EXTENSION} = uc($1) if ($$params{'filename'} =~ /\.(\w{3,4})$/);
 	$self->{DATE} = $$params{'date'};
 	$self->{SIZE} = $$params{'size'};
 	$self->{TYPE} = $$params{'type'};
@@ -125,6 +126,12 @@ sub path
 	return $self->{PATH};
 }
 
+sub file_extension
+{
+	my $self = shift;
+	return $self->{FILE_EXTENSION};
+}
+
 sub type
 {
 	my $self = shift;
@@ -202,9 +209,10 @@ sub print_object
 	$string .= "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
 	$string .= "\t\t\t\tFilename:      ".$self->{NAME}."\n";
 	$string .= "\t\t\t\tPath:          ".$self->{PATH}."\n";
+	$string .= "\t\t\t\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
 	$string .= "\t\t\t\tType:          ".$self->{TYPE}."\n";
 	$string .= "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
-	$string .= "\t\t\t\tSize:          ".$self->{SIZE}." Bytes\n";
+	$string .= "\t\t\t\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
 	$string .= "\t\t\t\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
 	$string .= "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';

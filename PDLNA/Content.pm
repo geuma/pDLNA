@@ -129,7 +129,7 @@ sub initialize
 	my $type = shift;
 
 	return 0 if $path =~ /lost\+found/;
-	PDLNA::Log::log("Processing directory '$path'.", 2);
+	PDLNA::Log::log("Processing directory '$path'.", 2, 'library');
 
 	$path =~ s/\/$//;
 	foreach my $element (bsd_glob("$path/*"))
@@ -150,7 +150,7 @@ sub initialize
 			my $media_type = return_media_type($filetype);
 			if ($media_type && ($media_type eq $type || $type eq "all"))
 			{
-				PDLNA::Log::log("Adding $media_type element '$element' to database.", 2);
+				PDLNA::Log::log("Adding $media_type element '$element' to database.", 2, 'library');
 				push(@{$self->{FILELIST}->{$media_type}}, $element);
 			}
 		}
@@ -180,7 +180,6 @@ sub build_database
 					$group_object = PDLNA::ContentGroup->new(
 						{
 							'path' => dirname($element),
-							'name' => dirname($element),
 						},
 					);
 					$self->{$ABR{$type}}->{F}->add_group($group_object);

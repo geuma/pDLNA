@@ -33,7 +33,7 @@ sub new
 	my $self = ();
 	$self->{ID} = $$params{'id'};
 	$self->{PATH} = $$params{'path'};
-	$self->{NAME} = $$params{'name'};
+	$self->{NAME} = basename($$params{'path'});
 	$self->{CONTENT_ITEMS} = [];
 	$self->{CONTENT_ITEMS_AMOUNT} = 0;
 

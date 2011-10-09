@@ -78,6 +78,16 @@ sub act_on_ssdp_message
 		my ($peer_src_port, $peer_addr) = sockaddr_in($peeraddr);
 		my $peer_ip_addr = inet_ntoa($peer_addr);
 
+		if (length(@{$CONFIG{'ALLOWED_CLIENTS'}}) > 0 && grep(/^$peer_ip_addr$/, @{$CONFIG{'ALLOWED_CLIENTS'}}))
+		{
+			PDLNA::Log::log('Received SSDP message from allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
+		}
+		else
+		{
+			PDLNA::Log::log('Received SSDP message from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
+			return;
+		}
+
 		if ($data =~ /NOTIFY/)
 		{
 			my $time = time();

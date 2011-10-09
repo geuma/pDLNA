@@ -36,6 +36,19 @@ sub add_leading_char
 	return $string;
 }
 
+sub convert_bytes
+{
+	my $bytes = shift;
+
+	my @size = ('B', 'kB', 'MB', 'GB', 'TB');
+	my $ctr;
+	for ($ctr = 0; $bytes > 1024; $ctr++)
+	{
+		$bytes /= 1024;
+	}
+	return sprintf("%.2f", $bytes).' '.$size[$ctr];
+}
+
 # well, it is not real random ... but it's adequate
 sub get_randid
 {

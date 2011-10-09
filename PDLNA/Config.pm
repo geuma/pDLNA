@@ -40,6 +40,7 @@ our %CONFIG = (
 	'HTTP_PORT' => 8001,
 	'CACHE_CONTROL' => 1800,
 	'PIDFILE' => '/var/run/pdlna.pid',
+	'ALLOWED_CLIENTS' => [],
 	'LOG_FILE' => 'STDERR',
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'LOG_CATEGORY' => [],
@@ -49,8 +50,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.33',
-	'PROGRAM_DATE' => '2011-01-30',
+	'PROGRAM_VERSION' => '0.34',
+	'PROGRAM_DATE' => '2011-10-09',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -204,6 +205,21 @@ sub parse_config
 	else
 	{
 		push(@{$errormsg}, 'Invalid PIDFile: Please specify a valid filename (full path) for the PID file.');
+	}
+
+	#
+	# ALLOWED CLIENTS PARSING
+	#
+	if (defined($cfg->get('AllowedClients')))
+	{
+		@{$CONFIG{'ALLOWED_CLIENTS'}} = split(',', $cfg->get('AllowedClients'));
+		foreach my $ipaddr (@{$CONFIG{'ALLOWED_CLIENTS'}})
+		{
+			unless (my $ip = new Net::IP($ipaddr))
+			{
+				push(@{$errormsg}, 'Invalid AllowedClient: '.Net::IP::Error().'.');
+			}
+		}
 	}
 
 	#
