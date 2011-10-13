@@ -140,6 +140,16 @@ sub handle_connection
 			PDLNA::Log::log('New HTTP Connection: Delivering server description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
 			print $FH server_description();
 		}
+		elsif ($ENV{'OBJECT'} eq '/ContentDirectory1.xml')
+		{
+			PDLNA::Log::log('New HTTP Connection: Delivering ContentDirectory description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
+			print $FH contentdirectory_description();
+		}
+		elsif ($ENV{'OBJECT'} eq '/ConnectionManager1.xml')
+		{
+			PDLNA::Log::log('New HTTP Connection: Delivering ConnectionManager description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
+			print $FH connectionmanager_description();
+		}
 		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1')
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
@@ -170,6 +180,7 @@ sub handle_connection
 		}
 		else
 		{
+			PDLNA::Log::log('Request not supported yet: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 2, 'httpstream');
 			print $FH http_header({
 				'statuscode' => 501,
 			});
@@ -403,6 +414,604 @@ sub ctrl_content_directory_1
 	return $response;
 }
 
+sub contentdirectory_description
+{
+	my $xml_obj = XML::Simple->new();
+	my $xml_serverdesc = {
+		'specVersion' =>
+		{
+			'minor' => '0',
+			'major' => '1',
+		},
+		'actionList' =>
+		{
+			'action' =>
+			{
+				'DestroyObject' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'in',
+							'name' => 'ObjectID',
+							'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+						},
+					},
+				},
+				'Browse' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'RequestedCount' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count'
+							},
+							'UpdateID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_UpdateID'
+							},
+							'BrowseFlag' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_BrowseFlag'
+							},
+							'TotalMatches' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count'
+							},
+							'NumberReturned' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count'
+							},
+							'StartingIndex' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Index'
+							},
+							'Filter' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Filter'
+							},
+							'Result' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Result'
+							},
+							'ObjectID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID'
+							},
+							'SortCriteria' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_SortCriteria'
+							},
+						},
+					},
+				},
+				'GetSortCapabilities' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'out',
+							'name' => 'SortCaps',
+							'relatedStateVariable' => 'SortCapabilities',
+						},
+					},
+				},
+				'GetSearchCapabilities' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'out',
+							'name' => 'SearchCaps',
+							'relatedStateVariable' => 'SearchCapabilities'
+						},
+					},
+				},
+				'GetTransferProgress' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'TransferTotal' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferTotal',
+							},
+							'TransferLength' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferLength',
+							},
+							'TransferStatus' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferStatus',
+							},
+							'TransferID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferID',
+							},
+						},
+					},
+				},
+				'Search' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'RequestedCount' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count',
+							},
+							'UpdateID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_UpdateID',
+							},
+							'ContainerID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+							'TotalMatches' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count',
+							},
+							'NumberReturned' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Count',
+							},
+							'StartingIndex' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Index',
+							},
+							'Filter' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Filter',
+							},
+							'Result' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Result',
+							},
+							'SortCriteria' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_SortCriteria',
+							},
+							'SearchCriteria' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_SearchCriteria',
+							},
+						},
+					},
+				},
+				'GetSystemUpdateID' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'out',
+							'name' => 'Id',
+							'relatedStateVariable' => 'SystemUpdateID',
+						},
+					},
+				},
+				'StopTransferResource' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'in',
+							'name' => 'TransferID',
+							'relatedStateVariable' => 'A_ARG_TYPE_TransferID',
+						},
+					},
+				},
+				'DeleteResource' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'in',
+							'name' => 'ResourceURI',
+							'relatedStateVariable' => 'A_ARG_TYPE_URI',
+						},
+					},
+				},
+				'UpdateObject' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'CurrentTagValue' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_TagValueList',
+							},
+							'ObjectID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+							'NewTagValue' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_TagValueList',
+							},
+						},
+					},
+				},
+				'ImportResource' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'SourceURI' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_URI',
+							},
+							'DestinationURI' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_URI',
+							},
+							'TransferID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferID',
+							},
+						},
+					},
+				},
+				'CreateReference' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'ObjectID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+							'NewID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+							'ContainerID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+						},
+					},
+				},
+				'CreateObject' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'Result' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_Result',
+							},
+							'ObjectID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+							'Elements' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_Result',
+							},
+							'ContainerID' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_ObjectID',
+							},
+						},
+					},
+				},
+				'ExportResource' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'SourceURI' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_URI',
+							},
+							'DestinationURI' => {
+								'direction' => 'in',
+								'relatedStateVariable' => 'A_ARG_TYPE_URI',
+							},
+							'TransferID' => {
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_TransferID',
+							},
+						},
+					},
+				},
+			},
+		},
+		'serviceStateTable' =>
+		{
+			'stateVariable' =>
+			{
+				'A_ARG_TYPE_SearchCriteria' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+},
+				'TransferIDs' => {
+					'dataType' => 'string',
+					'sendEvents' => 'yes'
+				},
+				'A_ARG_TYPE_TransferStatus' => {
+					'dataType' => 'string',
+					'allowedValueList' => {
+						'allowedValue' => [
+							'COMPLETED',
+							'ERROR',
+							'IN_PROGRESS',
+							'STOPPED'
+						],
+					},
+					'sendEvents' => 'no'
+				},
+				'SearchCapabilities' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_Filter' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'SystemUpdateID' => {
+					'dataType' => 'ui4',
+					'sendEvents' => 'yes'
+				},
+				'A_ARG_TYPE_URI' => {
+					'dataType' => 'uri',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_TransferID' => {
+					'dataType' => 'ui4',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_Count' => {
+					'dataType' => 'ui4',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_SortCriteria' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_UpdateID' => {
+					'dataType' => 'ui4',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_Index' => {
+					'dataType' => 'ui4',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_TransferLength' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_Result' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_BrowseFlag' => {
+					'dataType' => 'string',
+					'allowedValueList' => {
+						'allowedValue' => [
+							'BrowseMetadata',
+							'BrowseDirectChildren'
+						],
+					},
+					'sendEvents' => 'no'
+				},
+				'SortCapabilities' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_ObjectID' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'ContainerUpdateIDs' => {
+					'dataType' => 'string',
+					'sendEvents' => 'yes'
+				},
+				'A_ARG_TYPE_TagValueList' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+				'A_ARG_TYPE_TransferTotal' => {
+					'dataType' => 'string',
+					'sendEvents' => 'no'
+				},
+			},
+		},
+	};
+
+	my $response = http_header({
+		'statuscode' => 200,
+	});
+	$response .= $xml_obj->XMLout(
+		$xml_serverdesc,
+		RootName => 'scpd', # TODO: we might need the following namespace: <scpd xmlns="urn:schemas-upnp-org:service-1-0">
+							# we might need to use another XML module to do this
+		XMLDecl => '<?xml version="1.0" encoding="UTF-8"?>',
+		ContentKey => '-content',
+		ValueAttr => [ 'value' ],
+		NoSort => 1,
+		NoAttr => 1,
+	);
+
+	return $response;
+}
+
+sub connectionmanager_description
+{
+	my $xml_obj = XML::Simple->new();
+	my $xml_serverdesc = {
+		'xmlns' => 'urn:schemas-upnp-org:service-1-0',
+		'specVersion' =>
+		{
+			'minor' => '0',
+			'major' => '1'
+		},
+		'actionList' =>
+		{
+			'action' =>
+			{
+				'GetProtocolInfo' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'Sink' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'SinkProtocolInfo'
+							},
+							'Source' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'SourceProtocolInfo'
+							},
+						},
+					},
+				},
+				'GetCurrentConnectionInfo' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'PeerConnectionManager' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_ConnectionManager'
+							},
+							'ProtocolInfo' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_ProtocolInfo'
+							},
+							'AVTransportID' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_AVTransportID'
+							},
+							'Status' =>
+							{
+								'direction' => 'out',
+								'relatedStateVariable' => 'A_ARG_TYPE_ConnectionStatus'
+							},
+							'Direction' =>
+							{
+									'direction' => 'out',
+									'relatedStateVariable' => 'A_ARG_TYPE_Direction'
+							},
+							'PeerConnectionID' =>
+							{
+									'direction' => 'out',
+									'relatedStateVariable' => 'A_ARG_TYPE_ConnectionID'
+							},
+							'RcsID' =>
+							{
+									'direction' => 'out',
+									'relatedStateVariable' => 'A_ARG_TYPE_RcsID'
+							},
+							'ConnectionID' =>
+							{
+									'direction' => 'in',
+									'relatedStateVariable' => 'A_ARG_TYPE_ConnectionID'
+							},
+						},
+					},
+				},
+				'GetCurrentConnectionIDs' =>
+				{
+					'argumentList' =>
+					{
+						'argument' =>
+						{
+							'direction' => 'out',
+							'name' => 'ConnectionIDs',
+							'relatedStateVariable' => 'CurrentConnectionIDs'
+						},
+					},
+				},
+			},
+			'serviceStateTable' =>
+			{
+				'stateVariable' => {
+					'CurrentConnectionIDs' => {
+						'dataType' => 'string',
+						'sendEvents' => 'yes'
+					},
+					'A_ARG_TYPE_ConnectionID' => {
+						'dataType' => 'i4',
+						'sendEvents' => 'no'
+					},
+					'A_ARG_TYPE_AVTransportID' => {
+						'dataType' => 'i4',
+						'sendEvents' => 'no'
+					},
+					'A_ARG_TYPE_Direction' => {
+						'dataType' => 'string',
+						'allowedValueList' => {
+							'allowedValue' =>
+							[
+								'Input',
+								'Output',
+							],
+						},
+						'sendEvents' => 'no',
+					},
+					'SinkProtocolInfo' =>
+					{
+						'dataType' => 'string',
+						'sendEvents' => 'yes',
+					},
+					'A_ARG_TYPE_RcsID' => {
+						'dataType' => 'i4',
+						'sendEvents' => 'no',
+					},
+					'SourceProtocolInfo' => {
+						'dataType' => 'string',
+						'sendEvents' => 'yes',
+					},
+					'A_ARG_TYPE_ProtocolInfo' => {
+					},
+					'A_ARG_TYPE_ConnectionStatus' =>
+					{
+					},
+				},
+			},
+		},
+	};
+
+	my $response = http_header({
+		'statuscode' => 200,
+	});
+	$response .= $xml_obj->XMLout(
+		$xml_serverdesc,
+		RootName => 'root',
+		XMLDecl => '<?xml version="1.0" encoding="UTF-8"?>',
+		ContentKey => '-content',
+		ValueAttr => [ 'value' ],
+		NoSort => 1,
+		NoAttr => 1,
+	);
+
+	return $response;
+}
+
 sub server_description
 {
 	my $xml_obj = XML::Simple->new();
@@ -421,8 +1030,7 @@ sub server_description
 			'dlna:X_DLNADOC' => 'DMS-1.50',
 			'deviceType' => 'urn:schemas-upnp-org:device:MediaServer:1',
 			'serialNumber' => $CONFIG{'PROGRAM_SERIAL'},
-			#'sec:ProductCap' => 'smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec',
-			'sec:ProductCap' => 'smi,DCM10',
+			'sec:ProductCap' => 'smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec',
 			'UDN' => $CONFIG{'UUID'},
 			'manufacturerURL' => $CONFIG{'PROGRAM_WEBSITE'},
 			'manufacturer' => $CONFIG{'PROGRAM_AUTHOR'},
