@@ -72,12 +72,14 @@ sub new
 		$self->{VBR} = $info->{'VBR'};
 
 		my $tag = get_mp3tag($self->{PATH});
-		$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-		$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-		$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-		$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-		$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-		$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+        if (keys %{$tag}) {
+		    $self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+		    $self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+		    $self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+		    $self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+		    $self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+		    $self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+        }
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
