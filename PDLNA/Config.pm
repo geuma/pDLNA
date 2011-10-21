@@ -27,11 +27,11 @@ our @EXPORT = qw(%CONFIG);
 
 use Config::ApacheFormat;
 use IO::Socket;
-use Net::Interface qw(:lower);
+use IO::Interface qw(if_addr);
 use Net::IP;
-use Sys::Info::OS;
-
-my $os = Sys::Info::OS->new();
+use Net::Netmask;
+use Sys::Hostname qw(hostname);
+use Config qw();
 
 our %CONFIG = (
 	# values which can be modified by configuration file
@@ -50,15 +50,15 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.34',
-	'PROGRAM_DATE' => '2011-10-09',
+	'PROGRAM_VERSION' => '0.35',
+	'PROGRAM_DATE' => '2011-10-21',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
-	'PROGRAM_SERIAL' => 1337,
+	'PROGRAM_SERIAL' => 1338,
 	'PROGRAM_DESC' => 'perl DLNA MediaServer',
-	'OS' => $os->name(),
-	'OS_VERSION' => $os->version(),
-	'HOSTNAME' => $os->host_name(),
+    'OS' => $Config::Config{osname},
+    'OS_VERSION' => $Config::Config{osvers},
+	'HOSTNAME' => hostname(),
 	'UUID' => generate_uuid(),
 );
 $CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.$CONFIG{'PROGRAM_VERSION'}.' on '.$CONFIG{'HOSTNAME'};
@@ -110,68 +110,32 @@ sub parse_config
 		push(@{$errormsg}, 'Invalid FriendlyName: Please use letters, numbers, dots, dashes, underscores and or spaces and the FriendlyName requires a name that is 32 characters or less in length.');
 	}
 
-	#
-	# INTERFACE CONFIG PARSING
-	#
-	$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface') if defined($cfg->get('ListenInterface'));
-	if (!defined($CONFIG{'LISTEN_INTERFACE'}))
-	{
-		my @all_ifs = Net::Interface->interfaces();
-		foreach my $interface (@all_ifs)
-		{
-			# we are taking the first interface which is not a loopback device
-			unless ($interface =~ /^lo/i)
-			{
-				$CONFIG{'LISTEN_INTERFACE'} = "$interface";
-				last;
-			}
-		}
-	}
+    #
+    # INTERFACE CONFIG PARSING
+    #
+    my $socket_obj = IO::Socket::INET->new(Proto => 'udp');
+    if ($cfg->get('ListenInterface')) {
+        $CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface');
+    }
+    # Get the first non lo interface
+    else {
+        foreach my $interface ($socket_obj->if_list) {
+            next if $interface =~ /^lo/i;
+            $CONFIG{'LISTEN_INTERFACE'} = $interface;
+            last;
+        }
+    }
 
-	my $interface_object = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
-	if (!defined($interface_object))
-	{
-		push(@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.');
-	}
+    push (@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.')
+        if (! $socket_obj->if_flags($CONFIG{'LISTEN_INTERFACE'}));
 
-	#
-	# IP ADDR CONFIG PARSING
-	#
-	$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') if defined($cfg->get('ListenIPAddress'));
-	if (!defined($CONFIG{'LOCAL_IPADDR'}))
-	{
-		if (defined($interface_object))
-		{
-			my $address = $interface_object->address(undef, 0);
-			$CONFIG{'LOCAL_IPADDR'} = inet_ntoa($address);
-		}
-	}
-	else
-	{
-		if (my $ip = new Net::IP($CONFIG{'LOCAL_IPADDR'}))
-		{
-			$CONFIG{'LOCAL_IPADDR'} = $ip->ip();
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid ListenIPAddress: '.Net::IP::Error().'.');
-		}
-	}
+    #
+    # IP ADDR CONFIG PARSING
+    #
+    $CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') ? $cfg->get('ListenIPAddress') : $socket_obj->if_addr($CONFIG{'LISTEN_INTERFACE'});
 
-	if (defined($interface_object))
-	{
-		my @addresses = $interface_object->address();
-		my $found = 0;
-		foreach my $addr (@addresses)
-		{
-			$found = 1 if $CONFIG{'LOCAL_IPADDR'} eq inet_ntoa($addr);
-		}
-
-		unless ($found)
-		{
-			push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.');
-		}
-	}
+    push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.')
+        unless $CONFIG{'LISTEN_INTERFACE'} eq $socket_obj->addr_to_interface($CONFIG{'LOCAL_IPADDR'});
 
 	#
 	# HTTP PORT PARSING
@@ -212,13 +176,18 @@ sub parse_config
 	#
 	if (defined($cfg->get('AllowedClients')))
 	{
-		@{$CONFIG{'ALLOWED_CLIENTS'}} = split(',', $cfg->get('AllowedClients'));
-		foreach my $ipaddr (@{$CONFIG{'ALLOWED_CLIENTS'}})
+        # Store a list of Net::Netmask blocks that are valid for connections
+		foreach my $ip_subnet (split(/\s*,\s*/, $cfg->get('AllowedClients')))
 		{
-			unless (my $ip = new Net::IP($ipaddr))
+            # We still need to use Net::IP as it validates that the ip/subnet is valid
+			if (Net::IP->new($ip_subnet))
 			{
-				push(@{$errormsg}, 'Invalid AllowedClient: '.Net::IP::Error().'.');
+                push (@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
 			}
+            else
+            {
+				push(@{$errormsg}, 'Invalid AllowedClient: '.Net::IP::Error().'.');
+            }
 		}
 	}
 

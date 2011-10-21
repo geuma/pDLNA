@@ -23,6 +23,7 @@ use warnings;
 use Date::Format;
 use IO::Socket::INET;
 use IO::Socket::Multicast;
+use Net::Netmask;
 
 use PDLNA::Config;
 use PDLNA::Log;
@@ -57,7 +58,7 @@ sub add_sockets
 	$multicast_listen_socket = IO::Socket::Multicast->new(
 		Proto => $ssdp_proto,
 		LocalPort => $ssdp_port,
-	);
+	) || PDLNA::Log::fatal('Cannot bind to Multicast socket: ' . $!);
 	$multicast_listen_socket->mcast_if($CONFIG{'LISTEN_INTERFACE'});
 	$multicast_listen_socket->mcast_loopback(0);
 	$multicast_listen_socket->mcast_add(
@@ -78,7 +79,14 @@ sub act_on_ssdp_message
 		my ($peer_src_port, $peer_addr) = sockaddr_in($peeraddr);
 		my $peer_ip_addr = inet_ntoa($peer_addr);
 
-		if (length(@{$CONFIG{'ALLOWED_CLIENTS'}}) > 0 && grep(/^$peer_ip_addr$/, @{$CONFIG{'ALLOWED_CLIENTS'}}))
+        # Check if the peer is one of our allowed clients
+        my $client_allowed = 0;
+        foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
+        {
+            $client_allowed++ if $block->match($peer_ip_addr);
+        }
+
+        if ($client_allowed)
 		{
 			PDLNA::Log::log('Received SSDP message from allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 		}

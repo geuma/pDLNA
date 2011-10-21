@@ -15,6 +15,21 @@ See http://www.perl.org for more details on Perl
 and http://www.upnp.org/ for more details on UPnP
 and http://www.dlna.org/ for mode details on DLNA.
 
+INSTALLATION REQUIREMENTS
+-------------------------
+the extra perl modules you will probably need are:
+ Config::ApacheFormat
+ Getopt::Long::Descriptive
+ Image::Info
+ IO::Interface
+ IO::Socket::Multicast
+ IO::Socket::Multicast6
+ XML::Simple
+ Net::Netmask
+
+If your on a debian system these can be installed with apt using the following packages:
+sudo apt-get install libgetopt-long-descriptive-perl libconfig-apacheformat-perl libio-interface-perl libio-socket-multicast-perl libio-socket-multicast6-perl libxml-simple-perl libimage-info-perl libgd-gd2-perl libnet-netmask-perl
+
 BUGS & FEATURES
 ---------------
 Email me if you find bugs or if you have some ideas for

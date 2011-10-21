@@ -24,10 +24,12 @@ use Fcntl;
 use Data::Dumper;
 use XML::Simple;
 use Date::Format;
-use Image::Resize;
+use GD;
+use Carp qw(croak);
 
 use Socket;
 use IO::Select;
+use Net::Netmask;
 
 use threads;
 use threads::shared;
@@ -131,7 +133,14 @@ sub handle_connection
 		$post_xml = $xmlsimple->XMLin($CGI{'POSTDATA'});
 	}
 
-	if (length(@{$CONFIG{'ALLOWED_CLIENTS'}}) > 0 && grep(/^$peer_ip_addr$/, @{$CONFIG{'ALLOWED_CLIENTS'}}))
+    # Check if the peer is one of our allowed clients
+    my $client_allowed = 0;
+    foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
+    {
+        $client_allowed++ if $block->match($peer_ip_addr);
+    }
+
+    if ($client_allowed)
 	{
 		PDLNA::Log::log('Received HTTP Request from allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 
@@ -1316,13 +1325,17 @@ sub preview_media
 			}
 
 			# image scaling stuff
-			my $image = Image::Resize->new($path);
+            # use GD to do exactly what Image::Resize does
+            GD::Image->trueColor( 1 );
+            croak "image: $path does not exist" unless -e $path;
 			my $preview_size = 160;
 			if ($content_id =~ /JPEG_SM$/)
 			{
 				$preview_size = 120;
 			}
-			my $preview = $image->resize($preview_size, $preview_size);
+            my $image = GD::Image->new($path) || die $@;
+            my $preview = GD::Image->new($preview_size, $preview_size);
+            $preview->copyResampled($image, 0, 0, 0, 0, $preview_size, $preview_size, $image->width, $image->height);
 
 			# remove tmp files from thumbnail generation
 			if ($media_type eq 'V')
