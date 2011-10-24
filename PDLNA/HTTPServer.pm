@@ -191,7 +191,8 @@ sub handle_connection
 		{
 			PDLNA::Log::log('Request not supported yet: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 2, 'httpstream');
 			print $FH http_header({
-				'statuscode' => 501,
+				'statuscode'   => 501,
+				'content_type' => 'text/plain',
 			});
 		}
 	}
@@ -199,7 +200,8 @@ sub handle_connection
 	{
 		PDLNA::Log::log('Received HTTP Request from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 		print $FH http_header({
-			'statuscode' => 403,
+			'statuscode'   => 403,
+			'content_type' => 'text/plain',
 		});
 	}
 
@@ -223,6 +225,8 @@ sub http_header
 	my @response = ();
 	push(@response, "HTTP/1.1 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}});
 	push(@response, "Server: ".$CONFIG{'PROGRAM_NAME'}." v".$CONFIG{'PROGRAM_VERSION'}." Webserver");
+	push(@response, "Content-Type: " . $params->{'content_type'}) if $params->{'content_type'};
+
 	if (defined($$params{'additional_header'}))
 	{
 		foreach my $header (@{$$params{'additional_header'}})
@@ -244,13 +248,52 @@ sub ctrl_content_directory_1
 
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		if ($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'} =~ /^(\w)_(\w)$/)
+        my $ObjectID = $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'};
+
+        # alot of players send object id of 0
+        if ($ObjectID eq '0') {
+            my $media_type = 'V'; # Is there a media type of ALL?
+            my $sort_type  = 'F';
+
+			$response = http_header({
+				'statuscode'   => 200,
+				'content_type' => 'text/xml',
+			});
+
+			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+			$response .= '<s:Body>';
+			$response .= '<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+			$response .= '<Result>';
+			$response .= '&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
+			my $content_type_obj = $content->get_content_type($media_type, $sort_type);
+			foreach my $group (@{$content_type_obj->content_groups()})
+			{
+				my $group_id = $group->beautiful_id();
+				my $group_name = $group->name();
+				my $group_childs_amount = $group->content_items_amount();
+
+				$response .= '&lt;container id=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'&quot; childCount=&quot;'.$group_childs_amount.'&quot; restricted=&quot;1&quot;&gt;';
+				$response .= '&lt;dc:title&gt;'.$group_name.'&lt;/dc:title&gt;';
+				$response .= '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;';
+				$response .= '&lt;/container&gt;';
+			}
+			$response .= '&lt;/DIDL-Lite&gt;';
+			$response .= '</Result>';
+			$response .= '<NumberReturned>'.$content_type_obj->content_groups_amount.'</NumberReturned>';
+			$response .= '<TotalMatches>'.$content_type_obj->content_groups_amount.'</TotalMatches>',
+			$response .= '<UpdateID>0</UpdateID>';
+			$response .= '</u:BrowseResponse>';
+			$response .= '</s:Body>';
+			$response .= '</s:Envelope>';
+        }
+		elsif ($ObjectID =~ /^(\w)_(\w)$/)
 		{
 			my $media_type = $1;
 			my $sort_type = $2;
 
 			$response = http_header({
 				'statuscode' => 200,
+				'content_type' => 'text/xml',
 			});
 
 			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
@@ -279,7 +322,7 @@ sub ctrl_content_directory_1
 			$response .= '</s:Body>';
 			$response .= '</s:Envelope>';
 		}
-		elsif ($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'} =~ /^(\w)_(\w)_(\d+)_(\d+)/)
+		elsif ($ObjectID =~ /^(\w)_(\w)_(\d+)_(\d+)/)
 		{
 			my $media_type = $1;
 			my $sort_type = $2;
@@ -298,6 +341,7 @@ sub ctrl_content_directory_1
 
 			$response = http_header({
 				'statuscode' => 200,
+				'content_type' => 'text/xml',
 			});
 
 			my $item_name = $media_type.'_'.$sort_type.'_'.$group_id.'_'.$item_id;
@@ -350,8 +394,10 @@ sub ctrl_content_directory_1
 		{
 			$response = http_header({
 				'statuscode' => 501,
+				'content_type' => 'text/plain',
 			});
 		}
+
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
 	{
@@ -387,7 +433,8 @@ sub ctrl_content_directory_1
 		my $content_item_obj = $groups[$i]->content_items()->[$index];
 
 		$response = http_header({
-			'statuscode' => 200,
+			'statuscode'   => 200,
+			'content_type' => 'text/xml',
 		});
 
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
@@ -403,6 +450,7 @@ sub ctrl_content_directory_1
 	{
 		$response = http_header({
 			'statuscode' => 200,
+			'content_type' => 'text/xml',
 		});
 
 		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
@@ -417,6 +465,7 @@ sub ctrl_content_directory_1
 	{
 		$response = http_header({
 			'statuscode' => 501,
+			'content_type' => 'text/plain',
 		});
 	}
 
@@ -846,6 +895,7 @@ sub contentdirectory_description
 
 	my $response = http_header({
 		'statuscode' => 200,
+		'content_type' => 'text/xml',
 	});
 	$response .= $xml_obj->XMLout(
 		$xml_serverdesc,
@@ -1007,6 +1057,7 @@ sub connectionmanager_description
 
 	my $response = http_header({
 		'statuscode' => 200,
+		'content_type' => 'text/xml',
 	});
 	$response .= $xml_obj->XMLout(
 		$xml_serverdesc,
@@ -1072,7 +1123,8 @@ sub server_description
 	};
 
 	my $response = http_header({
-		'statuscode' => 200,
+		'statuscode'   => 200,
+		'content_type' => 'text/xml',
 	});
 	$response .= $xml_obj->XMLout(
 		$xml_serverdesc,
@@ -1122,13 +1174,14 @@ sub stream_media
 				if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 				{
 					# found no documentation for this header ... but i think it might be the correct answer
-					push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+					push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$type});
 				}
 				else
 				{
 					PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
 					return http_header({
 						'statuscode' => 400,
+						'content_type' => 'text/plain',
 					});
 				}
 			}
@@ -1199,6 +1252,7 @@ sub stream_media
 
 					$response = http_header({
 						'statuscode' => $statuscode,
+						'content_type' => 'text/plain',
 						'additional_header' => \@additional_header,
 						'log' => 'httpstream',
 					});
@@ -1232,6 +1286,7 @@ sub stream_media
 					# Delivering interactive content as a whole
 					$response = http_header({
 						'statuscode' => 200,
+						'content_type' => 'text/plain',
 						'additional_header' => \@additional_header,
 					});
 					open(FILE, $path);
@@ -1246,6 +1301,7 @@ sub stream_media
 					PDLNA::Log::log('Invalid transferMode.dlna.org: '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.'.', 1, 'httpstream');
 					return http_header({
 						'statuscode' => 404,
+						'content_type' => 'text/plain',
 					});
 				}
 			}
@@ -1254,6 +1310,7 @@ sub stream_media
 				PDLNA::Log::log('Delivering content information (HEAD request) for: '.$path.'.', 1, 'httpstream');
 				$response = http_header({
 					'statuscode' => 200,
+					'content_type' => 'text/plain',
 					'additional_header' => \@additional_header,
 					'log' => 'httpstream',
 				});
@@ -1265,6 +1322,7 @@ sub stream_media
 			PDLNA::Log::log('Content NOT found: '.$path.'.', 1, 'httpstream');
 			return http_header({
 				'statuscode' => 404,
+				'content_type' => 'text/plain',
 			});
 		}
 	}
@@ -1273,6 +1331,7 @@ sub stream_media
 		PDLNA::Log::log('Invalid content ID: '.$content_id.'.', 1, 'httpstream');
 		return http_header({
 			'statuscode' => 404,
+			'content_type' => 'text/plain',
 		});
 	}
 }
@@ -1294,6 +1353,7 @@ sub preview_media
 		{
 			return http_header({
 				'statuscode' => 501,
+				'content_type' => 'text/plain',
 			});
 		}
 
@@ -1320,6 +1380,7 @@ sub preview_media
 				{
 					return http_header({
 						'statuscode' => 404,
+						'content_type' => 'text/plain',
 					});
 				}
 			}
@@ -1347,6 +1408,7 @@ sub preview_media
 			# the response itself
 			$response = http_header({
 				'statuscode' => 200,
+				'content_type' => 'image/jpeg',
 			});
 			$response .= $preview->jpeg();
 			$response .= "\r\n";
@@ -1357,6 +1419,7 @@ sub preview_media
 		{
 			return http_header({
 				'statuscode' => 404,
+				'content_type' => 'text/plain',
 			});
 		}
 	}
@@ -1364,6 +1427,8 @@ sub preview_media
 	{
 		return http_header({
 			'statuscode' => 404,
+			'content_type' => 'text/plain',
+
 		});
 	}
 }
