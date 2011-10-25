@@ -68,7 +68,7 @@ sub new
 	elsif ($self->{TYPE} eq 'audio')
 	{
 		my $info = get_mp3info($self->{PATH});
-		$self->{DURATION} = $info->{'TIME'};
+		$self->{DURATION} = $info->{'TIME'} || 0;
 		$self->{BITRATE} = $info->{'BITRATE'};
 		$self->{VBR} = $info->{'VBR'};
 
