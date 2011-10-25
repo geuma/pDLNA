@@ -58,7 +58,7 @@ sub add_sockets
 	$multicast_listen_socket = IO::Socket::Multicast->new(
 		Proto => $ssdp_proto,
 		LocalPort => $ssdp_port,
-	) || PDLNA::Log::fatal('Cannot bind to Multicast socket: ' . $!);
+	) || PDLNA::Log::fatal('Cannot bind to Multicast socket: '.$!);
 	$multicast_listen_socket->mcast_if($CONFIG{'LISTEN_INTERFACE'});
 	$multicast_listen_socket->mcast_loopback(0);
 	$multicast_listen_socket->mcast_add(
@@ -79,14 +79,14 @@ sub act_on_ssdp_message
 		my ($peer_src_port, $peer_addr) = sockaddr_in($peeraddr);
 		my $peer_ip_addr = inet_ntoa($peer_addr);
 
-        # Check if the peer is one of our allowed clients
-        my $client_allowed = 0;
-        foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
-        {
-            $client_allowed++ if $block->match($peer_ip_addr);
-        }
+		# Check if the peer is one of our allowed clients
+		my $client_allowed = 0;
+		foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
+		{
+			$client_allowed++ if $block->match($peer_ip_addr);
+		}
 
-        if ($client_allowed)
+		if ($client_allowed)
 		{
 			PDLNA::Log::log('Received SSDP message from allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 		}
@@ -220,14 +220,14 @@ sub ssdp_message
 	}
 	if ($$params{'nts'} eq 'alive' || $$params{'response'})
 	{
-		$msg .= "SERVER: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}." UPnP/1.0 ".$CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'}."\r\n";
+		$msg .= "SERVER: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'}."\r\n";
 	}
 	$msg .= "ST: $$params{'st'}\r\n" if $$params{'response'};
 	$msg .= "USN: $$params{'usn'}\r\n";
 	if ($$params{'response'})
 	{
-		$msg .= "DATE: ".time2str("%a, %d %b %Y %H:%M:%S GMT", time())."\r\n"; # TODO what shall we do with the timezone
-		$msg .= "CONTENT-LENGTH: 0\r\n";
+		$msg .= "DATE: ".PDLNA::Utils::http_date()."\r\n";
+		#$msg .= "CONTENT-LENGTH: 0\r\n";
 	}
 	$msg .= "\r\n";
 
@@ -309,7 +309,7 @@ sub send_announce
 	{
 		push(@STS, $stparam) if $stparam eq $nts;
 	}
-	@STS = @NTS if $stparam eq "ssdp::all";
+	@STS = @NTS if $stparam eq "ssdp:all";
 
 	foreach my $st (@STS)
 	{

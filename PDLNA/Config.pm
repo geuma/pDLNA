@@ -50,11 +50,11 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.35',
-	'PROGRAM_DATE' => '2011-10-21',
+	'PROGRAM_VERSION' => '0.36',
+	'PROGRAM_DATE' => '2011-10-25',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
-	'PROGRAM_SERIAL' => 1338,
+	'PROGRAM_SERIAL' => 1337,
 	'PROGRAM_DESC' => 'perl DLNA MediaServer',
     'OS' => $Config::Config{osname},
     'OS_VERSION' => $Config::Config{osvers},
@@ -208,9 +208,9 @@ sub parse_config
 		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
 		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
 		{
-			unless ($category =~ /^(discovery|httpdir|httpstream|library)$/)
+			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
@@ -243,10 +243,23 @@ sub parse_config
 		{
 			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid type.');
 		}
+		my $recursion = 'yes';
+		if (defined($block->get('recursion')))
+		{
+			if ($block->get('recursion') !~ /^(no|yes)$/)
+			{
+				push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid recursion type.');
+			}
+			else
+			{
+			$recursion = $block->get('recursion');
+			}
+		}
 
 		push(@{$CONFIG{'DIRECTORIES'}}, {
 				'path' => $directory_block->[1],
 				'type' => $block->get('type'),
+				'recursion' => $recursion,
 			}
 		);
 	}

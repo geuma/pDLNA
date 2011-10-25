@@ -35,10 +35,11 @@ sub new
 	my $params = shift;
 
 	my $self = ();
-	$self->{ID} = $$params{'id'};
+	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
 	$self->{PATH} = $$params{'filename'};
 	$self->{NAME} = basename($$params{'filename'});
 	$self->{FILE_EXTENSION} = uc($1) if ($$params{'filename'} =~ /\.(\w{3,4})$/);
+	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{DATE} = $$params{'date'};
 	$self->{SIZE} = $$params{'size'};
 	$self->{TYPE} = $$params{'type'};
@@ -72,14 +73,15 @@ sub new
 		$self->{VBR} = $info->{'VBR'};
 
 		my $tag = get_mp3tag($self->{PATH});
-        if (keys %{$tag}) {
-		    $self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-		    $self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-		    $self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-		    $self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-		    $self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-		    $self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-        }
+		if (keys %{$tag})
+		{
+			$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+			$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+			$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+			$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+			$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+			$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+		}
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
@@ -87,6 +89,16 @@ sub new
 
 	bless($self, $class);
 	return $self;
+}
+
+sub is_directory
+{
+	return 0;
+}
+
+sub is_item
+{
+	return 1;
 }
 
 sub id
@@ -111,6 +123,12 @@ sub name
 }
 
 sub date
+{
+	my $self = shift;
+	return $self->{DATE};
+}
+
+sub parent_id
 {
 	my $self = shift;
 	return $self->{DATE};
@@ -202,34 +220,48 @@ sub year
 	return $self->{YEAR};
 }
 
+sub bitrate
+{
+	my $self = shift;
+	return $self->{BITRATE};
+}
+
+sub tracknum
+{
+	my $self = shift;
+	return $self->{TRACKNUM};
+}
+
 sub print_object
 {
 	my $self = shift;
+	my $input = shift;
 
     my $string = '';
-	$string .= "\t\t\tObject PDLNA::ContentItem\n";
-	$string .= "\t\t\t\tID:            ".PDLNA::Utils::add_leading_char($self->{ID},3,'0')."\n";
-	$string .= "\t\t\t\tFilename:      ".$self->{NAME}."\n";
-	$string .= "\t\t\t\tPath:          ".$self->{PATH}."\n";
-	$string .= "\t\t\t\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
-	$string .= "\t\t\t\tType:          ".$self->{TYPE}."\n";
-	$string .= "\t\t\t\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
-	$string .= "\t\t\t\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
-	$string .= "\t\t\t\tMimeType:      ".$self->{MIME_TYPE}."\n";
+	$string .= $input."Object PDLNA::ContentItem\n";
+	$string .= $input."\tID:            ".$self->{ID}."\n";
+	$string .= $input."\tParentID:      ".$self->{PARENT_ID}."\n";
+	$string .= $input."\tFilename:      ".$self->{NAME}."\n";
+	$string .= $input."\tPath:          ".$self->{PATH}."\n";
+	$string .= $input."\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
+	$string .= $input."\tType:          ".$self->{TYPE}."\n";
+	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
+	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
+	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
-	$string .= "\t\t\t\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
+	$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
 	if ($self->{TYPE} eq 'audio')
 	{
-		$string .= "\t\t\t\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
-		$string .= "\t\t\t\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
-		$string .= "\t\t\t\tArtist:        ".$self->{ARTIST}."\n";
-		$string .= "\t\t\t\tAlbum:         ".$self->{ALBUM}."\n";
-		$string .= "\t\t\t\tTrackNumber:   ".$self->{TRACKNUM}."\n";
-		$string .= "\t\t\t\tTitle:         ".$self->{TITLE}."\n";
-		$string .= "\t\t\t\tGenre:         ".$self->{GENRE}."\n";
-		$string .= "\t\t\t\tYear:          ".$self->{YEAR}."\n";
+		$string .= $input."\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
+		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
+		$string .= $input."\tArtist:        ".$self->{ARTIST}."\n";
+		$string .= $input."\tAlbum:         ".$self->{ALBUM}."\n";
+		$string .= $input."\tTrackNumber:   ".$self->{TRACKNUM}."\n";
+		$string .= $input."\tTitle:         ".$self->{TITLE}."\n";
+		$string .= $input."\tGenre:         ".$self->{GENRE}."\n";
+		$string .= $input."\tYear:          ".$self->{YEAR}."\n";
 	}
-	$string .= "\t\t\tObject PDLNA::ContentItem END\n";
+	$string .= $input."Object PDLNA::ContentItem END\n";
 
 	return $string;
 }

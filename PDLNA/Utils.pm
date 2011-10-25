@@ -22,6 +22,21 @@ use warnings;
 
 use Digest::SHA1;
 
+sub http_date
+{
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime();
+
+	my @months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',);
+	my @days = ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat',);
+
+	$year += 1900;
+	$hour = add_leading_char($hour, 2, '0');
+	$min = add_leading_char($min, 2, '0');
+	$sec = add_leading_char($sec, 2, '0');
+
+	return "$days[$wday], $mday $months[$mon] $year $hour:$min:$sec GMT";
+}
+
 sub add_leading_char
 {
 	my $string = shift || '';
