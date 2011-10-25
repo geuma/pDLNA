@@ -182,7 +182,8 @@ sub duration_seconds
 	my $self = shift;
 
 	my $seconds = 0;
-	my @foo = split(':', $self->{DURATION});
+    my @foo;
+	@foo = split(':', $self->{DURATION}) if $self->{'DURATION'};
 
 	my $i = 0;
 	foreach my $bar (reverse @foo)
