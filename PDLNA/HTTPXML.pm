@@ -36,7 +36,7 @@ sub get_browseresponse_header
 		'&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&quot;urn:schemas-upnp-org:metadata-1-0/upnp/&quot;&gt;',
 	);
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 sub get_browseresponse_footer
@@ -55,7 +55,7 @@ sub get_browseresponse_footer
 		'</s:Envelope>',
 	);
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 sub get_browseresponse_directory
@@ -73,7 +73,7 @@ sub get_browseresponse_directory
 		'&lt;/container&gt;',
 	);
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 sub get_browseresponse_item
@@ -196,7 +196,7 @@ sub get_serverdescription
 	push(@xml, '<URLBase>http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/</URLBase>');
 	push(@xml, '</root>');
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 sub get_contentdirectory
@@ -352,7 +352,7 @@ sub get_contentdirectory
 		'</scpd>',
 	);
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 sub get_connectionmanager
@@ -492,7 +492,7 @@ sub get_connectionmanager
 		'</scpd>',
 	);
 
-	return join("\n", @xml);
+	return join('', @xml);
 }
 
 1;

@@ -35,8 +35,8 @@ sub new
 
 	my $self = ();
 	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
-	$self->{PATH} = $$params{'path'};
-	$self->{NAME} = basename($$params{'path'});
+	$self->{PATH} = $$params{'path'} || '';
+	$self->{NAME} = $$params{'name'} || basename($self->{PATH});
 	$self->{TYPE} = $$params{'type'};
 	$self->{RECURSION} = $$params{'recursion'};
 	$self->{PARENT_ID} = $$params{'parent_id'};
@@ -46,7 +46,10 @@ sub new
 
 	bless($self, $class);
 
-	$self->initialize();
+	unless ($self->{TYPE} eq 'meta')
+	{
+		$self->initialize();
+	}
 
 	return $self;
 }
@@ -262,13 +265,19 @@ sub get_object_by_id
 	my $self = shift;
 	my $id = shift;
 
-	if ($self->id() == $id)
+	PDLNA::Log::log('Looking for Element with ID '.$id.' in ContentDirectory with ID '.$self->id().'.', 3, 'library');
+	if ($self->id() eq $id)
 	{
 		return $self;
 	}
 
 	my %directories = %{$self->directories()};
-	my $subid = substr($id, 0, length($self->id())+3);
+	my $subid = '';
+	foreach my $key (keys %directories)
+	{
+		$subid = substr($id, 0, length($key));
+		last;
+	}
 	if (defined($directories{$subid}))
 	{
 		return $directories{$subid}->get_object_by_id($id);

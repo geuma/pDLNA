@@ -32,9 +32,22 @@ sub new
 	my $self = ();
 	$self->{TIMESTAMP} = '';
 	$self->{DIRECTORIES} = {};
-	$self->{AMOUNT} = 0;
 
 	bless($self, $class);
+
+	$self->{DIRECTORIES}->{0} = PDLNA::ContentDirectory->new({
+		'type' => 'meta',
+		'name' => 'BaseView',
+		'id' => 0,
+		'parent_id' => '',
+	});
+	$self->{DIRECTORIES}->{'V_F'} = PDLNA::ContentDirectory->new({
+		'type' => 'meta',
+		'name' => 'Videos sorted by Folder',
+		'id' => 'V_F',
+		'parent_id' => '',
+	});
+
 
 	my $i = 100;
 	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
@@ -44,7 +57,7 @@ sub new
 			PDLNA::Log::log('More than 900 configured directories. Skip to load directory: '.$directory, 1, 'library');
 			next;
 		}
-		$self->{DIRECTORIES}->{$i} = PDLNA::ContentDirectory->new({
+		$self->{DIRECTORIES}->{0}->add_directory({
 			'path' => $directory->{'path'},
 			'type' => $directory->{'type'},
 			'recursion' => $directory->{'recursion'},
@@ -74,24 +87,6 @@ sub directories
 	return $self->{DIRECTORIES};
 }
 
-sub items
-{
-	my $self = shift;
-	return {};
-}
-
-sub amount
-{
-	my $self = shift;
-	return $self->{AMOUNT};
-}
-
-sub id
-{
-	my $self = shift;
-	return 0;
-}
-
 sub print_object
 {
 	my $self = shift;
@@ -101,7 +96,6 @@ sub print_object
 	{
 		$string .= $self->{DIRECTORIES}->{$id}->print_object("\t\t");
 	}
-	$string .= "\t\tAmount:    $self->{AMOUNT}\n";
 	$string .= "\t\tTimestamp: $self->{TIMESTAMP}\n";
 	$string .= "\tObject PDLNA::ContentLibrary END\n";
 
@@ -113,14 +107,9 @@ sub get_object_by_id
 	my $self = shift;
 	my $id = shift;
 
-	if ($id == 0)
+	if ($id =~ /^\d+$/) # if ID is numeric
 	{
-		return $self;
-	}
-	else
-	{
-		my $subid = substr($id, 0, 3);
-		return $self->{DIRECTORIES}->{$subid}->get_object_by_id($id);
+		return $self->{DIRECTORIES}->{0}->get_object_by_id($id);
 	}
 
 	return undef;

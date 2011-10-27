@@ -50,8 +50,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.36',
-	'PROGRAM_DATE' => '2011-10-25',
+	'PROGRAM_VERSION' => '0.37',
+	'PROGRAM_DATE' => '2011-10-27',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -252,7 +252,7 @@ sub parse_config
 			}
 			else
 			{
-			$recursion = $block->get('recursion');
+				$recursion = $block->get('recursion');
 			}
 		}
 

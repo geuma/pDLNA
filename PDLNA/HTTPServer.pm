@@ -304,6 +304,7 @@ sub http_header
 	push(@response, "HTTP/1.1 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}}); # TODO (maybe) differ between http protocol versions
 	push(@response, "Server: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'});
 	push(@response, "Content-Type: ".$params->{'content_type'}) if $params->{'content_type'};
+	push(@response, "Content-Length: ".$params->{'content_length'}) if $params->{'content_length'};
 	push(@response, "Date: ".PDLNA::Utils::http_date());
 #	push(@response, "Last-Modified: ".PDLNA::Utils::http_date());
 	if (defined($$params{'additional_header'}))
@@ -347,12 +348,12 @@ sub ctrl_content_directory_1
 			$starting_index = $xml->{'s:Body'}->{'u:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'u:Browse'}->{'RequestedCount'};
 		}
-		#elsif (defined($xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'})) # windows media player this one
-		#{
-		#	$object_id = $xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'};
-		#	$starting_index = $xml->{'s:Body'}->{'m:Browse'}->{'StartingIndex'};
-		#	$requested_count = $xml->{'s:Body'}->{'m:Browse'}->{'RequestedCount'};
-		#}
+		elsif (defined($xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'})) # and windows media player this one
+		{
+			$object_id = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'};
+			$starting_index = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'StartingIndex'}->{'content'};
+			$requested_count = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'RequestedCount'}->{'content'};
+		}
 		else
 		{
 			PDLNA::Log::log('Unable to find (a known) ObjectID in XML (POSTDATA).', 1, 'httpdir');
@@ -383,12 +384,7 @@ sub ctrl_content_directory_1
 
 			if (defined($object) && $object->is_directory())
 			{
-				$response = http_header({
-					'statuscode' => 200,
-					'log' => 'httpdir',
-				});
-
-				$response .= PDLNA::HTTPXML::get_browseresponse_header();
+				my $response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
 
 				PDLNA::Log::log('Found Object with ID '.$object->id().'.', 3, 'httpdir');
 
@@ -400,7 +396,7 @@ sub ctrl_content_directory_1
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
 						PDLNA::Log::log('Including Directory with name: '.${$object->directories()}{$id}->name().' to response.', 3, 'httpdir');
-						$response .= PDLNA::HTTPXML::get_browseresponse_directory(${$object->directories()}{$id});
+						$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(${$object->directories()}{$id});
 						$element_listed++;
 					}
 					$element_counter++;
@@ -410,13 +406,21 @@ sub ctrl_content_directory_1
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
 						PDLNA::Log::log('Including Item with name: '.${$object->items()}{$id}->name().' to response.', 3, 'httpdir');
-						$response .= PDLNA::HTTPXML::get_browseresponse_item(${$object->items()}{$id});
+						$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(${$object->items()}{$id});
 						$element_listed++;
 					}
 					$element_counter++;
 				}
 
-				$response .= PDLNA::HTTPXML::get_browseresponse_footer($element_listed, $object->amount());
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($element_listed, $object->amount());
+
+				$response = http_header({
+					'statuscode' => 200,
+					'log' => 'httpdir',
+					'content_length' => length($response_xml),
+					'content_type' => 'text/xml; charset=utf8',
+				});
+				$response .= $response_xml;
 			}
 			else
 			{
