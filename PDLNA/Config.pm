@@ -45,19 +45,20 @@ our %CONFIG = (
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'LOG_CATEGORY' => [],
 	'DEBUG' => 0,
+	'CHECK_UPDATES' => 1,
 	'TMP_DIR' => '/tmp',
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.37',
+	'PROGRAM_VERSION' => '0.37.1',
 	'PROGRAM_DATE' => '2011-10-27',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
 	'PROGRAM_DESC' => 'perl DLNA MediaServer',
-    'OS' => $Config::Config{osname},
-    'OS_VERSION' => $Config::Config{osvers},
+	'OS' => $Config::Config{osname},
+	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 	'UUID' => generate_uuid(),
 );
@@ -110,32 +111,33 @@ sub parse_config
 		push(@{$errormsg}, 'Invalid FriendlyName: Please use letters, numbers, dots, dashes, underscores and or spaces and the FriendlyName requires a name that is 32 characters or less in length.');
 	}
 
-    #
-    # INTERFACE CONFIG PARSING
-    #
-    my $socket_obj = IO::Socket::INET->new(Proto => 'udp');
-    if ($cfg->get('ListenInterface')) {
-        $CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface');
-    }
-    # Get the first non lo interface
-    else {
-        foreach my $interface ($socket_obj->if_list) {
-            next if $interface =~ /^lo/i;
-            $CONFIG{'LISTEN_INTERFACE'} = $interface;
-            last;
-        }
-    }
+	#
+	# INTERFACE CONFIG PARSING
+	#
+	my $socket_obj = IO::Socket::INET->new(Proto => 'udp');
+	if ($cfg->get('ListenInterface'))
+	{
+		$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface');
+	}
+	# Get the first non lo interface
+	else
+	{
+		foreach my $interface ($socket_obj->if_list)
+		{
+			next if $interface =~ /^lo/i;
+			$CONFIG{'LISTEN_INTERFACE'} = $interface;
+			last;
+		}
+	}
 
-    push (@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.')
-        if (! $socket_obj->if_flags($CONFIG{'LISTEN_INTERFACE'}));
+	push (@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.') if (!$socket_obj->if_flags($CONFIG{'LISTEN_INTERFACE'}));
 
-    #
-    # IP ADDR CONFIG PARSING
-    #
-    $CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') ? $cfg->get('ListenIPAddress') : $socket_obj->if_addr($CONFIG{'LISTEN_INTERFACE'});
+	#
+	# IP ADDR CONFIG PARSING
+	#
+	$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') ? $cfg->get('ListenIPAddress') : $socket_obj->if_addr($CONFIG{'LISTEN_INTERFACE'});
 
-    push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.')
-        unless $CONFIG{'LISTEN_INTERFACE'} eq $socket_obj->addr_to_interface($CONFIG{'LOCAL_IPADDR'});
+	push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.') unless $CONFIG{'LISTEN_INTERFACE'} eq $socket_obj->addr_to_interface($CONFIG{'LOCAL_IPADDR'});
 
 	#
 	# HTTP PORT PARSING
@@ -214,6 +216,7 @@ sub parse_config
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
+		push(@{$CONFIG{'LOG_CATEGORY'}}, 'update');
 	}
 
 	#
@@ -226,6 +229,12 @@ sub parse_config
 	}
 
 	# TODO log date format
+
+	#
+	# CHECK FOR UPDATES
+	#
+	$CONFIG{'CHECK_UPDATES'} = int($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
+
 	# TODO tmp directory
 	# TODO mplayer bin
 

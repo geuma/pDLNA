@@ -27,6 +27,7 @@ use PDLNA::DeviceList;
 use PDLNA::HTTPServer;
 use PDLNA::Log;
 use PDLNA::SSDP;
+use PDLNA::Status;
 
 our @THREADS = ();
 my $device_list = PDLNA::DeviceList->new();
@@ -72,6 +73,11 @@ PDLNA::SSDP::alive();
 PDLNA::SSDP::alive();
 
 push(@THREADS, threads->create('PDLNA::SSDP::send_alive_periodic')); # start to send out periodic alive messages in a thread
+
+if ($CONFIG{'CHECK_UPDATES'})
+{
+	push(@THREADS, threads->create('PDLNA::Status::check_update_periodic'));
+}
 
 while(1)
 {
