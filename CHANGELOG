@@ -1,0 +1,140 @@
+pDLNA CHANGELOG
+(c) 2010-2011 Stefan Heumader
+email: stefan@heumader.at
+webpage: http://www.pdlna.com
+
+Licened under GPLv3 (see LICENSE file)
+
+-----------------------------------------
+
+Version 0.38.0
+04-Nov-2011
+
+- added functionality, that Samsung TV (and in the future for other capable devices) wants the SpecificViews instead of the BaseView of the Content Database from pDLNA
+- added SpecificViews to configuration file, wether pDLNA should tell the Samsung TV to use these SpecificViews
+- added image and video thumbnail preview support for Windows Media Player 12
+- added support for streaming images to Windows Media Player 12
+
+Version 0.37.1
+03-Nov-2011
+
+- added INSTALL file (instructions for installation)
+- added install.pl, a small script, which checks for requirements and installs pDLNA
+- added PDLNA::Status Perl Module to check for a new version of pDLNA (if configured)
+
+Version 0.37
+27-Oct-2011
+
+- fixed a problem and added default value for duration of ContentItems (thx to mrproper)
+- added BaseView DirectoryListing support for VLC and Windows Media Player 12
+
+Version 0.36
+25-Oct-2011
+
+- general improvements to UPnP and SSDP discovery (i.e. added ContentDirectory and ConnectionManager XML file)
+- added BaseView of Content Database which is supported by all (or even mostly all) DLNA clients (added PDLNA::ContentDirectory Perl module)
+- added configuration value for crawling directories recursively or not
+- fixed deformed thumbnails
+- added another LogCategory ('httpgeneric')
+- removed and improved a lot of old code from PDLNA::HTTPServer
+- added PDLNA::HTTPXML Perl module
+- added pDLNA logo icon
+
+Version 0.35
+21-Oct-2011
+
+- added initial ContentDirectory and ConnectionManager XML files
+- moved from Net::Interface to IO::Interface (thx to mrproper)
+- moved from Sys::Info::OS to Sys::Hostname and Config (thx to mrproper)
+- added support for subnets to AllowedClients configuration (thx to mrproper)
+- moved from Image::Resize to GD (thx to mrproper)
+- added some small fixes to Content Database (thx to mrproper)
+- added some small fixes to PDLNA::HTTPServer Perl module (thx to mrproper)
+
+Version 0.34
+09-Oct-2011
+
+- added AllowedClients to the configuration to define IP addresses, which should be able to communicate with pDLNA
+- reworked some streaming code
+
+Version 0.33
+30-Jan-2011
+
+- added support for logging to a file
+- added an INIT script
+- pDLNA is able to run as a daemon
+
+Version 0.30
+10-Jan-2011
+
+- added LogCategories for better debugging
+- added support for streaming images to the Samsung TV
+
+Version 0.26
+02-Oct-2010
+
+- added support for previewing thumbnails for videos (get generated dynamically by mplayer)
+- configuration file parsing improvements
+- automatic detection of listening interface and IP address
+- some changes to the streaming part of pDLNA
+
+Version 0.25
+29-Sep-2010
+
+- using Sys::Info::OS for operating system version and hostname
+- generating a random UDN at startup
+- added some config file validation
+- made debugging of Content Database more beautiful
+- added support for fatal logging
+- added a DATE_FORMAT for Date::Format Perl module in PDLNA::Config
+- added some debugging messages in PDLNA::SSDP Perl module
+
+Version 0.24
+28-Sep-2010
+
+- change project website URL
+- code cleanup in PDLNA::SSDP Perl Module
+- added PDLNA::Device and PDLNA::DeviceList Perl modules to store information about already known UPnP clients
+
+Version 0.23
+23-Sep-2010
+
+- added preview/thumbnails of images, works in Samsung TV
+
+Version 0.22
+23-Sep-2010
+
+- some general improvements to the Content Database code
+- DirectoryListings for images, videos and audio files is supported on Samsung TV
+- some additional code to the streaming functionality
+
+Version 0.20
+20-Sep-2010
+
+- some fixes and improvements to the Content Database
+- some additional code to the streaming functionality
+- added initial PDLNA::Library Perl module
+- added configuration of media directories to the config file
+
+Version 0.19
+20-Sep-2010
+
+- moved from HTTP::Server::Simple::CGI to Socket and IO::Select
+- added LogLevel 2
+
+Version 0.15
+12-Sep-2010
+
+- changed default friendly name
+- added initial Content Database
+- added PDLNA::Utils Perl module
+
+Version 0.13
+10-Sep-2010
+
+- added configuration file
+
+Version 0.12
+09-Sep-2010
+
+- discovery via SSDP for Samsung TV is working
