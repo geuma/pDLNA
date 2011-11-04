@@ -42,35 +42,35 @@ sub new
 		'parent_id' => '',
 	});
 
+	if ($CONFIG{'SPECIFIC_VIEWS'})
+	{
+		$self->{DIRECTORIES}->{'A_F'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Audio sorted by Folder',
+			'id' => 'A_F',
+			'parent_id' => '',
+		});
 
-	$self->{DIRECTORIES}->{'A_F'} = PDLNA::ContentDirectory->new({
-		'type' => 'meta',
-		'name' => 'Audio sorted by Folder',
-		'id' => 'A_F',
-		'parent_id' => '',
-	});
+		$self->{DIRECTORIES}->{'I_F'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Images sorted by Folder',
+			'id' => 'I_F',
+			'parent_id' => '',
+		});
+		$self->{DIRECTORIES}->{'I_T'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Images sorted by Date',
+			'id' => 'I_T',
+			'parent_id' => '',
+		});
 
-	$self->{DIRECTORIES}->{'I_F'} = PDLNA::ContentDirectory->new({
-		'type' => 'meta',
-		'name' => 'Images sorted by Folder',
-		'id' => 'I_F',
-		'parent_id' => '',
-	});
-	$self->{DIRECTORIES}->{'I_T'} = PDLNA::ContentDirectory->new({
-		'type' => 'meta',
-		'name' => 'Images sorted by Date',
-		'id' => 'I_T',
-		'parent_id' => '',
-	});
-
-	$self->{DIRECTORIES}->{'V_F'} = PDLNA::ContentDirectory->new({
-		'type' => 'meta',
-		'name' => 'Videos sorted by Folder',
-		'id' => 'V_F',
-		'parent_id' => '',
-	});
-
-
+		$self->{DIRECTORIES}->{'V_F'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Videos sorted by Folder',
+			'id' => 'V_F',
+			'parent_id' => '',
+		});
+	}
 
 	my $i = 100;
 	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})

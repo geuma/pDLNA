@@ -105,8 +105,17 @@ sub get_browseresponse_item
 		push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;');
 	}
 
+	our %DLNA_CONTENTFEATURES = (
+		'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'image_sm' => 'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'image_tn' => 'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'video' => 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+		'audio' => 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+	);
+
 	push(@xml, '&lt;res protocolInfo=');
-	push(@xml, '&quot;http-get:*:'.$item->mime_type().':*&quot; ');
+	push(@xml, '&quot;http-get:*:'.$item->mime_type().':'.$DLNA_CONTENTFEATURES{$item->type()}.'&quot; ');
+
 	push(@xml, 'size=&quot;'.$item->size().'&quot; ');
 	if ($item->type() eq 'audio' || $item->type() eq 'video')
 	{
@@ -125,7 +134,7 @@ sub get_browseresponse_item
 	if ($item->type() eq 'image' || $item->type() eq 'video')
 	{
 		push(@xml, '&lt;res protocolInfo=');
-		push(@xml, '&quot;http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000&quot; ');
+		push(@xml, '&quot;http-get:*:image/jpeg:'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot; ');
 		push(@xml, '&gt;');
 		push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item->id().'.jpg');
 		push(@xml, '&lt;/res&gt;');
@@ -137,14 +146,17 @@ sub get_browseresponse_item
 
 sub get_serverdescription
 {
+	my $user_agent = shift || '';
+
 	my @xml = (
 		'<?xml version="1.0"?>',
 		'<root xmlns="urn:schemas-upnp-org:device-1-0">',
 		'<specVersion>',
 		'<major>1</major>',
-		'<minor>0</minor>',
+		'<minor>5</minor>',
 		'</specVersion>',
 		'<device>',
+		#'<dlna:X_DLNADOC>DMS-1.50</dlna:X_DLNADOC>', # this seems to break some clients and seems not to be needed
 		'<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>',
 		'<presentationURL>http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/</presentationURL>',
 		'<friendlyName>'.$CONFIG{'FRIENDLY_NAME'}.'</friendlyName>',
@@ -154,14 +166,21 @@ sub get_serverdescription
 		'<modelName>'.$CONFIG{'PROGRAM_NAME'}.'</modelName>',
 		'<modelNumber>'.$CONFIG{'PROGRAM_VERSION'}.'</modelNumber>',
 		'<serialNumber>'.$CONFIG{'PROGRAM_SERIAL'}.'</serialNumber>',
-		'<UDN>'.$CONFIG{'UUID'}.'</UDN>',
-		'<iconList>',
 	);
+	if ($CONFIG{'SPECIFIC_VIEWS'} &&
+		($user_agent eq 'SamsungWiselinkPro/1.0'))
+	{
+		push(@xml, '<sec:ProductCap>smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec</sec:ProductCap>');
+		push(@xml, '<sec:X_ProductCap>smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec</sec:X_ProductCap>');
+	}
+	push(@xml, '<UDN>'.$CONFIG{'UUID'}.'</UDN>');
+
 	my %TYPES = (
 		'png' => 'png',
 		'jpeg' => 'jpeg',
 		#'bmp' => 'x-ms-bmp',
 	);
+	push(@xml, '<iconList>');
 	foreach my $size ('120', '48', '32')
 	{
 		foreach my $type (keys %TYPES)

@@ -182,7 +182,7 @@ sub handle_connection
 		{
 			PDLNA::Log::log('New HTTP Connection: Delivering server description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
 
-			my $xml = PDLNA::HTTPXML::get_serverdescription();
+			my $xml = PDLNA::HTTPXML::get_serverdescription($CGI{'USER-AGENT'});
 			my @additional_header = (
 				'Content-Type: text/xml; charset=utf8',
 				'Content-Length: '.length($xml),
