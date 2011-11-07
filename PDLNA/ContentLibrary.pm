@@ -44,10 +44,34 @@ sub new
 
 	if ($CONFIG{'SPECIFIC_VIEWS'})
 	{
+		$self->{DIRECTORIES}->{'A_A'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Audio sorted by Artist',
+			'id' => 'A_A',
+			'parent_id' => '',
+		});
 		$self->{DIRECTORIES}->{'A_F'} = PDLNA::ContentDirectory->new({
 			'type' => 'meta',
 			'name' => 'Audio sorted by Folder',
 			'id' => 'A_F',
+			'parent_id' => '',
+		});
+		$self->{DIRECTORIES}->{'A_G'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Audio sorted by Genre',
+			'id' => 'A_G',
+			'parent_id' => '',
+		});
+		$self->{DIRECTORIES}->{'A_M'} = PDLNA::ContentDirectory->new({ # moods: WTF (dynamic)
+			'type' => 'meta',
+			'name' => 'Audio sorted by Mood',
+			'id' => 'A_M',
+			'parent_id' => '',
+		});
+		$self->{DIRECTORIES}->{'A_T'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Audio sorted by Title (Alphabet)',
+			'id' => 'A_M',
 			'parent_id' => '',
 		});
 
@@ -64,10 +88,22 @@ sub new
 			'parent_id' => '',
 		});
 
+		$self->{DIRECTORIES}->{'V_D'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Videos sorted by Date',
+			'id' => 'V_D',
+			'parent_id' => '',
+		});
 		$self->{DIRECTORIES}->{'V_F'} = PDLNA::ContentDirectory->new({
 			'type' => 'meta',
 			'name' => 'Videos sorted by Folder',
 			'id' => 'V_F',
+			'parent_id' => '',
+		});
+		$self->{DIRECTORIES}->{'V_T'} = PDLNA::ContentDirectory->new({
+			'type' => 'meta',
+			'name' => 'Videos sorted by Title (Alphabet)',
+			'id' => 'V_T',
 			'parent_id' => '',
 		});
 	}

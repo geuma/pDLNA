@@ -44,6 +44,7 @@ our %CONFIG = (
 	'LOG_FILE' => 'STDERR',
 	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'LOG_CATEGORY' => [],
+	'BUFFER_SIZE' => 52428800, # 50 megabytes
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
@@ -52,8 +53,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.38.0',
-	'PROGRAM_DATE' => '2011-11-04',
+	'PROGRAM_VERSION' => '0.39.0',
+	'PROGRAM_DATE' => '2011-11-07',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -230,6 +231,11 @@ sub parse_config
 	}
 
 	# TODO log date format
+
+	#
+	# BUFFER_SIZE
+	#
+	$CONFIG{'BUFFER_SIZE'} = int($cfg->get('BufferSize')) if defined($cfg->get('BufferSize'));
 
 	#
 	# SPECIFIC_VIEWS

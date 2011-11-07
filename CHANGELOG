@@ -7,6 +7,12 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.39.0
+07-Nov-2011
+
+- added BufferSize configuration parameter, to configure the maximum size of chunks, which are used for streaming content
+- improved PDLNA::HTTPServer::stream_media() function and deleted some old code in the same function
+
 Version 0.38.0
 04-Nov-2011
 
@@ -35,7 +41,7 @@ Version 0.36
 - added BaseView of Content Database which is supported by all (or even mostly all) DLNA clients (added PDLNA::ContentDirectory Perl module)
 - added configuration value for crawling directories recursively or not
 - fixed deformed thumbnails
-- added another LogCategory ('httpgeneric')
+- added another LogCategory (httpgeneric)
 - removed and improved a lot of old code from PDLNA::HTTPServer
 - added PDLNA::HTTPXML Perl module
 - added pDLNA logo icon
@@ -92,7 +98,7 @@ Version 0.25
 Version 0.24
 28-Sep-2010
 
-- change project website URL
+- changed project website URL
 - code cleanup in PDLNA::SSDP Perl Module
 - added PDLNA::Device and PDLNA::DeviceList Perl modules to store information about already known UPnP clients
 

@@ -22,23 +22,20 @@ use warnings;
 
 use Fcntl;
 use Data::Dumper;
-use XML::Simple;
 use Date::Format;
 use GD;
-use Net::Netmask;
-
-use Socket;
 use IO::Select;
-
+use Net::Netmask;
+use Socket;
 use threads;
 use threads::shared;
+use XML::Simple;
 
 use PDLNA::Config;
-use PDLNA::Log;
-use PDLNA::Content;
 use PDLNA::ContentLibrary;
-use PDLNA::Library;
 use PDLNA::HTTPXML;
+use PDLNA::Library;
+use PDLNA::Log;
 
 our $content = undef;
 
@@ -52,10 +49,6 @@ our %DLNA_CONTENTFEATURES = (
 
 sub initialize_content
 {
-	#$content = PDLNA::Content->new();
-	#$content->build_database();
-	#PDLNA::Log::log($content->print_object(), 3, 'library');
-
 	$content = PDLNA::ContentLibrary->new();
 	PDLNA::Log::log($content->print_object(), 3, 'library');
 }
@@ -342,7 +335,7 @@ sub ctrl_content_directory_1
 			$starting_index = $xml->{'s:Body'}->{'ns0:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'ns0:Browse'}->{'RequestedCount'};
 		}
-		elsif (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'})) # samsung uses this one
+		elsif (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}))
 		{
 			$object_id = $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'};
 			$starting_index = $xml->{'s:Body'}->{'u:Browse'}->{'StartingIndex'};
@@ -431,138 +424,8 @@ sub ctrl_content_directory_1
 				});
 			}
 		}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		elsif ($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'} =~ /^(\w)_(\w)$/)
-		{
-			PDLNA::Log::log("Received Directory Listing request for: ".$xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, 3, 'httpdir');
-
-			my $media_type = $1;
-			my $sort_type = $2;
-
-			$response = http_header({
-				'statuscode' => 200,
-			});
-
-			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-			$response .= '<s:Body>';
-			$response .= '<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-			$response .= '<Result>';
-			$response .= '&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
-			my $content_type_obj = $content->get_content_type($media_type, $sort_type);
-			foreach my $group (@{$content_type_obj->content_groups()})
-			{
-				my $group_id = $group->beautiful_id();
-				my $group_name = $group->name();
-				my $group_childs_amount = $group->content_items_amount();
-
-				$response .= '&lt;container id=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'&quot; childCount=&quot;'.$group_childs_amount.'&quot; restricted=&quot;1&quot;&gt;';
-				$response .= '&lt;dc:title&gt;'.$group_name.'&lt;/dc:title&gt;';
-				$response .= '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;';
-				$response .= '&lt;/container&gt;';
-			}
-			$response .= '&lt;/DIDL-Lite&gt;';
-			$response .= '</Result>';
-			$response .= '<NumberReturned>'.$content_type_obj->content_groups_amount.'</NumberReturned>';
-			$response .= '<TotalMatches>'.$content_type_obj->content_groups_amount.'</TotalMatches>',
-			$response .= '<UpdateID>0</UpdateID>';
-			$response .= '</u:BrowseResponse>';
-			$response .= '</s:Body>';
-			$response .= '</s:Envelope>';
-		}
-		elsif ($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'} =~ /^(\w)_(\w)_(\d+)_(\d+)/)
-		{
-			my $media_type = $1;
-			my $sort_type = $2;
-			my $group_id = $3;
-			my $item_id = $4;
-
-			my $content_type_obj = $content->get_content_type($media_type, $sort_type);
-			my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
-			my $foldername = $content_group_obj->name();
-			my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
-			my $name = $content_item_obj->name();
-			my $date = $content_item_obj->date();
-			my $beautiful_date = time2str("%Y-%m-%d", $date);
-			my $size = $content_item_obj->size();
-			my $type = $content_item_obj->type();
-
-			$response = http_header({
-				'statuscode' => 200,
-			});
-
-			my $item_name = $media_type.'_'.$sort_type.'_'.$group_id.'_'.$item_id;
-			my $url = 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'};
-
-			$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-			$response .= '<s:Body>';
-			$response .= '<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-			$response .= '<Result>';
-			$response .= '&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&apos;urn:schemas-upnp-org:metadata-1-0/upnp/&apos; xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot; xmlns:sec=&quot;http://www.sec.co.kr/&quot;&gt;';
-
-			$response .= '&lt;item id=&quot;'.$item_name.'&quot; parentId=&quot;'.$media_type.'_'.$sort_type.'_'.$group_id.'&quot; restricted=&quot;1&quot;&gt;';
-			$response .= '&lt;dc:title&gt;'.$name.'&lt;/dc:title&gt;';
-			$response .= '&lt;upnp:class&gt;object.item.'.$type.'Item&lt;/upnp:class&gt;';
-
-			if ($media_type eq 'A')
-			{
-				$response .= '&lt;upnp:album&gt;'.$content_item_obj->album().'&lt;/upnp:album&gt;';
-				$response .= '&lt;dc:creator&gt;'.$content_item_obj->artist().'&lt;/dc:creator&gt;';
-				$response .= '&lt;upnp:genre&gt;'.$content_item_obj->genre().'&lt;/upnp:genre&gt;';
-			}
-			$response .= '&lt;sec:dcmInfo&gt;';
-
-#			$response .= 'WIDTH=1920,HEIGHT=1080,COMPOSCORE=0,COMPOID=8192,COLORSCORE=26777,COLORID=2,MONTHLY=9,ORT=1,' if $media_type eq 'I';
-
-			$response .= 'CREATIONDATE='.$date;
-			$response .= ',YEAR='.$content_item_obj->year() if $media_type eq 'A';
-			$response .= ',FOLDER='.$foldername.'&lt;/sec:dcmInfo&gt;';
-			$response .= '&lt;dc:date&gt;'.$beautiful_date.'&lt;/dc:date&gt;';
-
-			# File specific information
-			$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$content_item_obj->mime_type().':'.$DLNA_CONTENTFEATURES{$type}.'&quot; size=&quot;'.$size.'&quot; ';
-			$response .= 'duration=&quot;0:17:09&quot;&gt;' if $media_type eq 'V'; # TODO get the length of the video
-			$response .= 'duration=&quot;'.$content_item_obj->duration().'&quot;&gt;' if $media_type eq 'A';
-			$response .= 'resolution=&quot;'.$content_item_obj->resolution().'&quot;&gt;' if $media_type eq 'I';
-			$response .= $url.'/media/'.$item_name.'.'.$content_item_obj->file_extension().'&lt;/res&gt;';
-
-			# File preview information
-			if ($media_type eq 'I' || $media_type eq 'V')
-			{
-				my $mime = 'image/jpeg';
-				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_sm'}.'&quot; resolution=&quot;&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_SM&lt;/res&gt;';
-				$response .= '&lt;res protocolInfo=&quot;http-get:*:'.$mime.':'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot;&gt;'.$url.'/preview/'.$item_name.'.JPEG_TN&lt;/res&gt;';
-			}
-
-			$response .= '&lt;/item&gt;';
-			$response .= '&lt;/DIDL-Lite&gt;</Result><NumberReturned>1</NumberReturned><TotalMatches>1</TotalMatches><UpdateID>0</UpdateID></u:BrowseResponse></s:Body></s:Envelope>';
-		}
-		else
-		{
-			PDLNA::Log::log('The following directory listing is NOT supported yet: '.$object_id, 3, 'httpdir');
-			$response = http_header({
-				'statuscode' => 501,
-				'content_type' => 'text/plain',
-			});
-		}
 	}
+	# OLD CODE
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
 	{
 		my $media_type = '';
@@ -641,9 +504,11 @@ sub stream_media
 	my $method = shift;
 	my $CGI = shift;
 
+	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
 	if ($content_id =~ /^(\d+)\./)
 	{
 		my $id = $1;
+		PDLNA::Log::log('ID: '.$id, 3, 'httpstream');
 
 		my $item = $content->get_object_by_id($id);
 		if (defined($item) && $item->is_item() && -f $item->path())
@@ -688,33 +553,55 @@ sub stream_media
 				{
 					if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
 					{
-						PDLNA::Log::log('Delivering (Streaming) content for: '.$item->path().'.', 1, 'httpstream');
+						my $http_returncode = 200;
+
+
+						PDLNA::Log::log('Delivering (Streaming) content for: '.$item->path().' with size '.$item->size().'.', 1, 'httpstream');
 
 						push(@additional_header, 'Accept-Ranges: bytes');
-						my $lowrange = 0;
-						my $bytes_to_ship = 102400;
+
+						my ($lowrange, $highrange) = 0;
+						if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
+						{
+							$lowrange = int($1);
+							$highrange = $2 ? int($2) : 0;
+						}
+						$highrange = $lowrange + $CONFIG{'BUFFER_SIZE'} if $highrange == 0;
+						$highrange = $item->size() if ($highrange > $item->size());
+
+						my $bytes_to_ship = $highrange - $lowrange;
+						$http_returncode = 206 if $highrange < $item->size();
+
+
+
+
+
+
+
+
 
 						open(FILE, $item->path());
 						my $buf = undef;
-
-						# using read with offset isn't working - why is it ignoring my offset
-						#read(FILE, $buf, $bytes_to_ship, $offset);
-
-						# so we're using seek instead
 						sysseek(FILE, $lowrange, 1);
 						sysread(FILE, $buf, $bytes_to_ship);
+						close(FILE);
 						use bytes;
 						PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 3, 'httpstream');
 						no bytes;
 
-						$additional_header[1] = 'Content-Range: bytes '.$lowrange.'-'.$bytes_to_ship.'/'.$item->size();
+
+
+
+
+
+						#$additional_header[1] = 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size();
+						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
 						$response = http_header({
-							'statuscode' => 200,
+							'statuscode' => $http_returncode,
 							'additional_header' => \@additional_header,
 							'log' => 'httpstream',
 						});
 						$response .= $buf;
-						#$response .= "\r\n";
 
 						return $response;
 					}
@@ -737,9 +624,23 @@ sub stream_media
 
 						return $response;
 					}
-					else
+					else # unknown TRANSFERMODE.DLNA.ORG is set
 					{
+						PDLNA::Log::log('Transfermode '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
+						return http_header({
+							'statuscode' => 501,
+							'content_type' => 'text/plain',
+						});
 					}
+				}
+				else # no TRANSFERMODE.DLNA.ORG is set
+				{
+					PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item->path().'.', 1, 'httpstream');
+					return http_header({
+						'statuscode' => 200,
+						'additional_header' => \@additional_header,
+						'log' => 'httpstream',
+					});
 				}
 			}
 			else
@@ -748,6 +649,7 @@ sub stream_media
 				return http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
+					'log' => 'httpstream',
 				});
 			}
 			return $response;
@@ -758,198 +660,84 @@ sub stream_media
 			return http_header({
 				'statuscode' => 404,
 				'content_type' => 'text/plain',
-			});
-		}
-	}
-
-
-
-	# old stuff
-	elsif ($content_id =~ /^(\w)_(\w)_(\d+)_(\d+)/)
-	{
-		my $media_type = $1;
-		my $sort_type = $2;
-		my $group_id = $3;
-		my $item_id = $4;
-
-		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
-		my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
-		my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
-		my $path = $content_item_obj->path();
-		my $size = $content_item_obj->size();
-		my $type = $content_item_obj->type();
-
-		my $response = "";
-		if (-f $path)
-		{
-			my @additional_header = (
-				'Content-Type: '.$content_item_obj->mime_type(),
-				'Content-Length: '.$size,
-				'Cache-Control: no-cache',
-			);
-
-			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
-			{
-				if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
-				{
-					# found no documentation for this header ... but i think it might be the correct answer
-					push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
-				}
-				else
-				{
-					PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
-					return http_header({
-						'statuscode' => 400,
-						'content_type' => 'text/plain',
-					});
-				}
-			}
-			elsif (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
-			{
-				# if GETCAPTIONINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
-				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
-			}
-			elsif (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
-			{
-				# if GETMEDIAINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
-				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
-			}
-
-			if (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
-			{
-				# found no documentation for this header ... but i think it might be the correct answer to deliver the duration in milliseconds
-				# device might use this value to show the progress bar
-				push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$content_item_obj->duration_seconds().'000;')
-			}
-
-			if (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
-			{
-				# TODO - WTF? - it might be the information for the caption
-			}
-
-			if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}))
-			{
-				if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
-				{
-					PDLNA::Log::log('Streaming content for: '.$path.'.', 1, 'httpstream');
-
-					my $statuscode = 206;
-
-					my $bytes_to_ship = 52428800; # 50 megabytes
-					my ($lowrange, $highrange) = 0;
-
-					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
-					{
-						#if ($lowrange > 0) {
-						PDLNA::Log::log('We got a RANGE HTTP Header ('.$$CGI{'RANGE'}.') from client.', 1, 'httpstream');
-
-						$lowrange = $1;
-						}
-						$highrange = $size-1;
-						$highrange = $lowrange+$bytes_to_ship;
-
-						#my $content_length = $size - $lowrange;
-						my $content_length = $size;
-						$additional_header[1] = 'Content-Length: '.$content_length;
-#						if ($content_length < $bytes_to_ship)
-#						{
-#							$bytes_to_ship = $content_length;
-#						}
-
-						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$size);
-						#}
-#					}
-#					else
-#					{
-#						PDLNA::Log::log('We got NO RANGE HTTP Header from client.', 1, 'httpstream');
-#					}
-					push(@additional_header, 'transferMode.dlna.org:Streaming');
-
-					#
-					# THE RESPONSE
-					#
-
-					$response = http_header({
-						'statuscode' => $statuscode,
-						'additional_header' => \@additional_header,
-						'log' => 'httpstream',
-					});
-
-
-#					if ($method eq 'GET')
-#					{
-						open(FILE, $path);
-						my $buf = undef;
-
-						# using read with offset isn't working - why is it ignoring my offset
-						#read(FILE, $buf, $bytes_to_ship, $offset);
-
-						# so I'm using seek instead
-						sysseek(FILE, $lowrange, 1);
-						sysread(FILE, $buf, $bytes_to_ship);
-								use bytes;
-								PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 3, 'httpstream');
-								no bytes;
-						$response .= $buf;
-						$response .= "\r\n";
-#					}
-					close(FILE);
-
-				}
-				elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files
-				{
-					PDLNA::Log::log('Delivering content for: '.$path.'.', 1, 'httpstream');
-					push(@additional_header, 'transferMode.dlna.org:Interactive');
-
-					# Delivering interactive content as a whole
-					$response = http_header({
-						'statuscode' => 200,
-						'additional_header' => \@additional_header,
-					});
-					open(FILE, $path);
-					while (<FILE>)
-					{
-						$response .= $_;
-					}
-					close(FILE);
-				}
-				else
-				{
-					PDLNA::Log::log('Invalid transferMode.dlna.org: '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.'.', 1, 'httpstream');
-					return http_header({
-						'statuscode' => 404,
-						'content_type' => 'text/plain',
-					});
-				}
-			}
-			else # we are handling here the HEAD requests for giving the relevant information about the media
-			{
-				PDLNA::Log::log('Delivering content information (HEAD request) for: '.$path.'.', 1, 'httpstream');
-				$response = http_header({
-					'statuscode' => 200,
-					'additional_header' => \@additional_header,
-					'log' => 'httpstream',
-				});
-			}
-			return $response;
-		}
-		else
-		{
-			PDLNA::Log::log('Content NOT found: '.$path.'.', 1, 'httpstream');
-			return http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
+				'log' => 'httpstream',
 			});
 		}
 	}
 	else
 	{
-		PDLNA::Log::log('Invalid content ID: '.$content_id.'.', 1, 'httpstream');
+		PDLNA::Log::log('ContentID '.$content_id.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
 		return http_header({
-			'statuscode' => 404,
+			'statuscode' => 501,
 			'content_type' => 'text/plain',
+			'log' => 'httpstream',
 		});
 	}
+
+
+
+#	# old stuff
+#	elsif ($content_id =~ /^(\w)_(\w)_(\d+)_(\d+)/)
+#	{
+#		my $media_type = $1;
+#		my $sort_type = $2;
+#		my $group_id = $3;
+#		my $item_id = $4;
+#
+#		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
+#		my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
+#		my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
+#		my $path = $content_item_obj->path();
+#		my $size = $content_item_obj->size();
+#		my $type = $content_item_obj->type();
+#
+#		my $response = "";
+#		if (-f $path)
+#		{
+#			my @additional_header = (
+#				'Content-Type: '.$content_item_obj->mime_type(),
+#				'Content-Length: '.$size,
+#				'Cache-Control: no-cache',
+#			);
+#
+#			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
+#			{
+#				if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+#				{
+#					# found no documentation for this header ... but i think it might be the correct answer
+#					push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+#				}
+#				else
+#				{
+#					PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
+#					return http_header({
+#						'statuscode' => 400,
+#						'content_type' => 'text/plain',
+#					});
+#				}
+#			}
+#			elsif (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
+#			{
+#				# if GETCAPTIONINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
+#				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+#			}
+#			elsif (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
+#			{
+#				# if GETMEDIAINFO.SEC is set, but not GETCONTENTFEATURES.DLNA.ORG, we need to answer with the information too
+#				push(@additional_header, 'contentFeatures.dlna.org:'.$DLNA_CONTENTFEATURES{$type});
+#			}
+#
+#			if (defined($$CGI{'GETMEDIAINFO.SEC'}) && $$CGI{'GETMEDIAINFO.SEC'} == 1)
+#			{
+#				# found no documentation for this header ... but i think it might be the correct answer to deliver the duration in milliseconds
+#				# device might use this value to show the progress bar
+#				push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$content_item_obj->duration_seconds().'000;')
+#			}
+#
+#			if (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
+#			{
+#				# TODO - WTF? - it might be the information for the caption
+#			}
 }
 
 sub preview_media
