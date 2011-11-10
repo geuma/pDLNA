@@ -242,7 +242,7 @@ sub handle_connection
 		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			print $FH stream_media($1, $ENV{'METHOD'}, \%CGI);
+			stream_media($1, $ENV{'METHOD'}, \%CGI, $FH);
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media previews
 		{
@@ -503,6 +503,7 @@ sub stream_media
 	my $content_id = shift;
 	my $method = shift;
 	my $CGI = shift;
+	my $FH = shift;
 
 	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
 	if ($content_id =~ /^(\d+)\./)
@@ -513,11 +514,11 @@ sub stream_media
 		my $item = $content->get_object_by_id($id);
 		if (defined($item) && $item->is_item() && -f $item->path())
 		{
-			my $response = '';
 			my @additional_header = (
 				'Content-Type: '.$item->mime_type(),
 				'Content-Length: '.$item->size(),
 				'Content-Disposition: attachment; filename="'.$item->name().'"',
+				'Accept-Ranges: bytes',
 			);
 
 			# Streaming of content is NOT working with SAMSUNG without this response header
@@ -530,7 +531,7 @@ sub stream_media
 				else
 				{
 					PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
-					return http_header({
+					print $FH http_header({
 						'statuscode' => 400,
 						'content_type' => 'text/plain',
 					});
@@ -541,7 +542,7 @@ sub stream_media
 			{
 				PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->path().'.', 1, 'httpstream');
 
-				return http_header({
+				print $FH http_header({
 					'statuscode' => 200,
 					'additional_header' => \@additional_header,
 					'log' => 'httpstream',
@@ -549,61 +550,69 @@ sub stream_media
 			}
 			elsif ($method eq 'GET') # handling GET requests
 			{
-				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}))
+				if (
+					defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) || (
+						$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
+						$$CGI{'USER-AGENT'} =~ /^vlc/ || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
+						$$CGI{'USER-AGENT'} =~ /^stagefright/ ) # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
+					)
 				{
-					if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
+					if (
+						(defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') || # for immediate rendering of audio or video content
+						($$CGI{'USER-AGENT'} =~ /^(foobar2000|vlc|stagefright)/)
+						)
 					{
-						my $http_returncode = 200;
-
-
-						PDLNA::Log::log('Delivering (Streaming) content for: '.$item->path().' with size '.$item->size().'.', 1, 'httpstream');
-
-						push(@additional_header, 'Accept-Ranges: bytes');
-
-						my ($lowrange, $highrange) = 0;
 						if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
 						{
+							PDLNA::Log::log('Delivering content for: '.$item->path().' with RANGE Request.', 1, 'httpstream');
+							my ($lowrange, $highrange) = 0;
 							$lowrange = int($1);
 							$highrange = $2 ? int($2) : 0;
+							$highrange = $lowrange + $CONFIG{'BUFFER_SIZE'} if $highrange == 0;
+							$highrange = $item->size() if ($highrange > $item->size());
+
+							my $bytes_to_ship = $highrange - $lowrange;
+
+							open(FILE, $item->path());
+							my $buf = undef;
+							sysseek(FILE, $lowrange, 1);
+							sysread(FILE, $buf, $bytes_to_ship);
+							close(FILE);
+							PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 3, 'httpstream');
+
+							$additional_header[1] = 'Content-Length: '.length($buf); # we need to change the Content-Length
+							push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
+							print $FH http_header({
+								'statuscode' => 206,
+								'additional_header' => \@additional_header,
+								'log' => 'httpstream',
+							});
+							print $FH $buf;
+							return 1;
 						}
-						$highrange = $lowrange + $CONFIG{'BUFFER_SIZE'} if $highrange == 0;
-						$highrange = $item->size() if ($highrange > $item->size());
+						else
+						{
+							PDLNA::Log::log('Delivering content for: '.$item->path().' without RANGE Request.', 1, 'httpstream');
+							print $FH http_header({
+								'statuscode' => 200,
+								'additional_header' => \@additional_header,
+								'log' => 'httpstream',
+							});
 
-						my $bytes_to_ship = $highrange - $lowrange;
-						$http_returncode = 206 if $highrange < $item->size();
-
-
-
-
-
-
-
-
-
-						open(FILE, $item->path());
-						my $buf = undef;
-						sysseek(FILE, $lowrange, 1);
-						sysread(FILE, $buf, $bytes_to_ship);
-						close(FILE);
-						use bytes;
-						PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 3, 'httpstream');
-						no bytes;
-
-
-
-
-
-
-						#$additional_header[1] = 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size();
-						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
-						$response = http_header({
-							'statuscode' => $http_returncode,
-							'additional_header' => \@additional_header,
-							'log' => 'httpstream',
-						});
-						$response .= $buf;
-
-						return $response;
+							my $lowrange = 0;
+							while ($lowrange < $item->size())
+							{
+								open(FILE, $item->path());
+								my $buf = undef;
+								sysseek(FILE, $lowrange, 1);
+								sysread(FILE, $buf, $CONFIG{'BUFFER_SIZE'});
+								close(FILE);
+								PDLNA::Log::log('Adding '.length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+								print $FH $buf;
+								$lowrange += $CONFIG{'BUFFER_SIZE'};
+							}
+							return 1;
+						}
 					}
 					elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files
 					{
@@ -611,23 +620,21 @@ sub stream_media
 						push(@additional_header, 'transferMode.dlna.org: Interactive');
 
 						# Delivering interactive content as a whole
-						$response = http_header({
+						print $FH http_header({
 							'statuscode' => 200,
 							'additional_header' => \@additional_header,
 						});
 						open(FILE, $item->path());
 						while (<FILE>)
 						{
-							$response .= $_;
+							print $FH $_;
 						}
 						close(FILE);
-
-						return $response;
 					}
 					else # unknown TRANSFERMODE.DLNA.ORG is set
 					{
 						PDLNA::Log::log('Transfermode '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
-						return http_header({
+						print $FH http_header({
 							'statuscode' => 501,
 							'content_type' => 'text/plain',
 						});
@@ -636,7 +643,7 @@ sub stream_media
 				else # no TRANSFERMODE.DLNA.ORG is set
 				{
 					PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item->path().'.', 1, 'httpstream');
-					return http_header({
+					print $FH http_header({
 						'statuscode' => 200,
 						'additional_header' => \@additional_header,
 						'log' => 'httpstream',
@@ -646,18 +653,17 @@ sub stream_media
 			else
 			{
 				PDLNA::Log::log('Method '.$method.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
-				return http_header({
+				print $FH http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
 					'log' => 'httpstream',
 				});
 			}
-			return $response;
 		}
 		else
 		{
 			PDLNA::Log::log('Content with ID '.$id.' NOT found: '.$item->path().'.', 1, 'httpstream');
-			return http_header({
+			print $FH http_header({
 				'statuscode' => 404,
 				'content_type' => 'text/plain',
 				'log' => 'httpstream',
@@ -667,7 +673,7 @@ sub stream_media
 	else
 	{
 		PDLNA::Log::log('ContentID '.$content_id.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
-		return http_header({
+		print $FH http_header({
 			'statuscode' => 501,
 			'content_type' => 'text/plain',
 			'log' => 'httpstream',
@@ -677,29 +683,6 @@ sub stream_media
 
 
 #	# old stuff
-#	elsif ($content_id =~ /^(\w)_(\w)_(\d+)_(\d+)/)
-#	{
-#		my $media_type = $1;
-#		my $sort_type = $2;
-#		my $group_id = $3;
-#		my $item_id = $4;
-#
-#		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
-#		my $content_group_obj = $content_type_obj->content_groups()->[int($group_id)];
-#		my $content_item_obj = $content_group_obj->content_items()->[int($item_id)];
-#		my $path = $content_item_obj->path();
-#		my $size = $content_item_obj->size();
-#		my $type = $content_item_obj->type();
-#
-#		my $response = "";
-#		if (-f $path)
-#		{
-#			my @additional_header = (
-#				'Content-Type: '.$content_item_obj->mime_type(),
-#				'Content-Length: '.$size,
-#				'Cache-Control: no-cache',
-#			);
-#
 #			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
 #			{
 #				if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)

@@ -53,8 +53,8 @@ our %CONFIG = (
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.39.0',
-	'PROGRAM_DATE' => '2011-11-07',
+	'PROGRAM_VERSION' => '0.40.0',
+	'PROGRAM_DATE' => '2011-11-17',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
