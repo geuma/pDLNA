@@ -18,6 +18,7 @@
 #
 
 use threads;
+use threads::shared;
 use Getopt::Long::Descriptive;
 
 use lib ('./');
@@ -58,7 +59,7 @@ PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
 # starting up
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
 PDLNA::HTTPServer::initialize_content();
-my $thread1 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
+my $thread1 = threads->create('PDLNA::HTTPServer::start_webserver', \$device_list); # starting the HTTP server in a thread
 $thread1->detach();
 
 $ssdp->add_send_socket(); # add the socket for sending SSDP messages

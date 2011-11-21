@@ -20,6 +20,9 @@ package PDLNA::DeviceList;
 use strict;
 use warnings;
 
+use threads;
+use threads::shared;
+
 use PDLNA::Device;
 
 # constructor
@@ -27,11 +30,12 @@ sub new
 {
 	my $class = shift;
 
-	my $self = ();
-	$self->{DEVICES} = ();
+	my %self : shared = ();
+	my %devices : shared = ();
+	$self{DEVICES} = \%devices;
 
-	bless($self, $class);
-	return $self;
+	bless(\%self, $class);
+	return \%self;
 }
 
 # adds a new Device object to the DeviceList object
@@ -40,13 +44,17 @@ sub add
 	my $self = shift;
 	my $params = shift;
 
-	if (defined($self->{DEVICES}->{$$params{'ip'}}))
+	if (defined($self->{DEVICES}{$$params{'ip'}}))
 	{
-		$self->{DEVICES}->{$$params{'ip'}}->add_nt($$params{'nt'}, $$params{'time_of_expire'});
+		$self->{DEVICES}{$$params{'ip'}}->http_useragent($$params{'http_useragent'});
+		$self->{DEVICES}{$$params{'ip'}}->add_nt($$params{'nt'}, $$params{'time_of_expire'}) if defined($$params{'nt'});
+		$self->{DEVICES}{$$params{'ip'}}->uuid($$params{'uuid'}) if defined($$params{'uuid'});
+		$self->{DEVICES}{$$params{'ip'}}->ssdp_desc($$params{'ssdp_desc'}) if defined($$params{'ssdp_desc'});
+		$self->{DEVICES}{$$params{'ip'}}->ssdp_banner($$params{'ssdp_banner'}) if defined($$params{'ssdp_banner'});
 	}
 	else
 	{
-		$self->{DEVICES}->{$$params{'ip'}} = PDLNA::Device->new($params);
+		$self->{DEVICES}{$$params{'ip'}} = PDLNA::Device->new($params);
 	}
 }
 
@@ -59,8 +67,14 @@ sub del
 	my $nt = shift;
 
 	my $elements = 1;
-	$elements = $self->{DEVICES}->{$ip}->del($nt) if defined($self->{DEVICES}->{$ip});
+	$elements = $self->{DEVICES}{$ip}->del($nt) if defined($self->{DEVICES}{$ip});
 	delete($self->{DEVICES}->{$ip}) if $elements == 0;
+}
+
+sub devices
+{
+	my $self = shift;
+	return %{$self->{DEVICES}};
 }
 
 # prints the object
@@ -71,8 +85,9 @@ sub print_object
 	my $string = "\n\tObject PDLNA::DeviceList\n";
 	foreach my $device (keys %{$self->{DEVICES}})
 	{
-		$string .= $self->{DEVICES}->{$device}->print_object();
+		$string .= $self->{DEVICES}{$device}->print_object();
 	}
+	$string .= "\tObject PDLNA::DeviceList END";
 	return $string;
 }
 

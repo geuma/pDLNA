@@ -1,15 +1,16 @@
 - audio thumbnails (e.g. google search)
 - enable/disable website library (is it useful?)
-- mkv support
 - dvd support
 - seeking support
 - subtitle support
-- dynamic rebuild of ContentDirectory
 - configure UUID
 - configure LOG_DATE_FORMAT
-- configure binary values with true/false, on/off or 1/0
 - implement specificViews
 - more external scripts (online picture services like picasa and so on, youtube, ...)
+- music streams
 - transcoding
 - per client directory configuration
-- add exclude list to a directory
+- dynamic rebuild of ContentDirectory
+- debian package, repo, rpm packages, ...
+- random music directory
+- PDLNA::Device.pm improvements regarding the XML description

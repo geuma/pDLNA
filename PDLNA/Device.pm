@@ -20,7 +20,12 @@ package PDLNA::Device;
 use strict;
 use warnings;
 
+use threads;
+use threads::shared;
+
 use Date::Format;
+use LWP::UserAgent;
+use XML::Simple;
 
 # constructor
 sub new
@@ -28,17 +33,20 @@ sub new
 	my $class = shift;
 	my $params = shift;
 
-	my $self = ();
-	$self->{IP} = $$params{'ip'};
-	$self->{UUID} = $$params{'uuid'};
-	$self->{SSDP_BANNER} = $$params{'ssdp_banner'};
-	$self->{SSDP_DESC} = $$params{'desc_location'};
-	$self->{NTS} = {
-		$$params{'nt'} => $$params{'time_of_expire'},
-	};
+	my %self : shared = (
+		IP => $$params{'ip'},
+		UUID => $$params{'uuid'},
+		SSDP_BANNER => $$params{'ssdp_banner'},
+		SSDP_DESC => $$params{'desc_location'},
+		HTTP_USERAGENT => $$params{'http_useragent'},
+		MODEL_NAME => undef,
+	);
+	my %nts : shared = ();
+	$nts{$$params{'nt'}} = $$params{'time_of_expire'} if defined($$params{'nt'});
+	$self{NTS} = \%nts;
 
-	bless($self, $class);
-	return $self;
+	bless(\%self, $class);
+	return \%self;
 }
 
 # add a nt type to the object with its expire time
@@ -65,6 +73,67 @@ sub del
 	return scalar(keys %{$self->{NTS}});
 }
 
+sub model_name
+{
+	my $self = shift;
+
+	my $model_name = '';
+	if (defined($self->{SSDP_DESC}))
+	{
+		my $ua = LWP::UserAgent->new();
+		my $request = HTTP::Request->new(GET => $self->{SSDP_DESC});
+		my $response = $ua->request($request);
+		if ($response->is_success())
+		{
+			my $xs = XML::Simple->new();
+			my $xml = $xs->XMLin($response->content());
+			$model_name = $xml->{'device'}->{'modelName'};
+		}
+	}
+
+	return $model_name;
+}
+
+# sets the HTTP_USERAGENT
+#
+# RETURNS:
+# HTTP_USERAGENT
+sub http_useragent
+{
+	my $self = shift;
+	my $user_agent = shift;
+
+	$self->{HTTP_USERAGENT} = $user_agent if defined($user_agent);
+	return $self->{HTTP_USERAGENT};
+}
+
+sub ssdp_banner
+{
+	my $self = shift;
+	my $ssdp_banner = shift;
+
+	$self->{SSDP_BANNER} = $ssdp_banner if defined($ssdp_banner);
+	return $self->{SSDP_BANNER};
+}
+
+sub ssdp_desc
+{
+	my $self = shift;
+	my $ssdp_desc = shift;
+
+	$self->{SSDP_DESC} = $ssdp_desc if defined($ssdp_desc);
+	return $self->{SSDP_DESC};
+}
+
+sub uuid
+{
+	my $self = shift;
+	my $uuid = shift;
+
+	$self->{UUID} = $uuid if defined($uuid);
+	return $self->{UUID};
+}
+
 # prints the object information
 sub print_object
 {
@@ -77,10 +146,12 @@ sub print_object
 	$string .= "\t\t\tNTS:\n";
 	foreach my $nt (keys %{$self->{NTS}})
 	{
-		$string .= "\t\t\t\t".$nt." (".time2str("%Y-%m-%d %H:%M", $self->{NTS}->{$nt}).")\n"
+		$string .= "\t\t\t\t".$nt." (expires at ".time2str("%Y-%m-%d %H:%M:%S", $self->{NTS}->{$nt}).")\n"
 	}
 	$string .= "\t\t\tSSDP Banner:     ".$self->{SSDP_BANNER}."\n" if defined($self->{SSDP_BANNER});
 	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});
+	$string .= "\t\t\tHTTP User-Agent: ".$self->{HTTP_USERAGENT}."\n" if defined($self->{HTTP_USERAGENT});
+	$string .= "\t\tObject PDLNA::Device END\n";
 
 	return $string;
 }

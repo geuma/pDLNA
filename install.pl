@@ -141,7 +141,7 @@ print "Step 4:\n";
 print "Setting of relevant paths ...\n";
 print "------------------------------------------------------\n";
 
-my $regex = '+DIR="/opt/pDLNA/"+DIR="'.$PREFIX.'"';
+my $regex = '+DIR="./"+DIR="'.$PREFIX.'"';
 if (system("sed -i -e s'$regex'+ /etc/init.d/rc.pDLNA") == 0)
 {
 	pass("Changed path for binary in '/etc/init.d/rc.pDLNA'.");

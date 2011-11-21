@@ -57,6 +57,8 @@ sub initialize_content
 
 sub start_webserver
 {
+	my $device_list = shift;
+
 	PDLNA::Log::log('Starting HTTP Server listening on '.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'.', 0, 'default');
 
 	# got inspired by: http://www.adp-gmbh.ch/perl/webserver/
@@ -80,7 +82,7 @@ sub start_webserver
 			my ($peer_src_port, $peer_addr) = sockaddr_in($remote);
 			my $peer_ip_addr = inet_ntoa($peer_addr);
 
-			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port);
+			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port, $device_list);
 			$thread->detach();
 		}
 	}
@@ -91,6 +93,8 @@ sub handle_connection
 	my $FH = shift;
 	my $peer_ip_addr = shift;
 	my $peer_src_port = shift;
+	my $device_list = shift;
+
 	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
 
 	binmode($FH);
@@ -168,6 +172,18 @@ sub handle_connection
 		$client_allowed++ if $block->match($peer_ip_addr);
 	}
 
+	$$device_list->add({
+		'ip' => $peer_ip_addr,
+		'http_useragent' => $CGI{'USER-AGENT'},
+	});
+	my %ssdp_devices = $$device_list->devices();
+	my $model_name = '';
+	$model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
+	PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
+	PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
+
+	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
+
 	# handling different HTTP requests
 	if ($client_allowed)
 	{
@@ -244,7 +260,7 @@ sub handle_connection
 		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			stream_media($1, $ENV{'METHOD'}, \%CGI, $FH);
+			stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media previews
 		{
@@ -506,6 +522,7 @@ sub stream_media
 	my $method = shift;
 	my $CGI = shift;
 	my $FH = shift;
+	my $model_name = shift;
 
 	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
 	if ($content_id =~ /^(\d+)\./)
@@ -517,7 +534,7 @@ sub stream_media
 		if (defined($item) && $item->is_item() && -f $item->path())
 		{
 			my @additional_header = (
-				'Content-Type: '.$item->mime_type(),
+				'Content-Type: '.$item->mime_type($model_name),
 				'Content-Length: '.$item->size(),
 				'Content-Disposition: attachment; filename="'.$item->name().'"',
 				'Accept-Ranges: bytes',

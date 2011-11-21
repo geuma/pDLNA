@@ -56,8 +56,8 @@ our %CONFIG = (
     'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.42.0',
-	'PROGRAM_DATE' => '2011-12-28',
+	'PROGRAM_VERSION' => '0.43.0',
+	'PROGRAM_DATE' => '2011-12-30',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -85,6 +85,17 @@ sub generate_uuid
 	}
 
 	return "uuid:".$uuid;
+}
+
+sub eval_binary_value
+{
+	my $value = lc(shift);
+
+	if ($value eq 'on' || $value eq 'true' || $value eq 'yes' || $value eq 'enable' || $value eq 'enabled' || $value eq '1')
+	{
+		return 1;
+	}
+	return 0;
 }
 
 sub parse_config
@@ -243,24 +254,24 @@ sub parse_config
 	#
 	# SPECIFIC_VIEWS
 	#
-	$CONFIG{'SPECIFIC_VIEWS'} = int($cfg->get('SpecificViews')) if defined($cfg->get('SpecificViews'));
+	$CONFIG{'SPECIFIC_VIEWS'} = eval_binary_value($cfg->get('SpecificViews')) if defined($cfg->get('SpecificViews'));
 
 	#
 	# CHECK FOR UPDATES
 	#
-	$CONFIG{'CHECK_UPDATES'} = int($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
+	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
 
 	# TODO tmp directory
 
 	#
 	# EnableImageThumbnails
 	#
-	$CONFIG{'IMAGE_THUMBNAILS'} = int($cfg->get('EnableImageThumbnails')) if defined($cfg->get('EnableImageThumbnails'));
+	$CONFIG{'IMAGE_THUMBNAILS'} = eval_binary_value($cfg->get('EnableImageThumbnails')) if defined($cfg->get('EnableImageThumbnails'));
 
 	#
 	# EnableVideoThumbnails
 	#
-	$CONFIG{'VIDEO_THUMBNAILS'} = int($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
+	$CONFIG{'VIDEO_THUMBNAILS'} = eval_binary_value($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
 
 	#
 	# MPlayerBinaryPath
@@ -290,6 +301,7 @@ sub parse_config
 		{
 			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid type.');
 		}
+
 		my $recursion = 'yes';
 		if (defined($block->get('recursion')))
 		{
@@ -303,10 +315,23 @@ sub parse_config
 			}
 		}
 
+		my @exclude_dirs = ();
+		if (defined($block->get('ExcludeDirs')))
+		{
+			@exclude_dirs = split(',', $block->get('ExcludeDirs'));
+		}
+		my @exclude_items = ();
+		if (defined($block->get('ExcludeItems')))
+		{
+			@exclude_items = split(',', $block->get('ExcludeItems'));
+		}
+
 		push(@{$CONFIG{'DIRECTORIES'}}, {
 				'path' => $directory_block->[1],
 				'type' => $block->get('type'),
 				'recursion' => $recursion,
+				'exclude_dirs' => \@exclude_dirs,
+				'exclude_items' => \@exclude_items,
 			}
 		);
 	}

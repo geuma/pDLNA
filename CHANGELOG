@@ -7,6 +7,17 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.43.0
+30-Dec-2011
+
+- added MKV video streaming support
+- modified PDLNA::DeviceList and PDLNA::Device to be shared among different threads
+- added PDLNA::DeviceList to PDLNA::HTTPServer thread to detect device type for Samsung specific Mime-Type of MKV files (video/x-mkv instead of video/x-matrovska)
+- added ExcludeDirs and ExcludeItems to define specific directories or items to be added to the ContentLibrary
+- modified binary configuration by enabling different values in the conifguration file (1, on, true, enable, enabled, yes)
+- another small change to initscript and install.pl to execute initscript directly from git repo
+- added function model_name() to PDLNA::Device.pm, which gets the XML description from a UPnP device and reads in the modelName
+
 Version 0.42.0
 28-Dec-2011
 

@@ -175,6 +175,14 @@ sub type
 sub mime_type
 {
 	my $self = shift;
+	my $device = shift || '';
+
+	# Samsung does not accept normal MIME TYPE 'video/x-matroska',
+	# instead it wants 'video/x-mkv' as MIME TYPE
+	if ($self->{MIME_TYPE} eq 'video/x-matroska' && $device eq 'Samsung DTV DMR')
+	{
+		return 'video/x-mkv';
+	}
 	return $self->{MIME_TYPE};
 }
 

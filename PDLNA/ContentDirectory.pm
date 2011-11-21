@@ -40,6 +40,8 @@ sub new
 	$self->{NAME} = $$params{'name'} || basename($self->{PATH});
 	$self->{TYPE} = $$params{'type'};
 	$self->{RECURSION} = $$params{'recursion'};
+	$self->{EXCLUDE_DIRS} = $$params{'exclude_dirs'},
+	$self->{EXCLUDE_ITEMS} = $$params{'exclude_items'},
 	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{ITEMS} = {};
 	$self->{DIRECTORIES} = {};
@@ -156,6 +158,16 @@ sub add_item
 	my $self = shift;
 	my $params = shift;
 
+	foreach my $elem (@{$$params{'exclude_items'}})
+	{
+		PDLNA::Log::log('Checking: '.$elem.' - '.$$params{'filename'}, 3, 'library');
+		if ($elem eq basename($$params{'filename'}))
+		{
+			PDLNA::Log::log('Excluding '.$elem.' from being processed in the ContentLibrary.', 3, 'library');
+			return;
+		}
+	}
+
 	my $id = $$params{'parent_id'}.$$params{'id'};
 	$self->{ITEMS}->{$id} = PDLNA::ContentItem->new($params);
 	$self->{AMOUNT}++;
@@ -165,6 +177,16 @@ sub add_directory
 {
 	my $self = shift;
 	my $params = shift;
+
+	foreach my $elem (@{$$params{'exclude_dirs'}})
+	{
+		PDLNA::Log::log('Checking: '.$elem.' - '.$$params{'path'}, 3, 'library');
+		if ($elem eq basename($$params{'path'}))
+		{
+			PDLNA::Log::log('Excluding '.$elem.' from being processed in the ContentLibrary.', 3, 'library');
+			return;
+		}
+	}
 
 	my $id = $$params{'parent_id'}.$$params{'id'};
 	$self->{DIRECTORIES}->{$id} = PDLNA::ContentDirectory->new($params);
@@ -209,6 +231,7 @@ sub initialize
 			PDLNA::Log::log('More than 900 elements in '.$self->{PATH}.'. Skipping further elements.', 1, 'library');
 			return;
 		}
+
 		if (-d "$element" && $self->{RECURSION} eq 'yes')
 		{
 			$element =~ s/\[/\\[/g;
@@ -217,6 +240,7 @@ sub initialize
 				'path' => $element,
 				'type' => $self->{TYPE},
 				'recursion' => $self->{RECURSION},
+				'exclude_dirs' => $self->{EXCLUDE_DIRS},
 				'id' => $id,
 				'parent_id' => $self->{ID},
 			});
@@ -241,6 +265,7 @@ sub initialize
 					'date' => $fileinfo[9],
 					'size' => $fileinfo[7],
 					'type' => $media_type,
+					'exclude_items' => $self->{EXCLUDE_ITEMS},
 					'id' => $id,
 					'parent_id' => $self->{ID},
 				});
@@ -257,7 +282,7 @@ sub return_media_type
 
 	my %file_types = (
 		'image' => [ 'jpg', 'jpeg', ],
-		'video' => [ 'avi', ],
+		'video' => [ 'avi', 'mkv', ],
 		'audio' => [ 'mp3', ],
 	);
 
