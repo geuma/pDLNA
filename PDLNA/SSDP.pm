@@ -20,64 +20,212 @@ package PDLNA::SSDP;
 use strict;
 use warnings;
 
-use Date::Format;
+#use threads;
+
 use IO::Socket::INET;
 use IO::Socket::Multicast;
 use Net::Netmask;
 
 use PDLNA::Config;
 use PDLNA::Log;
+use PDLNA::DeviceList;
 
-our $multicast_socket = undef;
-our $multicast_listen_socket = undef;
-our $multicast_group = '239.255.255.250';
-our $ssdp_port = 1900;
-our $ssdp_proto = 'udp';
-our @NTS = (
-	$CONFIG{'UUID'},
-	'upnp:rootdevice',
-	'urn:schemas-upnp-org:device:MediaServer:1',
-	'urn:schemas-upnp-org:service:ContentDirectory:1',
-	'urn:schemas-upnp-org:service:ConnectionManager:1',
-);
-
-sub add_sockets
+sub new
 {
+	my $class = shift;
+
+	my $self = ();
+	$self->{DEVICE_LIST} = shift;
+	$self->{NTS} = [
+		$CONFIG{'UUID'},
+		'upnp:rootdevice',
+		'urn:schemas-upnp-org:device:MediaServer:1',
+		'urn:schemas-upnp-org:service:ContentDirectory:1',
+		'urn:schemas-upnp-org:service:ConnectionManager:1',
+	];
+	$self->{MULTICAST_SEND_SOCKET} = undef;
+	$self->{MULTICAST_LISTEN_SOCKET} = undef;
+
+	$self->{PORT} = 1900;
+	$self->{PROTO} = 'udp';
+	$self->{MULTICAST_GROUP} = '239.255.255.250';
+
+	bless($self, $class);
+	return $self;
+}
+
+sub add_send_socket
+{
+	my $self = shift;
+
 	PDLNA::Log::log('Creating SSDP sending socket.', 1, 'discovery');
-	# socket for sending NOTIFY messages
-	$multicast_socket = IO::Socket::INET->new(
+	$self->{MULTICAST_SEND_SOCKET} = IO::Socket::INET->new(
 		LocalAddr => $CONFIG{'LOCAL_IPADDR'},
-		PeerAddr => $multicast_group,
-		PeerPort => $ssdp_port,
-		Proto => $ssdp_proto,
+		PeerAddr => $self->{MULTICAST_GROUP},
+		PeerPort => $self->{PORT},
+		Proto => $self->{PROTO},
 		Blocking => 0,
 	) || PDLNA::Log::fatal('Cannot bind to SSDP sending socket: '.$!);
+}
 
-	PDLNA::Log::log('Creating SSDP listening socket (bind '.$ssdp_proto.' '.$multicast_group.':'.$ssdp_port.').', 1, 'discovery');
+sub add_receive_socket
+{
+	my $self = shift;
+
+	PDLNA::Log::log('Creating SSDP listening socket (bind '.$self->{PROTO}.' '.$self->{MULTICAST_GROUP}.':'.$self->{PORT}.').', 1, 'discovery');
 	# socket for listening to M-SEARCH messages
-	$multicast_listen_socket = IO::Socket::Multicast->new(
-		Proto => $ssdp_proto,
-		LocalPort => $ssdp_port,
+	$self->{MULTICAST_LISTEN_SOCKET} = IO::Socket::Multicast->new(
+		Proto => $self->{PROTO},
+		LocalPort => $self->{PORT},
 	) || PDLNA::Log::fatal('Cannot bind to Multicast socket: '.$!);
-	$multicast_listen_socket->mcast_if($CONFIG{'LISTEN_INTERFACE'});
-	$multicast_listen_socket->mcast_loopback(0);
-	$multicast_listen_socket->mcast_add(
-		$multicast_group,
+	$self->{MULTICAST_LISTEN_SOCKET}->mcast_if($CONFIG{'LISTEN_INTERFACE'});
+	$self->{MULTICAST_LISTEN_SOCKET}->mcast_loopback(0);
+	$self->{MULTICAST_LISTEN_SOCKET}->mcast_add(
+		$self->{MULTICAST_GROUP},
 		$CONFIG{'LISTEN_INTERFACE'}
 	) || PDLNA::Log::fatal('Cannot bind to SSDP listening socket: '.$!);
 }
 
-sub act_on_ssdp_message
+sub send_byebye
 {
-	my $device_list = shift;
+	my $self = shift;
+	my $amount = shift || 2;
+
+    PDLNA::Log::log('Sending SSDP byebye NOTIFY messages.', 1, 'discovery');
+	for (1..$amount)
+	{
+		foreach my $nt (@{$self->{NTS}})
+		{
+			$self->{MULTICAST_SEND_SOCKET}->send(
+				$self->ssdp_message({
+					'notify' => 1,
+					'nt' => $nt,
+					'nts' => 'byebye',
+					'usn' => generate_usn($nt),
+				})
+			);
+		}
+		sleeper(3);
+	}
+}
+
+sub send_alive
+{
+	my $self = shift;
+	my $amount = shift || 2;
+
+	PDLNA::Log::log('Sending SSDP alive NOTIFY messages.', 1, 'discovery');
+
+	for (1..$amount)
+	{
+		foreach my $nt (@{$self->{NTS}})
+		{
+			$self->{MULTICAST_SEND_SOCKET}->send(
+				$self->ssdp_message({
+					'notify' => 1,
+					'nt' => $nt,
+					'nts' => 'alive',
+					'usn' => generate_usn($nt),
+				})
+			);
+		}
+		sleeper(3);
+	}
+}
+
+sub send_announce
+{
+	my $self = shift;
+
+	my $destination_ip = shift; # client ip address
+	my $destination_port = shift; # client original source port, which gets the destination port for the response so the discover
+	my $stparam = shift; # type of service
+	my $mx = shift; # sleep timer
+
+	# well, some devices seem to send M-SEARCH messages with a really large MX
+	# let us work around that the following way
+	$mx = 10 if $mx > 10;
+
+	my @STS = ();
+	foreach my $nts (@{$self->{NTS}})
+	{
+		push(@STS, $stparam) if $stparam eq $nts;
+	}
+	@STS = @{$self->{NTS}} if $stparam eq "ssdp:all";
+
+	foreach my $st (@STS)
+	{
+		PDLNA::Log::log('Sending SSDP M-SEARCH response messages for '.$st.'.', 1, 'discovery');
+		my $data = $self->ssdp_message({
+			'response' => 1,
+			'nts' => 'alive',
+			'usn' => generate_usn($st),
+			'st' => $st,
+		});
+
+		for (1..2)
+		{
+			sleeper($mx);
+			$self->{MULTICAST_LISTEN_SOCKET}->mcast_if($CONFIG{'LISTEN_INTERFACE'});
+			$self->{MULTICAST_LISTEN_SOCKET}->mcast_loopback(0);
+			$self->{MULTICAST_LISTEN_SOCKET}->mcast_send($data, $destination_ip.":".$destination_port);
+		}
+	}
+}
+
+sub start_sending_periodic_alive_messages_thread
+{
+	my $self = shift;
+
+	PDLNA::Log::log('Starting thread for sending periodic SSDP alive messages.', 1, 'discovery');
+	my $thread = threads->create(
+		sub
+		{
+			$self->send_periodic_alive_messages();
+		}
+	);
+	$thread->detach();
+}
+
+sub send_periodic_alive_messages
+{
+	my $self = shift;
+
+	while(1)
+	{
+		$self->send_alive(2);
+		sleeper($CONFIG{'CACHE_CONTROL'});
+	}
+}
+
+sub start_listening_thread
+{
+	my $self = shift;
 
 	PDLNA::Log::log('Starting SSDP messages receiver thread.', 1, 'discovery');
+	my $thread = threads->create(
+		sub
+		{
+			$self->receive_messages();
+		}
+	);
+	$thread->detach();
+}
+
+sub receive_messages
+{
+	my $self = shift;
+
 	while(1)
 	{
 		my $data = undef;
-		my $peeraddr = $multicast_listen_socket->recv($data,1024);
-		my ($peer_src_port, $peer_addr) = sockaddr_in($peeraddr);
-		my $peer_ip_addr = inet_ntoa($peer_addr);
+
+		my $peeraddr = $self->{MULTICAST_LISTEN_SOCKET}->recv($data,1024);
+
+		return unless defined($peeraddr); # received multicast packets without content??
+
+		my ($peer_src_port, $peer_addr) = sockaddr_in($peeraddr) if defined($peeraddr);
+		my $peer_ip_addr = inet_ntoa($peer_addr) if defined($peer_addr);
 
 		# Check if the peer is one of our allowed clients
 		my $client_allowed = 0;
@@ -100,7 +248,6 @@ sub act_on_ssdp_message
 		{
 			my $time = time();
 			my $uuid = undef;
-			my $ip = $peer_ip_addr;
 			my $desc_location = undef;
 			my $server_banner = undef;
 			my $nts_type = undef;
@@ -143,7 +290,7 @@ sub act_on_ssdp_message
 
 			if ($nts_type eq 'alive')
 			{
-				$$device_list->add({
+				${$self->{DEVICE_LIST}}->add({
 					'ip' => $peer_ip_addr,
 					'uuid' => $uuid,
 					'ssdp_banner' => $server_banner,
@@ -151,14 +298,14 @@ sub act_on_ssdp_message
 					'time_of_expire' => $time,
 					'nt' => $nt_type,
 				});
-				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' to database.', 2, 'discovery');
+				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' to database.', 2, 'discovery');
 			}
 			elsif ($nts_type eq 'byebye')
 			{
-				$$device_list->del($ip, $nt_type);
-				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$ip.') for '.$nt_type.' from database.', 2, 'discovery');
+				${$self->{DEVICE_LIST}}->del($peer_ip_addr, $nt_type);
+				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' from database.', 2, 'discovery');
 			}
-			PDLNA::Log::log($$device_list->print_object(), 3, 'discovery');
+			PDLNA::Log::log(${$self->{DEVICE_LIST}}->print_object(), 3, 'discovery');
 		}
 		elsif ($data =~ /M-SEARCH/i) # we are matching case insensitive, because some clients don't write it capitalized
 		{
@@ -191,7 +338,8 @@ sub act_on_ssdp_message
 			if (defined($man) && $man eq '"ssdp:discover"')
 			{
 				PDLNA::Log::log('Received a SSDP M-SEARCH message by '.$peer_ip_addr.':'.$peer_src_port.' for a '.$st.' with an mx of '.$mx.'.', 1, 'discovery');
-				send_announce($peer_ip_addr, $peer_src_port, $st, $mx);
+				# TODO start function in a thread - currently this is a blocking implementation
+				$self->send_announce($peer_ip_addr, $peer_src_port, $st, $mx);
 			}
 		}
 	}
@@ -199,6 +347,7 @@ sub act_on_ssdp_message
 
 sub ssdp_message
 {
+	my $self = shift;
 	my $params = shift;
 
 	my $msg = '';
@@ -214,7 +363,7 @@ sub ssdp_message
 	}
 	if ($$params{'notify'})
 	{
-		$msg .= "HOST: ".$multicast_group.":".$ssdp_port."\r\n";
+		$msg .= "HOST: ".$self->{MULTICAST_GROUP}.":".$self->{PORT}."\r\n";
 		$msg .= "NT: $$params{'nt'}\r\n";
 		$msg .= "NTS: ssdp:$$params{'nts'}\r\n";
 	}
@@ -234,38 +383,6 @@ sub ssdp_message
 	return $msg;
 }
 
-sub byebye
-{
-	PDLNA::Log::log('Sending SSDP byebye NOTIFY messages.', 1, 'discovery');
-	for (1..2)
-	{
-		foreach my $nt (@NTS)
-		{
-			my $usn = $CONFIG{'UUID'};
-			$usn .= '::'.$nt if $nt ne $usn;
-			$multicast_socket->send(
-				ssdp_message({
-					'notify' => 1,
-					'nt' => $nt,
-					'nts' => 'byebye',
-					'usn' => $usn,
-				})
-			);
-		}
-		sleeper(3);
-	}
-}
-
-sub send_alive_periodic
-{
-	PDLNA::Log::log('Starting thread for sending periodic SSDP alive messages.', 1, 'discovery');
-	while(1)
-	{
-		alive();
-		sleeper($CONFIG{'CACHE_CONTROL'});
-	}
-}
-
 sub generate_usn
 {
 	my $nt = shift;
@@ -274,68 +391,6 @@ sub generate_usn
 	$usn .= '::'.$nt if $nt ne $CONFIG{'UUID'};
 
 	return $usn;
-}
-
-sub alive
-{
-	PDLNA::Log::log('Sending SSDP alive NOTIFY messages.', 1, 'discovery');
-
-	for (1..2)
-	{
-		foreach my $nt (@NTS)
-		{
-			$multicast_socket->send(
-				ssdp_message({
-					'notify' => 1,
-					'nt' => $nt,
-					'nts' => 'alive',
-					'usn' => generate_usn($nt),
-				})
-			);
-		}
-		sleeper(3);
-	}
-}
-
-sub send_announce
-{
-	my $destination_ip = shift; # client ip address
-	my $destination_port = shift; # client original source port, which gets the destination port for the response so the discover
-	my $stparam = shift; # type of service
-	my $mx = shift; # sleep timer
-
-	my @STS = ();
-	foreach my $nts (@NTS)
-	{
-		push(@STS, $stparam) if $stparam eq $nts;
-	}
-	@STS = @NTS if $stparam eq "ssdp:all";
-
-	foreach my $st (@STS)
-	{
-		PDLNA::Log::log('Sending SSDP M-SEARCH response messages for '.$st.'.', 1, 'discovery');
-		my $data = ssdp_message({
-			'response' => 1,
-			'nts' => 'alive',
-			'usn' => generate_usn($st),
-			'st' => $st,
-		});
-
-		my $tmp = new IO::Socket::INET(
-			'PeerAddr' => $destination_ip,
-			'PeerPort' => $destination_port,
-			'Proto' => $ssdp_proto,
-			'LocalAddr' => $CONFIG{'LOCAL_IPADDR'},
-		);
-
-		for (1..2)
-		{
-			sleeper($mx);
-			$multicast_listen_socket->mcast_if($CONFIG{'LISTEN_INTERFACE'});
-			$multicast_listen_socket->mcast_loopback(0);
-			$multicast_listen_socket->mcast_send($data, $destination_ip.":".$destination_port);
-		}
-	}
 }
 
 sub sleeper

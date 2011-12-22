@@ -7,6 +7,19 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.41.0
+22-Dec-2011
+
+- added EnableImageThumbnails and EnableVideoThumbnails configuration parameters to define whether thumbnails of videos or images should be created and delivered
+- added MPlayerBinaryPath configuration parameter to define the location of the MPlayer binary
+- added detaching of HTTPServer and Check4Update threads
+- changed SSDP function to SSDP Perl Objects, where SSDP threads get created inside of SSDP object
+- changed PDLNA::Daemon.pm, seems SSDP Object messed up Perl Signal Handling
+- added information of video files (length, width, height and bitrate) to ContentDirectory Object via Movie::Info and adapted install.pl for requirements
+- fixed transparency of PDLNA logo in PDLNA::HTTPServer
+- played with HTML and CSS for PDLNA::Library
+- enabled <dc:date> in ContentItem description XML for video files
+
 Version 0.40.0
 17-Nov-2011
 

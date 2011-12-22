@@ -256,7 +256,7 @@ sub handle_connection
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/) # this is just to be something different (not DLNA stuff)
 		{
-			print $FH PDLNA::Library::show_library(\$content);
+			print $FH PDLNA::Library::show_library($content, $1);
 		}
 		else
 		{
@@ -828,6 +828,11 @@ sub logo
 		GD::Image->trueColor(1);
 		my $image = GD::Image->new('PDLNA/pDLNA.png');
 		my $preview = GD::Image->new($size, $size);
+
+		# all black areas of the image should be transparent
+		my $black = $preview->colorAllocate(0,0,0);
+		$preview->transparent($black);
+
 		$preview->copyResampled($image, 0, 0, 0, 0, $size, $size, $image->width, $image->height);
 
 		my @additional_header = ();

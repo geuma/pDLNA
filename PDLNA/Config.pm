@@ -49,12 +49,14 @@ our %CONFIG = (
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
 	'TMP_DIR' => '/tmp',
+	'IMAGE_THUMBNAILS' => 1,
+	'VIDEO_THUMBNAILS' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.40.0',
-	'PROGRAM_DATE' => '2011-11-17',
+	'PROGRAM_VERSION' => '0.41.0',
+	'PROGRAM_DATE' => '2011-12-22',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -248,7 +250,30 @@ sub parse_config
 	$CONFIG{'CHECK_UPDATES'} = int($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
 
 	# TODO tmp directory
-	# TODO mplayer bin
+
+	#
+	# EnableImageThumbnails
+	#
+	$CONFIG{'IMAGE_THUMBNAILS'} = int($cfg->get('EnableImageThumbnails')) if defined($cfg->get('EnableImageThumbnails'));
+
+	#
+	# EnableVideoThumbnails
+	#
+	$CONFIG{'VIDEO_THUMBNAILS'} = int($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
+
+	#
+	# MPlayerBinaryPath
+	#
+	if ($CONFIG{'VIDEO_THUMBNAILS'})
+	{
+		$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
+
+		# TODO check for x bit or even if it is mplayer
+		unless (-f $CONFIG{'MPLAYER_BIN'})
+		{
+			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
+		}
+	}
 
 	#
 	# MEDIA DIRECTORY PARSING

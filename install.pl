@@ -62,6 +62,7 @@ use_ok ('LWP::UserAgent');
 use_ok ('MP3::Info');
 use_ok ('Net::IP');
 use_ok ('Net::Netmask');
+use_ok ('Movie::Info');
 use_ok ('POSIX');
 use_ok ('Socket');
 use_ok ('Sys::Hostname');

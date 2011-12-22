@@ -100,10 +100,7 @@ sub get_browseresponse_item
 		push(@xml, '&lt;upnp:originalTrackNumber&gt;'.$item->tracknum().'&lt;/upnp:originalTrackNumber&gt;');
 	}
 
-	if ($item->type() eq 'audio' || $item->type() eq 'image')
-	{
-		push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;');
-	}
+	push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;');
 
 	our %DLNA_CONTENTFEATURES = (
 		'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
@@ -131,7 +128,7 @@ sub get_browseresponse_item
 	push(@xml, '&lt;/res&gt;');
 
 	# File preview information
-	if ($item->type() eq 'image' || $item->type() eq 'video')
+	if (($item->type() eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item->type() eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'}))
 	{
 		push(@xml, '&lt;res protocolInfo=');
 		push(@xml, '&quot;http-get:*:image/jpeg:'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot; ');

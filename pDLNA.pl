@@ -29,9 +29,6 @@ use PDLNA::Log;
 use PDLNA::SSDP;
 use PDLNA::Status;
 
-our @THREADS = ();
-my $device_list = PDLNA::DeviceList->new();
-
 #
 # STARTUP PARAMETERS
 #
@@ -48,35 +45,33 @@ unless (PDLNA::Config::parse_config($opt->config, \@config_file_error))
 {
 	PDLNA::Log::fatal(join("\n", @config_file_error))
 }
-PDLNA::HTTPServer::initialize_content();
-
-PDLNA::Daemon::daemonize(\%SIG);
-PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
 
 PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
+
+my $device_list = PDLNA::DeviceList->new(); # initialize DeviceList object
+my $ssdp = PDLNA::SSDP->new(\$device_list); # initialize SSDP object
+
+# forking
+PDLNA::Daemon::daemonize(\%SIG, \$ssdp);
+PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
+
+# starting up
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
+PDLNA::HTTPServer::initialize_content();
+my $thread1 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
+$thread1->detach();
 
-push(@THREADS, threads->create('PDLNA::HTTPServer::start_webserver')); # starting the HTTP server in a thread
-
-PDLNA::SSDP::add_sockets(); # add sockets for SSDP
-
-# send some byebye messages
-PDLNA::SSDP::byebye();
-PDLNA::SSDP::byebye();
-sleep(1);
-push(@THREADS, threads->create('PDLNA::SSDP::act_on_ssdp_message', \$device_list)); # start to listen for SEARCH messages in a thread
-sleep(1);
-
-# and now we are joing the group
-PDLNA::SSDP::alive();
-PDLNA::SSDP::alive();
-PDLNA::SSDP::alive();
-
-push(@THREADS, threads->create('PDLNA::SSDP::send_alive_periodic')); # start to send out periodic alive messages in a thread
+$ssdp->add_send_socket(); # add the socket for sending SSDP messages
+$ssdp->add_receive_socket(); # add the socket for receiving SSDP messages
+$ssdp->send_byebye(2); # send some byebye messages
+$ssdp->start_listening_thread(); # start to listen for SEARCH messages in a thread
+$ssdp->send_alive(6); # and now we are joing the group
+$ssdp->start_sending_periodic_alive_messages_thread(); # start to send out periodic alive messages in a thread
 
 if ($CONFIG{'CHECK_UPDATES'})
 {
-	push(@THREADS, threads->create('PDLNA::Status::check_update_periodic'));
+	my $thread2 = threads->create('PDLNA::Status::check_update_periodic');
+	$thread2->detach();
 }
 
 while(1)

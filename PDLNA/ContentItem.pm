@@ -24,6 +24,7 @@ use File::Basename;
 use Date::Format;
 use Image::Info qw(image_info dim image_type);
 use MP3::Info;
+use Movie::Info;
 use File::MimeInfo;
 use Data::Dumper;
 
@@ -49,7 +50,8 @@ sub new
 	$self->{WIDTH} = '';
 	$self->{HEIGHT} = '';
 	$self->{COLOR} = '';
-	$self->{DURATION} = '';
+	$self->{DURATION} = ''; # beautiful duration, like i.e. 02:31
+	$self->{DURATION_SECONDS} = 0; # duration in seconds
 	$self->{BITRATE} = '',
 	$self->{VBR} = 0,
 
@@ -85,6 +87,13 @@ sub new
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
+		my $movie_info = Movie::Info->new();
+		my %info = $movie_info->info($self->{PATH});
+
+		$self->{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/;; # ignore milliseconds
+		$self->{BITRATE} = $info{'bitrate'} || 0;
+		$self->{WIDTH} = $info{'width'} || 0;
+		$self->{HEIGHT} = $info{'height'} || 0;
 	}
 
 	bless($self, $class);
@@ -170,10 +179,24 @@ sub resolution
 	return $self->{WIDTH}.'x'.$self->{HEIGHT};
 }
 
+# TODO make it more beautiful
 sub duration
 {
 	my $self = shift;
-	return $self->{DURATION};
+	return $self->{DURATION} if $self->{DURATION};
+
+	my $seconds = $self->{DURATION_SECONDS};
+	my $minutes = int($seconds / 60) if $seconds > 59;
+	$seconds -= $minutes * 60;
+	my $hours = int($minutes / 60) if $minutes > 59;
+	$minutes -= $hours * 60;
+
+	my $string = '';
+	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':' if $hours;
+	$string .= PDLNA::Utils::add_leading_char($minutes,2,'0').':';
+	$string .= PDLNA::Utils::add_leading_char($seconds,2,'0');
+
+	return $string;
 }
 
 # TODO make it more beautiful
@@ -250,7 +273,10 @@ sub print_object
 	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
 	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
-	$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n" if $self->{TYPE} eq 'image';
+	if ($self->{TYPE} eq 'image')
+	{
+		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
+	}
 	if ($self->{TYPE} eq 'audio')
 	{
 		$string .= $input."\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
@@ -261,6 +287,12 @@ sub print_object
 		$string .= $input."\tTitle:         ".$self->{TITLE}."\n";
 		$string .= $input."\tGenre:         ".$self->{GENRE}."\n";
 		$string .= $input."\tYear:          ".$self->{YEAR}."\n";
+	}
+	elsif ($self->{TYPE} eq 'video')
+	{
+		$string .= $input."\tDuration:      ".$self->duration()." (".$self->{DURATION_SECONDS}." seconds)\n";
+		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
+		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
 	}
 	$string .= $input."Object PDLNA::ContentItem END\n";
 
