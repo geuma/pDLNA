@@ -53,6 +53,7 @@ our %CONFIG = (
 	'VIDEO_THUMBNAILS' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
+    'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.41.0',
@@ -98,7 +99,7 @@ sub parse_config
 	}
 
 	my $cfg = Config::ApacheFormat->new(
-		valid_blocks => [qw(Directory)],
+		valid_blocks => [qw(Directory External)],
 	);
 	unless ($cfg->read($file))
 	{
@@ -309,6 +310,30 @@ sub parse_config
 			}
 		);
 	}
+
+    #
+    # EXTERNAL SOURCES PARSING
+    #
+    foreach my $external_block ($cfg->get('External'))
+    {
+        my $block = $cfg->block(External => $external_block->[1]);
+        if (!-x $external_block->[1])
+        {
+            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' is not executable.');
+        }
+        if ($block->get('type') !~ /^(audio|video|image|all)$/)
+        {
+            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' does not have a valid type.');
+        }
+        my $recursion = 'no';
+
+        push(@{$CONFIG{'EXTERNALS'}}, {
+                'path' => $external_block->[1],
+                'type' => $block->get('type'),
+                'recursion' => $recursion,
+            }
+        );
+    }
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;
