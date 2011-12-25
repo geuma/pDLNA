@@ -30,6 +30,8 @@ use Socket;
 use threads;
 use threads::shared;
 use XML::Simple;
+require bytes;
+no bytes;
 
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
@@ -568,26 +570,32 @@ sub stream_media
 							my ($lowrange, $highrange) = 0;
 							$lowrange = int($1);
 							$highrange = $2 ? int($2) : 0;
-							$highrange = $lowrange + $CONFIG{'BUFFER_SIZE'} if $highrange == 0;
-							$highrange = $item->size() if ($highrange > $item->size());
+							$highrange = $item->size()-1 if $highrange == 0;
+							$highrange = $item->size()-1 if ($highrange >= $item->size());
 
-							my $bytes_to_ship = $highrange - $lowrange;
+							my $bytes_to_ship = $highrange - $lowrange + 1;
 
-							open(FILE, $item->path());
+                            $additional_header[1] = 'Content-Length: '.$bytes_to_ship; # we need to change the Content-Length
+                            push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
+                            print $FH http_header({
+                                'statuscode' => 206,
+                                'additional_header' => \@additional_header,
+                                'log' => 'httpstream',
+                            });
+                            
+                            if(ref $item eq 'PDLNA::ContentExternal') {
+                                open(FILE, '-|', $item->path());
+                                binmode(FILE);
+                            } else {
+                                sysopen(FILE, $item->path(), O_RDONLY);
+                                sysseek(FILE, $lowrange, 0);
+                            }
 							my $buf = undef;
-							sysseek(FILE, $lowrange, 1);
-							sysread(FILE, $buf, $bytes_to_ship);
+                            while(sysread(FILE, $buf, 32768)) {
+                                PDLNA::Log::log('Length of our buffer: '.bytes::length($buf).'.', 3, 'httpstream');
+                                print $FH $buf or return 1;
+                            }
 							close(FILE);
-							PDLNA::Log::log('Length of our buffer: '.length($buf).'.', 3, 'httpstream');
-
-							$additional_header[1] = 'Content-Length: '.length($buf); # we need to change the Content-Length
-							push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
-							print $FH http_header({
-								'statuscode' => 206,
-								'additional_header' => \@additional_header,
-								'log' => 'httpstream',
-							});
-							print $FH $buf;
 							return 1;
 						}
 						else
@@ -598,19 +606,20 @@ sub stream_media
 								'additional_header' => \@additional_header,
 								'log' => 'httpstream',
 							});
-
-							my $lowrange = 0;
-							while ($lowrange < $item->size())
+    
+                            if(ref $item eq 'PDLNA::ContentExternal') {
+                                open(FILE, '-|', $item->path());
+                                binmode(FILE);
+                            } else {
+                                sysopen(FILE, $item->path(), O_RDONLY);
+                            }
+                            my $buf = undef;
+							while (sysread(FILE, $buf, 32768))
 							{
-								open(FILE, $item->path());
-								my $buf = undef;
-								sysseek(FILE, $lowrange, 1);
-								sysread(FILE, $buf, $CONFIG{'BUFFER_SIZE'});
-								close(FILE);
-								PDLNA::Log::log('Adding '.length($buf).' bytes to Streaming connection.', 3, 'httpstream');
-								print $FH $buf;
-								$lowrange += $CONFIG{'BUFFER_SIZE'};
+								PDLNA::Log::log('Adding '.bytes::length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+								print $FH $buf or return 1;
 							}
+                            close(FILE);
 							return 1;
 						}
 					}

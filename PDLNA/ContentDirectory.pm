@@ -25,6 +25,7 @@ use File::Basename;
 use File::Glob qw(bsd_glob);
 
 use PDLNA::ContentItem;
+use PDLNA::ContentExternal;
 use PDLNA::Log;
 use PDLNA::Utils;
 
@@ -168,6 +169,16 @@ sub add_directory
 	my $id = $$params{'parent_id'}.$$params{'id'};
 	$self->{DIRECTORIES}->{$id} = PDLNA::ContentDirectory->new($params);
 	$self->{AMOUNT}++;
+}
+
+sub add_external
+{
+    my $self = shift;
+    my $params = shift;
+
+    my $id = $$params{'parent_id'}.$$params{'id'};
+    $self->{ITEMS}->{$id} = PDLNA::ContentExternal->new($params);
+    $self->{AMOUNT}++;
 }
 
 sub set_ids_for_items

@@ -1,4 +1,4 @@
-package PDLNA::ContentItem;
+package PDLNA::ContentExternal;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
@@ -17,15 +17,13 @@ package PDLNA::ContentItem;
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Only video streams supported!
+
 use strict;
 use warnings;
 
 use File::Basename;
 use Date::Format;
-use Image::Info qw(image_info dim image_type);
-use MP3::Info;
-use Movie::Info;
-use File::MimeInfo;
 use Data::Dumper;
 
 use PDLNA::Utils;
@@ -37,15 +35,15 @@ sub new
 
 	my $self = ();
 	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
-	$self->{PATH} = $$params{'filename'};
-	$self->{NAME} = basename($$params{'filename'});
-	$self->{FILE_EXTENSION} = uc($1) if ($$params{'filename'} =~ /\.(\w{3,4})$/);
+	$self->{PATH} = $$params{'path'};
+	$self->{NAME} = basename($$params{'path'});
+	$self->{FILE_EXTENSION} = 'AVI';
 	$self->{PARENT_ID} = $$params{'parent_id'};
-	$self->{DATE} = $$params{'date'};
-	$self->{SIZE} = $$params{'size'};
+	$self->{DATE} = time();
+	$self->{SIZE} = 1024 * 1024 * 1024;
 	$self->{TYPE} = $$params{'type'};
 
-	$self->{MIME_TYPE} = mimetype($self->{PATH});
+	$self->{MIME_TYPE} = 'video/x-msvideo';
 
 	$self->{WIDTH} = '';
 	$self->{HEIGHT} = '';
@@ -54,47 +52,6 @@ sub new
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
 	$self->{BITRATE} = '',
 	$self->{VBR} = 0,
-
-	$self->{ARTIST} = 'n/A';
-	$self->{ALBUM} = 'n/A';
-	$self->{TRACKNUM} = 'n/A';
-	$self->{TITLE} = 'n/A';
-	$self->{GENRE} = 'n/A';
-	$self->{YEAR} = 'n/A'; # a number is needed, but what if we have no year ...
-
-	if ($self->{TYPE} eq 'image')
-	{
-		my $info = image_info($self->{PATH});
-		($self->{WIDTH}, $self->{HEIGHT}) = dim($info);
-	}
-	elsif ($self->{TYPE} eq 'audio')
-	{
-		my $info = get_mp3info($self->{PATH});
-		$self->{DURATION} = $info->{'TIME'} || 0;
-		$self->{BITRATE} = $info->{'BITRATE'};
-		$self->{VBR} = $info->{'VBR'};
-
-		my $tag = get_mp3tag($self->{PATH});
-		if (keys %{$tag})
-		{
-			$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($self->{TYPE} eq 'video')
-	{
-		my $movie_info = Movie::Info->new();
-		my %info = $movie_info->info($self->{PATH});
-
-		$self->{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/;; # ignore milliseconds
-		$self->{BITRATE} = $info{'bitrate'} || 0;
-		$self->{WIDTH} = $info{'width'} || 0;
-		$self->{HEIGHT} = $info{'height'} || 0;
-	}
 
 	bless($self, $class);
 	return $self;
@@ -184,7 +141,7 @@ sub duration
 {
 	my $self = shift;
 	return $self->{DURATION} if $self->{DURATION};
-    
+
 	my $seconds = $self->{DURATION_SECONDS};
 	my $minutes = int($seconds / 60) if $seconds > 59;
 	$seconds -= $minutes * 60;
@@ -262,38 +219,15 @@ sub print_object
 	my $input = shift;
 
     my $string = '';
-	$string .= $input."Object PDLNA::ContentItem\n";
+	$string .= $input."Object PDLNA::ContentExternal\n";
 	$string .= $input."\tID:            ".$self->{ID}."\n";
 	$string .= $input."\tParentID:      ".$self->{PARENT_ID}."\n";
 	$string .= $input."\tFilename:      ".$self->{NAME}."\n";
 	$string .= $input."\tPath:          ".$self->{PATH}."\n";
 	$string .= $input."\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
 	$string .= $input."\tType:          ".$self->{TYPE}."\n";
-	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
-	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
 	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
-	if ($self->{TYPE} eq 'image')
-	{
-		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
-	}
-	if ($self->{TYPE} eq 'audio')
-	{
-		$string .= $input."\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
-		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
-		$string .= $input."\tArtist:        ".$self->{ARTIST}."\n";
-		$string .= $input."\tAlbum:         ".$self->{ALBUM}."\n";
-		$string .= $input."\tTrackNumber:   ".$self->{TRACKNUM}."\n";
-		$string .= $input."\tTitle:         ".$self->{TITLE}."\n";
-		$string .= $input."\tGenre:         ".$self->{GENRE}."\n";
-		$string .= $input."\tYear:          ".$self->{YEAR}."\n";
-	}
-	elsif ($self->{TYPE} eq 'video')
-	{
-		$string .= $input."\tDuration:      ".$self->duration()." (".$self->{DURATION_SECONDS}." seconds)\n";
-		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
-		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
-	}
 	$string .= $input."Object PDLNA::ContentItem END\n";
 
 	return $string;
