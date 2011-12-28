@@ -1,5 +1,11 @@
 #!/usr/bin/env perl
 
+# re-mux -- otherwise Pana TV DLNA complains about unsupported file when starting
+# in the middle of a stream
+# (not perfect... maybe it is better to manually skip to the next GOP/I-frame)
+# Additionally, re-starts ffmpeg wihtout restarting http transfer if initial
+#   input format detection by ffmpeg fails...
+
 BEGIN {
     # disable EPOLL backend
     $ENV{LIBEV_FLAGS} = 3;
@@ -20,10 +26,6 @@ $EV::DIED = sub {
     EV::unloop;
     die @_;
 };
-
-# re-mux -- otherwise Pana TV DLNA complains about unsupported file when starting
-# in the middle of a stream
-# (not perfect... maybe it is better to manually skip to the next GOP/I-frame)
 
 sub async_fh {
     my($fh)=@_;
