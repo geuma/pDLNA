@@ -40,7 +40,7 @@ sub new
 	$self->{FILE_EXTENSION} = 'AVI';
 	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{DATE} = time();
-	$self->{SIZE} = 1024 * 1024 * 1024;
+	$self->{SIZE} = 0;
 	$self->{TYPE} = $$params{'type'};
 
 	$self->{MIME_TYPE} = 'video/x-msvideo';
@@ -50,7 +50,7 @@ sub new
 	$self->{COLOR} = '';
 	$self->{DURATION} = ''; # beautiful duration, like i.e. 02:31
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
-	$self->{BITRATE} = '',
+	$self->{BITRATE} = 0,
 	$self->{VBR} = 0,
 
 	bless($self, $class);
