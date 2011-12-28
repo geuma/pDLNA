@@ -34,33 +34,42 @@ sub daemonize
 	my $ssdp = shift; # ugly, but works for now
 
 	#
-	# SIGNAL HANDLING GOT MESSED UP
-	# BUT BY WHAT
+	# SIGNAL HANDLING GOT MESSED UP (currently not able to call ref of a function)
 	#
-	$$SIG{'INT'} = sub
+	$SIG{'INT'} = sub
 	{
 		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
 	};
-#	$$SIG{'HUP'}  = \&exit_daemon();
-#	$$SIG{'ABRT'} = \&exit_daemon();
-#	$$SIG{'QUIT'} = \&exit_daemon();
-#	$$SIG{'TRAP'} = \&exit_daemon();
-#	$$SIG{'STOP'} = \&exit_daemon();
-	$$SIG{'TERM'} = sub
+#	$SIG{'INT'}  = \&exit_daemon();
+#	$SIG{'HUP'}  = \&exit_daemon();
+#	$SIG{'ABRT'} = \&exit_daemon();
+#	$SIG{'QUIT'} = \&exit_daemon();
+#	$SIG{'TRAP'} = \&exit_daemon();
+#	$SIG{'STOP'} = \&exit_daemon();
+#	$SIG{'TERM'} = \&exit_daemon();
+	$SIG{'TERM'} = sub
 	{
 		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
 	};
-	$$SIG{'PIPE'} = 'IGNORE'; # SIGPIPE Problem: http://www.nntp.perl.org/group/perl.perl5.porters/2004/04/msg91204.html
+	$SIG{'PIPE'} = 'IGNORE'; # SIGPIPE Problem: http://www.nntp.perl.org/group/perl.perl5.porters/2004/04/msg91204.html
 
 	my $pid = fork;
 	exit if $pid;
 	die "Couldn't fork: $!" unless defined($pid);
+}
+
+sub exit_daemon
+{
+	PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
+#	$$ssdp->send_byebye(4);
+	remove_pidfile($CONFIG{'PIDFILE'});
+	exit(1);
 }
 
 sub write_pidfile

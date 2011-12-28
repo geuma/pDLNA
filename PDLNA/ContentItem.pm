@@ -47,12 +47,12 @@ sub new
 
 	$self->{MIME_TYPE} = mimetype($self->{PATH});
 
-	$self->{WIDTH} = '';
-	$self->{HEIGHT} = '';
+	$self->{WIDTH} = 0;
+	$self->{HEIGHT} = 0;
 	$self->{COLOR} = '';
 	$self->{DURATION} = ''; # beautiful duration, like i.e. 02:31
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
-	$self->{BITRATE} = '',
+	$self->{BITRATE} = 0,
 	$self->{VBR} = 0,
 
 	$self->{ARTIST} = 'n/A';
@@ -88,9 +88,14 @@ sub new
 	elsif ($self->{TYPE} eq 'video')
 	{
 		my $movie_info = Movie::Info->new();
+		unless (defined($movie_info))
+		{
+			PDLNA::Log::fatal('Unable to find MPlayer.');
+		}
+
 		my %info = $movie_info->info($self->{PATH});
 
-		$self->{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/;; # ignore milliseconds
+		$self->{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/; # ignore milliseconds
 		$self->{BITRATE} = $info{'bitrate'} || 0;
 		$self->{WIDTH} = $info{'width'} || 0;
 		$self->{HEIGHT} = $info{'height'} || 0;
@@ -184,15 +189,15 @@ sub duration
 {
 	my $self = shift;
 	return $self->{DURATION} if $self->{DURATION};
-    
+
 	my $seconds = $self->{DURATION_SECONDS};
 	my $minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60;
+	$seconds -= $minutes * 60 if $seconds;
 	my $hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60;
+	$minutes -= $hours * 60 if $hours;
 
 	my $string = '';
-	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':' if $hours;
+	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':';
 	$string .= PDLNA::Utils::add_leading_char($minutes,2,'0').':';
 	$string .= PDLNA::Utils::add_leading_char($seconds,2,'0');
 

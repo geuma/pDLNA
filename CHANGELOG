@@ -7,6 +7,20 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.42.0
+28-Dec-2011
+
+- added support for external streaming sources (e.g. VDR-Streamer - see https://github.com/jjYBdx4IL/VDR-Streamer) (thanks to jjYBdx4IL)
+- added full streaming functionality (tested with Samsung LED TV (UE40B8090)) (thanks to jjYBdx4IL again)
+- reformated jjYBdx4IL code to match coding style and readded configuration support via BufferSize
+- added error handling for missing MPlayer and fixed a bug regarding duration of videos
+- adapted install.pl for external streaming scripts
+- added VERSION file
+- added TODO list to GIT repo
+- solved issue #1 (https://github.com/geuma/pDLNA/issues/1) -aka- signal handling
+- changed default BufferSize value to 32768 bytes since this value seems to work (thanks to jjYBdx4IL again)
+- fixed a path related problem in the initscript
+
 Version 0.41.0
 22-Dec-2011
 

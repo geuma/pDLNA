@@ -85,13 +85,21 @@ print "------------------------------------------------------\n";
 
 use File::Copy::Recursive qw(rcopy);
 
+$PREFIX .= 'pDLNA/';
+unless (-d $PREFIX)
+{
+	mkdir($PREFIX, 0755);
+}
+
 my %installation_files = (
 	'rc.pDLNA' => ['f', '/etc/init.d/', 0755],
 	'pDLNA.pl' => ['f', $PREFIX, 0755],
 	'pdlna.conf' => ['f', '/etc/', 0644],
 	'PDLNA' => ['d', $PREFIX, 0755],
-	'README' => ['f', $PREFIX.'PDLNA/', 0644],
-	'LICENSE' => ['f', $PREFIX.'PDLNA/', 0644],
+	'external_programs' => ['d', $PREFIX, 0755],
+	'README' => ['f', $PREFIX, 0644],
+	'LICENSE' => ['f', $PREFIX, 0644],
+	'VERSION' => ['f', $PREFIX, 0644],
 );
 
 foreach my $key (keys %installation_files)
@@ -133,7 +141,7 @@ print "Step 4:\n";
 print "Setting of relevant paths ...\n";
 print "------------------------------------------------------\n";
 
-my $regex = '+BIN="./pDLNA.pl"+BIN="'.$PREFIX.'pDLNA.pl"';
+my $regex = '+DIR="/opt/pDLNA/"+DIR="'.$PREFIX.'"';
 if (system("sed -i -e s'$regex'+ /etc/init.d/rc.pDLNA") == 0)
 {
 	pass("Changed path for binary in '/etc/init.d/rc.pDLNA'.");

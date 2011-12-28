@@ -17,7 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-BIN="./pDLNA.pl"
+DIR="/opt/pDLNA/"
+BIN="pDLNA.pl"
 PRG="pDLNA"
 
 CFGFILE="/etc/pdlna.conf"
@@ -36,18 +37,18 @@ start() {
 		PRG_PID=`cat $PIDFILE`
 		if [ "x$PRG_PID" = "x" ]; then
 			echo "Starting $PRG ..."
-			$BIN -f $CFGFILE
+			cd $DIR && ./$BIN -f $CFGFILE
 		else
 			if [ -d "/proc/$PRG_PID" ]; then
 				echo "$PRG is already running with PID $PRG_PID";
 			else
 				echo "Starting $PRG ..."
-				$BIN -f $CFGFILE
+				cd $DIR && ./$BIN -f $CFGFILE
 			fi
 		fi
 	else
 		echo "Starting $PRG ..."
-		$BIN -f $CFGFILE
+		cd $DIR && ./$BIN -f $CFGFILE
 	fi
 }
 
