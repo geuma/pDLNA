@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,6 +41,9 @@ print "Step 1:\n";
 print "Testing for necessary Perl Modules ...\n";
 print "------------------------------------------------------\n";
 
+use_ok ('Audio::FLAC::Header');
+use_ok ('Audio::Wav');
+use_ok ('Audio::WMA');
 use_ok ('Config');
 use_ok ('Config::ApacheFormat');
 use_ok ('Data::Dumper');
@@ -60,9 +63,11 @@ use_ok ('IO::Socket::INET');
 use_ok ('IO::Socket::Multicast');
 use_ok ('LWP::UserAgent');
 use_ok ('MP3::Info');
+use_ok ('MP4::Info');
 use_ok ('Net::IP');
 use_ok ('Net::Netmask');
 use_ok ('Movie::Info');
+use_ok ('Ogg::Vorbis::Header');
 use_ok ('POSIX');
 use_ok ('Socket');
 use_ok ('Sys::Hostname');

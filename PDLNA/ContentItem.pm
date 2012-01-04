@@ -1,7 +1,7 @@
 package PDLNA::ContentItem;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,13 +20,16 @@ package PDLNA::ContentItem;
 use strict;
 use warnings;
 
-use File::Basename;
+use Audio::FLAC::Header;
+use Audio::Wav;
+use Audio::WMA;
 use Date::Format;
+use File::Basename;
 use Image::Info qw(image_info dim image_type);
-use MP3::Info;
 use Movie::Info;
-use File::MimeInfo;
-use Data::Dumper;
+use MP3::Info;
+use MP4::Info;
+use Ogg::Vorbis::Header;
 
 use PDLNA::Utils;
 
@@ -44,8 +47,7 @@ sub new
 	$self->{DATE} = $$params{'date'};
 	$self->{SIZE} = $$params{'size'};
 	$self->{TYPE} = $$params{'type'};
-
-	$self->{MIME_TYPE} = mimetype($self->{PATH});
+	$self->{MIME_TYPE} = $$params{'mimetype'};
 
 	$self->{WIDTH} = 0;
 	$self->{HEIGHT} = 0;
@@ -69,20 +71,106 @@ sub new
 	}
 	elsif ($self->{TYPE} eq 'audio')
 	{
-		my $info = get_mp3info($self->{PATH});
-		$self->{DURATION} = $info->{'TIME'} || 0;
-		$self->{BITRATE} = $info->{'BITRATE'};
-		$self->{VBR} = $info->{'VBR'};
-
-		my $tag = get_mp3tag($self->{PATH});
-		if (keys %{$tag})
+		if ($self->{MIME_TYPE} eq 'audio/mpeg')
 		{
-			$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+			my $info = get_mp3info($self->{PATH});
+			$self->{DURATION} = $info->{'TIME'} || 0;
+			$self->{BITRATE} = int($info->{'BITRATE'});
+			$self->{VBR} = $info->{'VBR'};
+
+			my $tag = get_mp3tag($self->{PATH});
+			if (keys %{$tag})
+			{
+				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+				$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+			}
+		}
+		if ($self->{MIME_TYPE} eq 'audio/mp4')
+		{
+			my $info = get_mp4info($self->{PATH});
+			$self->{DURATION} = $info->{'TIME'} || 0;
+			$self->{BITRATE} = int($info->{'BITRATE'});
+			$self->{VBR} = 0;
+
+			my $tag = get_mp4tag($self->{PATH});
+			if (keys %{$tag})
+			{
+				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+				$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+			}
+		}
+		elsif ($self->{MIME_TYPE} eq 'audio/x-ms-wma')
+		{
+			my $wma = Audio::WMA->new($self->{PATH});
+
+			my $info = $wma->info();
+			$self->{DURATION_SECONDS} = $1 if $info->{'playtime_seconds'} =~ /^(\d+)/;
+			$self->{BITRATE} = int($info->{'bitrate'});
+
+			my $tag = $wma->tags();
+			if (keys %{$tag})
+			{
+				$self->{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
+				$self->{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
+				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
+				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+
+				$self->{VBR} = $tag->{'VBR'};
+			}
+		}
+		elsif ($self->{MIME_TYPE} eq 'audio/x-flac')
+		{
+			my $flac = Audio::FLAC::Header->new($self->{PATH});
+
+			$self->{DURATION_SECONDS} = $1 if $flac->{'trackTotalLengthSeconds'} =~ /^(\d+)/;
+			$self->{BITRATE} = int($flac->{'bitRate'});
+			$self->{VBR} = 0;
+
+			my $tag = $flac->tags();
+			if (keys %{$tag})
+			{
+				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
+				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self->{YEAR} = $tag->{'DATE'} if length($tag->{'DATE'}) > 0;
+			}
+		}
+		elsif ($self->{MIME_TYPE} eq 'video/x-theora+ogg')
+		{
+			my $ogg = Ogg::Vorbis::Header->new($self->{PATH});
+
+			my $info = $ogg->info();
+			$self->{DURATION_SECONDS} = $1 if $info->{'length'} =~ /^(\d+)/;
+			$self->{BITRATE} = int($info->{'bitrate_nominal'});
+			$self->{VBR} = 0;
+
+			$self->{ARTIST} = $ogg->comment('ARTIST') if $ogg->comment('ARTIST');
+			$self->{ALBUM} = $ogg->comment('ALBUM') if $ogg->comment('ALBUM');
+			$self->{TRACKNUM} = $ogg->comment('TRACKNUMBER') if $ogg->comment('TRACKNUMBER');
+			$self->{TITLE} = $ogg->comment('TITLE') if $ogg->comment('TITLE');
+			$self->{GENRE} = $ogg->comment('GENRE') if $ogg->comment('GENRE');
+			$self->{YEAR} = $ogg->comment('YEAR') if $ogg->comment('YEAR');
+		}
+		elsif ($self->{MIME_TYPE} eq 'audio/x-wav')
+		{
+			my $wav = new Audio::Wav;
+			my $read = $wav->read($self->{PATH});
+
+			$self->{DURATION_SECONDS} = $1 if $read->length_seconds() =~ /^(\d+)/;
+			$self->{BITRATE} = 0;
+			$self->{VBR} = 0;
 		}
 	}
 	elsif ($self->{TYPE} eq 'video')
@@ -199,9 +287,11 @@ sub duration
 	return $self->{DURATION} if $self->{DURATION};
 
 	my $seconds = $self->{DURATION_SECONDS};
-	my $minutes = int($seconds / 60) if $seconds > 59;
+	my $minutes = 0;
+	$minutes = int($seconds / 60) if $seconds > 59;
 	$seconds -= $minutes * 60 if $seconds;
-	my $hours = int($minutes / 60) if $minutes > 59;
+	my $hours = 0;
+	$hours = int($minutes / 60) if $minutes > 59;
 	$minutes -= $hours * 60 if $hours;
 
 	my $string = '';
@@ -216,6 +306,7 @@ sub duration
 sub duration_seconds
 {
 	my $self = shift;
+	return $self->{DURATION_SECONDS} if $self->{DURATION_SECONDS};
 
 	my $seconds = 0;
     my @foo;
@@ -292,8 +383,8 @@ sub print_object
 	}
 	if ($self->{TYPE} eq 'audio')
 	{
-		$string .= $input."\tDuration:      ".$self->{DURATION}." (".$self->duration_seconds()." seconds)\n";
-		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s (VBR ".$self->{VBR}.")\n";
+		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
+		$string .= $input."\tBitrate:       ".$self->{BITRATE}." (k)bit/s (VBR ".$self->{VBR}.")\n";
 		$string .= $input."\tArtist:        ".$self->{ARTIST}."\n";
 		$string .= $input."\tAlbum:         ".$self->{ALBUM}."\n";
 		$string .= $input."\tTrackNumber:   ".$self->{TRACKNUM}."\n";
@@ -303,7 +394,7 @@ sub print_object
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
-		$string .= $input."\tDuration:      ".$self->duration()." (".$self->{DURATION_SECONDS}." seconds)\n";
+		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
 		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
 		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
 	}

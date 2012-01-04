@@ -1,7 +1,7 @@
 package PDLNA::DeviceList;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,13 +49,14 @@ sub add
 		$self->{DEVICES}{$$params{'ip'}}->http_useragent($$params{'http_useragent'});
 		$self->{DEVICES}{$$params{'ip'}}->add_nt($$params{'nt'}, $$params{'time_of_expire'}) if defined($$params{'nt'});
 		$self->{DEVICES}{$$params{'ip'}}->uuid($$params{'uuid'}) if defined($$params{'uuid'});
-		$self->{DEVICES}{$$params{'ip'}}->ssdp_desc($$params{'ssdp_desc'}) if defined($$params{'ssdp_desc'});
+		$self->{DEVICES}{$$params{'ip'}}->ssdp_desc($$params{'desc_location'}) if defined($$params{'desc_location'});
 		$self->{DEVICES}{$$params{'ip'}}->ssdp_banner($$params{'ssdp_banner'}) if defined($$params{'ssdp_banner'});
 	}
 	else
 	{
 		$self->{DEVICES}{$$params{'ip'}} = PDLNA::Device->new($params);
 	}
+	$self->{DEVICES}{$$params{'ip'}}->fetch_xml_info();
 }
 
 # deletes a nt type from the Device by IP

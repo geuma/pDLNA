@@ -1,7 +1,7 @@
 package PDLNA::Device;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ use Date::Format;
 use LWP::UserAgent;
 use XML::Simple;
 
+use PDLNA::Config;
+
 # constructor
 sub new
 {
@@ -39,7 +41,7 @@ sub new
 		SSDP_BANNER => $$params{'ssdp_banner'},
 		SSDP_DESC => $$params{'desc_location'},
 		HTTP_USERAGENT => $$params{'http_useragent'},
-		MODEL_NAME => undef,
+		XML_MODEL_NAME => '',
 	);
 	my %nts : shared = ();
 	$nts{$$params{'nt'}} = $$params{'time_of_expire'} if defined($$params{'nt'});
@@ -76,22 +78,27 @@ sub del
 sub model_name
 {
 	my $self = shift;
+	return $self->{XML_MODEL_NAME};
+}
 
-	my $model_name = '';
-	if (defined($self->{SSDP_DESC}))
+sub fetch_xml_info
+{
+	my $self = shift;
+
+	if (defined($self->{SSDP_DESC}) && length($self->{XML_MODEL_NAME}) == 0)
 	{
+		return if ($self->{SSDP_DESC} eq 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/ServerDesc.xml'); # we should not request our own XML description
 		my $ua = LWP::UserAgent->new();
+		$ua->agent($CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'});
 		my $request = HTTP::Request->new(GET => $self->{SSDP_DESC});
 		my $response = $ua->request($request);
 		if ($response->is_success())
 		{
 			my $xs = XML::Simple->new();
 			my $xml = $xs->XMLin($response->content());
-			$model_name = $xml->{'device'}->{'modelName'};
+			$self->{XML_MODEL_NAME} = $xml->{'device'}->{'modelName'};
 		}
 	}
-
-	return $model_name;
 }
 
 # sets the HTTP_USERAGENT
@@ -151,6 +158,7 @@ sub print_object
 	$string .= "\t\t\tSSDP Banner:     ".$self->{SSDP_BANNER}."\n" if defined($self->{SSDP_BANNER});
 	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});
 	$string .= "\t\t\tHTTP User-Agent: ".$self->{HTTP_USERAGENT}."\n" if defined($self->{HTTP_USERAGENT});
+	$string .= "\t\t\tXML ModelName:   ".$self->{XML_MODEL_NAME}."\n" if defined($self->{XML_MODEL_NAME});
 	$string .= "\t\tObject PDLNA::Device END\n";
 
 	return $string;

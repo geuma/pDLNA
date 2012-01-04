@@ -1,7 +1,7 @@
 package PDLNA::Config;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,8 +56,8 @@ our %CONFIG = (
     'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.43.0',
-	'PROGRAM_DATE' => '2011-12-30',
+	'PROGRAM_VERSION' => '0.44.0',
+	'PROGRAM_DATE' => '2012-01-04',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,

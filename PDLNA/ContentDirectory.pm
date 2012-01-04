@@ -1,7 +1,7 @@
 package PDLNA::ContentDirectory;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ use warnings;
 use Date::Format;
 use File::Basename;
 use File::Glob qw(bsd_glob);
+use File::MimeInfo;
 
 use PDLNA::ContentItem;
 use PDLNA::ContentExternal;
@@ -137,15 +138,15 @@ sub print_object
 	}
 	$string .= $input."\tPath:          ".$self->{PATH}."\n";
 	$string .= $input."\tName:          ".$self->{NAME}."\n";
-	$string .= $input."\tItems:       \n";
-	foreach my $id (keys %{$self->{ITEMS}})
-	{
-		$string .= $self->{ITEMS}->{$id}->print_object($input."\t");
-	}
 	$string .= $input."\tDirectories: \n";
-	foreach my $id (keys %{$self->{DIRECTORIES}})
+	foreach my $id (sort keys %{$self->{DIRECTORIES}})
 	{
 		$string .= $self->{DIRECTORIES}->{$id}->print_object($input."\t");
+	}
+	$string .= $input."\tItems:       \n";
+	foreach my $id (sort keys %{$self->{ITEMS}})
+	{
+		$string .= $self->{ITEMS}->{$id}->print_object($input."\t");
 	}
 	$string .= $input."\tAmount:        ".$self->{AMOUNT}."\n";
 	$string .= $input."Object PDLNA::ContentDirectory END\n";
@@ -224,7 +225,8 @@ sub initialize
 
 	$self->{PATH} =~ s/\/$//;
 	my $id = 100;
-	foreach my $element (bsd_glob($self->{PATH}."/*"))
+	my @elements = bsd_glob($self->{PATH}."/*");
+	foreach my $element (sort @elements)
 	{
 		if ($id > 999)
 		{
@@ -248,12 +250,20 @@ sub initialize
 		}
 		elsif (-f "$element")
 		{
-			my $filetype = undef;
-			if ($element =~ /\.(\w{3,4})$/)
+			my $mimetype = mimetype($element);
+			unless (
+					$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
+						# TODO image/png image/tiff
+					$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' ||
+						# TODO audio/x-flac video/x-theora+ogg audio/x-wav
+					$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
+				)
 			{
-				$filetype = $1;
+				next;
 			}
-			my $media_type = return_media_type($filetype);
+
+			my ($media_type) = split('/', $mimetype, 0);
+			$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
 			if ($media_type && ($media_type eq $self->{TYPE} || $self->{TYPE} eq "all"))
 			{
 				PDLNA::Log::log("Adding $media_type element '$element' to database.", 2, 'library');
@@ -268,32 +278,12 @@ sub initialize
 					'exclude_items' => $self->{EXCLUDE_ITEMS},
 					'id' => $id,
 					'parent_id' => $self->{ID},
+					'mimetype' => $mimetype,
 				});
 				$id++;
 			}
 		}
 	}
-}
-
-sub return_media_type
-{
-	my $extension = shift;
-	$extension = lc($extension);
-
-	my %file_types = (
-		'image' => [ 'jpg', 'jpeg', ],
-		'video' => [ 'avi', 'mkv', ],
-		'audio' => [ 'mp3', ],
-	);
-
-	foreach my $type (keys %file_types)
-	{
-		foreach (@{$file_types{$type}})
-		{
-			return $type if $extension eq $_;
-		}
-	}
-	return 0;
 }
 
 sub get_object_by_id

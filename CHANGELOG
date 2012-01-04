@@ -1,11 +1,23 @@
 pDLNA CHANGELOG
-(c) 2010-2011 Stefan Heumader
+(c) 2010-2012 Stefan Heumader
 email: stefan@heumader.at
 webpage: http://www.pdlna.com
 
 Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
+
+Version 0.44.0
+04-Jan-2012
+
+- changed ContentItem detection from file extension to mime type
+- PDLNA::Device.pm improvements regarding fetching the XML description (just once and not our own)
+- items are sorted in directory listing
+- added support for the following image mime-types: image/gif
+- added support for the following audio mime-types: audio/mp4, audio/x-ms-wma
+- added support for the following video mime-types: video/mp4, video/mpeg
+- fixed 'die' in line 809 of PDLNA::HTTPServer package
+- updated copyright year
 
 Version 0.43.0
 30-Dec-2011

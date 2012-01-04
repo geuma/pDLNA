@@ -1,7 +1,7 @@
 package PDLNA::ContentLibrary;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -173,7 +173,7 @@ sub print_object
 	my $self = shift;
 
 	my $string = "\n\tObject PDLNA::ContentLibrary\n";
-	foreach my $id (keys %{$self->{DIRECTORIES}})
+	foreach my $id (sort keys %{$self->{DIRECTORIES}})
 	{
 		$string .= $self->{DIRECTORIES}->{$id}->print_object("\t\t");
 	}

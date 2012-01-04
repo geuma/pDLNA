@@ -1,7 +1,7 @@
 package PDLNA::HTTPServer;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2011 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -177,8 +177,7 @@ sub handle_connection
 		'http_useragent' => $CGI{'USER-AGENT'},
 	});
 	my %ssdp_devices = $$device_list->devices();
-	my $model_name = '';
-	$model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
+	my $model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
 	PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
 	PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
 
@@ -402,7 +401,7 @@ sub ctrl_content_directory_1
 				my $element_counter = 0; # just counts all elements
 				my $element_listed = 0; # count the elements, which are included in the reponse
 
-				foreach my $id (keys %{$object->directories()})
+				foreach my $id (sort keys %{$object->directories()})
 				{
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
@@ -412,7 +411,7 @@ sub ctrl_content_directory_1
 					}
 					$element_counter++;
 				}
-				foreach my $id (keys %{$object->items()})
+				foreach my $id (sort keys %{$object->items()})
 				{
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
@@ -807,7 +806,15 @@ sub preview_media
 
 			# image scaling stuff
 			GD::Image->trueColor(1);
-			my $image = GD::Image->new($path) || die $@; # TODO fix die
+			my $image = GD::Image->new($path);
+			unless ($image)
+			{
+				PDLNA::Log::log('Problem creating GD::Image object for Item Preview.', 2, 'httpstream');
+				return http_header({
+					'statuscode' => 501,
+					'content_type' => 'text/plain',
+				});
+			}
 			my $height = $image->height / ($image->width/160);
 			my $preview = GD::Image->new(160, $height);
 			$preview->copyResampled($image, 0, 0, 0, 0, 160, $height, $image->width, $image->height);

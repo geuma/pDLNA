@@ -1,4 +1,4 @@
-- audio thumbnails (e.g. google search)
+- audio thumbnails (e.g. google search - what about limited requests)
 - enable/disable website library (is it useful?)
 - dvd support
 - seeking support
@@ -13,4 +13,5 @@
 - dynamic rebuild of ContentDirectory
 - debian package, repo, rpm packages, ...
 - random music directory
-- PDLNA::Device.pm improvements regarding the XML description
+- m3u file support
+- logging via syslog
