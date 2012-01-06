@@ -43,9 +43,13 @@ sub new
 		HTTP_USERAGENT => $$params{'http_useragent'},
 		XML_MODEL_NAME => '',
 	);
+
 	my %nts : shared = ();
 	$nts{$$params{'nt'}} = $$params{'time_of_expire'} if defined($$params{'nt'});
 	$self{NTS} = \%nts;
+
+	my @history : shared = ();
+	$self{DIRLIST_HISTORY} = \@history; # array stores a history of the directory listing IDs
 
 	bless(\%self, $class);
 	return \%self;
@@ -59,6 +63,40 @@ sub add_nt
 	my $expire = shift;
 
 	$self->{NTS}->{$nt} = $expire;
+}
+
+sub add_dirlist_request
+{
+	my $self = shift;
+	my $request = shift;
+
+	if (defined($self->{DIRLIST_HISTORY}->[-1]))
+	{
+		push(@{$self->{DIRLIST_HISTORY}}, $request) unless $self->{DIRLIST_HISTORY}->[-1] eq $request; # we are NOT storing double requests
+	}
+	else
+	{
+		push(@{$self->{DIRLIST_HISTORY}}, $request);
+	}
+
+	# we should limit the amount of entries in the history
+	# splice(@{$self->{DIRLIST_HISTORY}}, 0, 1) if scalar(@{$self->{DIRLIST_HISTORY}}) == 2;
+	# Doing this with splice is not going to work:
+	# Splice not implemented for shared arrays at /PDLNA/Device.pm line 83 thread 11
+# working with lock and delete isn't working as well
+#	if (scalar(@{$self->{DIRLIST_HISTORY}}) == 2)
+#	{
+#		#lock($self->{DIRLIST_HISTORY}->[0]); # lock can only be used on shared values at /PDLNA/Device.pm line 88
+#		lock(@{$self->{DIRLIST_HISTORY}}); # lock can only be used on shared values at /PDLNA/Device.pm line 88
+#		delete($self->{DIRLIST_HISTORY}->[0]);
+#	}
+}
+
+sub get_last_dirlist_request
+{
+	my $self = shift;
+
+	return $self->{DIRLIST_HISTORY}->[-1] if defined($self->{DIRLIST_HISTORY}->[-1]);
 }
 
 # delete a nt type of an object
@@ -159,6 +197,7 @@ sub print_object
 	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});
 	$string .= "\t\t\tHTTP User-Agent: ".$self->{HTTP_USERAGENT}."\n" if defined($self->{HTTP_USERAGENT});
 	$string .= "\t\t\tXML ModelName:   ".$self->{XML_MODEL_NAME}."\n" if defined($self->{XML_MODEL_NAME});
+	$string .= "\t\t\tDirectoryListing:".join(', ', @{$self->{DIRLIST_HISTORY}})."\n" if scalar(@{$self->{DIRLIST_HISTORY}}) > 0;
 	$string .= "\t\tObject PDLNA::Device END\n";
 
 	return $string;

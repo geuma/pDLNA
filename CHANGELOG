@@ -7,6 +7,17 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.44.1
+xx-Jan-2012
+
+- improved and fixed some bugs in the installation script
+- fixed a bug in ContentItem.pm: parent_id() function return {PARENT_ID} value instead of {DATE} value
+- fixed a similar bug in ContentDirectory.pm regarding the parent_id() function
+- added history for DirectoryListings to PDLNA::Device object
+- fixed a problem regarding the different duration notations of audio and video files
+- added support for audio mime-types: audio/x-flac
+- fixed 'Upper Folder' problem with Samsung TV (handling @parentID filter value in XML request)
+
 Version 0.44.0
 04-Jan-2012
 

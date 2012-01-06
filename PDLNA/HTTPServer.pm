@@ -254,7 +254,7 @@ sub handle_connection
 		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1') # handling Directory Listings
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
-			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'});
+			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $ssdp_devices{$peer_ip_addr});
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 		{
@@ -334,6 +334,7 @@ sub ctrl_content_directory_1
 {
 	my $xml = shift;
 	my $action = shift;
+	my $device = shift;
 
 	PDLNA::Log::log("Function PDLNA::HTTPServer::ctrl_content_directory_1 called", 3, 'httpdir');
 
@@ -341,28 +342,28 @@ sub ctrl_content_directory_1
 
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		my ($object_id, $starting_index, $requested_count) = 0;
+		my ($object_id, $starting_index, $requested_count, $filter) = 0;
 		# determine which 'Browse' element was used
-		# TODO ObjectID might not be set - so what value should we suggest
-		#      it seems like ObjectID is not set, when 'return' or 'upper directory' is chosen in the menu
-		#      implementing a history seems stupid
 		if (defined($xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'})) # coherence seems to use this one
 		{
 			$object_id = $xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'};
 			$starting_index = $xml->{'s:Body'}->{'ns0:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'ns0:Browse'}->{'RequestedCount'};
+			$filter = $xml->{'s:Body'}->{'ns0:Browse'}->{'Filter'};
 		}
 		elsif (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}))
 		{
 			$object_id = $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'};
 			$starting_index = $xml->{'s:Body'}->{'u:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'u:Browse'}->{'RequestedCount'};
+			$filter = $xml->{'s:Body'}->{'u:Browse'}->{'Filter'};
 		}
 		elsif (defined($xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'})) # and windows media player this one
 		{
 			$object_id = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'};
 			$starting_index = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'StartingIndex'}->{'content'};
 			$requested_count = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'RequestedCount'}->{'content'};
+			$filter = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'Filter'}->{'content'};
 		}
 		else
 		{
@@ -378,8 +379,12 @@ sub ctrl_content_directory_1
 		# handle those parameters
 		#
 		# <BrowseFlag>BrowseDirectChildren</BrowseFlag>, <BrowseFlag>BrowseMetadata</BrowseFlag>
-		# <Filter>*</Filter>
 		#
+		if (length($filter) > 0 && $filter eq '@parentID')
+		{
+			my $object = $content->get_object_by_id($object_id);
+			$object_id = $object->parent_id();
+		}
 
 		PDLNA::Log::log('Starting to handle Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
 		PDLNA::Log::log('StartingIndex: '.$starting_index.'.', 3, 'httpdir');
@@ -389,6 +394,9 @@ sub ctrl_content_directory_1
 
 		if ($object_id =~ /^\d+$/)
 		{
+			PDLNA::Log::log('Adding DirectoryListing request for: '.$object_id.' to history.', 3, 'httpdir');
+			$device->add_dirlist_request($object_id);
+
 			PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
 			my $object = $content->get_object_by_id($object_id);
 

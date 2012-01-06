@@ -24,15 +24,24 @@ use Getopt::Long::Descriptive;
 
 my ($opt, $usage) = describe_options(
 	'%c %o ',
-	[ 'prefix|p:s', 'Prefix for installation path of libraries', { default => '/opt' }, ],
+	[ 'prefix|p:s', 'define prefix for installation path of libraries', { default => '/opt' }, ],
+	[ 'install|i', 'checks for necessary requirements and installs pDLNA' ],
+	[ 'update|u', 'checks for necessary requirements and installs pDLNA (updating will be implemented later)' ],
+	[ 'checkrequirements|c', 'checks for necessary requirements' ],
 	[], # just an empty line for the usage message
 	[ 'help|h', 'print usage method and exit' ],
 );
 print($usage->text), exit if $opt->help();
 
-my $PREFIX = '.';
+my $PREFIX = '/opt';
 $PREFIX = $opt->prefix() if (defined($opt->prefix()));
 $PREFIX .= '/' unless $PREFIX =~ /\/$/;
+
+if (!$opt->checkrequirements() && !$opt->install() && !$opt->update())
+{
+	print($usage->text);
+	exit;
+}
 
 use Test::More;
 
@@ -74,6 +83,12 @@ use_ok ('Sys::Hostname');
 use_ok ('threads');
 use_ok ('threads::shared');
 use_ok ('XML::Simple');
+
+if (!$opt->install() && !$opt->update())
+{
+	done_testing();
+	exit;
+}
 
 print "------------------------------------------------------\n";
 print "Step 2:\n";
@@ -171,7 +186,12 @@ print "Step 5:\n";
 print "Checking for pDLNA Perl Modules ...\n";
 print "------------------------------------------------------\n";
 
-use lib ($PREFIX);
+# delete local directory from PATH
+for (my $i = 0; $i < @INC; $i++)
+{
+	splice(@INC, $i, 1) if $INC[$i] eq '.';
+}
+push(@INC, $PREFIX); # push the new LIB directory to PATH
 
 use_ok ('PDLNA::Config');
 use_ok ('PDLNA::Content');

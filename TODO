@@ -13,5 +13,6 @@
 - dynamic rebuild of ContentDirectory
 - debian package, repo, rpm packages, ...
 - random music directory
-- m3u file support
+- playlist (m3u, pls, ...) file support
 - logging via syslog
+- logfile size limitation and rotation

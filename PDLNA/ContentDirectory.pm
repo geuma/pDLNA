@@ -116,7 +116,7 @@ sub amount
 sub parent_id
 {
 	my $self = shift;
-	return $self->{PARENT_ID} if length($self->{PARENT_ID}) == 0;
+	return $self->{PARENT_ID} if length($self->{PARENT_ID}) > 0;
 	return 0;
 }
 
@@ -254,8 +254,8 @@ sub initialize
 			unless (
 					$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
 						# TODO image/png image/tiff
-					$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' ||
-						# TODO audio/x-flac video/x-theora+ogg audio/x-wav
+					$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' ||
+						# TODO video/x-theora+ogg audio/x-wav
 					$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
 				)
 			{

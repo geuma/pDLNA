@@ -52,7 +52,6 @@ sub new
 	$self->{WIDTH} = 0;
 	$self->{HEIGHT} = 0;
 	$self->{COLOR} = '';
-	$self->{DURATION} = ''; # beautiful duration, like i.e. 02:31
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
 	$self->{BITRATE} = 0,
 	$self->{VBR} = 0,
@@ -74,7 +73,7 @@ sub new
 		if ($self->{MIME_TYPE} eq 'audio/mpeg')
 		{
 			my $info = get_mp3info($self->{PATH});
-			$self->{DURATION} = $info->{'TIME'} || 0;
+			$self->{DURATION_SECONDS} = convert_to_seconds($info->{'TIME'});
 			$self->{BITRATE} = int($info->{'BITRATE'});
 			$self->{VBR} = $info->{'VBR'};
 
@@ -92,7 +91,7 @@ sub new
 		if ($self->{MIME_TYPE} eq 'audio/mp4')
 		{
 			my $info = get_mp4info($self->{PATH});
-			$self->{DURATION} = $info->{'TIME'} || 0;
+			$self->{DURATION_SECONDS} = convert_to_seconds($info->{'TIME'});
 			$self->{BITRATE} = int($info->{'BITRATE'});
 			$self->{VBR} = 0;
 
@@ -139,12 +138,12 @@ sub new
 			my $tag = $flac->tags();
 			if (keys %{$tag})
 			{
-				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
-				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-				$self->{YEAR} = $tag->{'DATE'} if length($tag->{'DATE'}) > 0;
+				$self->{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
+				$self->{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
+				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
+				$self->{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
+				$self->{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
+				$self->{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
 			}
 		}
 		elsif ($self->{MIME_TYPE} eq 'video/x-theora+ogg')
@@ -233,7 +232,7 @@ sub date
 sub parent_id
 {
 	my $self = shift;
-	return $self->{DATE};
+	return $self->{PARENT_ID};
 }
 
 sub size
@@ -284,7 +283,6 @@ sub resolution
 sub duration
 {
 	my $self = shift;
-	return $self->{DURATION} if $self->{DURATION};
 
 	my $seconds = $self->{DURATION_SECONDS};
 	my $minutes = 0;
@@ -302,15 +300,20 @@ sub duration
 	return $string;
 }
 
-# TODO make it more beautiful
 sub duration_seconds
 {
 	my $self = shift;
 	return $self->{DURATION_SECONDS} if $self->{DURATION_SECONDS};
+}
+
+# TODO make it more beautiful
+sub convert_to_seconds
+{
+	my $duration = shift;
 
 	my $seconds = 0;
     my @foo;
-	@foo = split(':', $self->{DURATION}) if $self->{'DURATION'};
+	@foo = split(':', $duration) if $duration;
 
 	my $i = 0;
 	foreach my $bar (reverse @foo)
