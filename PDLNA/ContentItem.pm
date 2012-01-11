@@ -63,6 +63,9 @@ sub new
 	$self->{GENRE} = 'n/A';
 	$self->{YEAR} = 'n/A'; # a number is needed, but what if we have no year ...
 
+	$self->{AUDIO_CODEC} = '';
+	$self->{VIDEO_CODEC} = '';
+
 	if ($self->{TYPE} eq 'image')
 	{
 		my $info = image_info($self->{PATH});
@@ -171,6 +174,16 @@ sub new
 			$self->{BITRATE} = 0;
 			$self->{VBR} = 0;
 		}
+
+		my $movie_info = Movie::Info->new();
+		unless (defined($movie_info))
+		{
+			PDLNA::Log::fatal('Unable to find MPlayer.');
+		}
+
+		my %info = $movie_info->info($self->{PATH});
+		$self->{AUDIO_CODEC} = $info{'audio_codec'};
+
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
@@ -186,6 +199,9 @@ sub new
 		$self->{BITRATE} = $info{'bitrate'} || 0;
 		$self->{WIDTH} = $info{'width'} || 0;
 		$self->{HEIGHT} = $info{'height'} || 0;
+
+		$self->{AUDIO_CODEC} = $info{'audio_codec'};
+		$self->{VIDEO_CODEC} = $info{'codec'};
 	}
 
 	bless($self, $class);
@@ -400,6 +416,15 @@ sub print_object
 		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
 		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
 		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
+	}
+
+	if ($self->{TYPE} eq 'audio' || $self->{TYPE} eq 'video')
+	{
+		$string .= $input."\tAudioCodec:    ".$self->{AUDIO_CODEC}."\n";
+	}
+	if ($self->{TYPE} eq 'video')
+	{
+		$string .= $input."\tVideoCodec:    ".$self->{VIDEO_CODEC}."\n";
 	}
 	$string .= $input."Object PDLNA::ContentItem END\n";
 

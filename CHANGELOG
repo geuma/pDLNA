@@ -8,7 +8,7 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.44.1
-xx-Jan-2012
+11-Jan-2012
 
 - improved and fixed some bugs in the installation script
 - fixed a bug in ContentItem.pm: parent_id() function return {PARENT_ID} value instead of {DATE} value
@@ -19,6 +19,7 @@ xx-Jan-2012
 - fixed 'Upper Folder' problem with Samsung TV (handling @parentID filter value in XML request)
 - small bugfixes regarding external media items (merged https://github.com/jjYBdx4IL/pDLNA/commit/557c692480fc3dfeb6f20d56997e6d41712c4136 by jjYBdx4IL)
 - small changes in documentation regarding external media items (merged https://github.com/jjYBdx4IL/pDLNA/commit/75220bec5e05fcd83664a92cd9a0a45612862988 by jjYBdx4IL)
+- added AudioCodec and VideoCodec to ContentItem - this information might be relevant for transcoding issues
 
 Version 0.44.0
 04-Jan-2012

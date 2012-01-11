@@ -56,8 +56,8 @@ our %CONFIG = (
     'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.44.0',
-	'PROGRAM_DATE' => '2012-01-04',
+	'PROGRAM_VERSION' => '0.44.1',
+	'PROGRAM_DATE' => '2012-01-11',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,

@@ -31,6 +31,10 @@ setting the right parameters for your installation. The script will
 also check for requirements, copies the files to the correct directories
 and sets the necessary rights.
 
+For detailed information regarding the installation, please read the
+'pDLNA Installation and Configuration Guide' available under
+https://github.com/downloads/geuma/pDLNA/Installation_and_Configuration_Guide.pdf
+
 At the end, if all tests passed, you should be able to edit '/etc/pdlna.conf'
 and start pDLNA with the initscript located at '/etc/init.d/rc.pdlna'.
 
