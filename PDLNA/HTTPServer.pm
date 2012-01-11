@@ -588,7 +588,7 @@ sub stream_media
 						($$CGI{'USER-AGENT'} =~ /^(foobar2000|vlc|stagefright)/)
 						)
 					{
-						if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
+						if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/ && (ref $item ne 'PDLNA::ContentExternal'))
 						{
 							PDLNA::Log::log('Delivering content for: '.$item->path().' with RANGE Request.', 1, 'httpstream');
 							my ($lowrange, $highrange) = 0;
@@ -607,16 +607,19 @@ sub stream_media
 								'log' => 'httpstream',
 							});
 
-							if (ref $item eq 'PDLNA::ContentExternal')
-							{
-								open(FILE, '-|', $item->path());
-								binmode(FILE);
-							}
-							else
-							{
-								sysopen(FILE, $item->path(), O_RDONLY);
-								sysseek(FILE, $lowrange, 0);
-							}
+#							if (ref $item eq 'PDLNA::ContentExternal')
+#							{
+#								open(FILE, '-|', $item->path());
+#								binmode(FILE);
+#							}
+#							else
+#							{
+#								sysopen(FILE, $item->path(), O_RDONLY);
+#								sysseek(FILE, $lowrange, 0);
+#							}
+							sysopen(FILE, $item->path(), O_RDONLY);
+							sysseek(FILE, $lowrange, 0);
+
 							my $buf = undef;
 							while (sysread(FILE, $buf, $CONFIG{'BUFFER_SIZE'}))
 							{
@@ -629,21 +632,21 @@ sub stream_media
 						else
 						{
 							PDLNA::Log::log('Delivering content for: '.$item->path().' without RANGE Request.', 1, 'httpstream');
-							print $FH http_header({
-								'statuscode' => 200,
-								'additional_header' => \@additional_header,
-								'log' => 'httpstream',
-							});
-
 							if (ref $item eq 'PDLNA::ContentExternal')
 							{
 								open(FILE, '-|', $item->path());
 								binmode(FILE);
+								@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header;
 							}
 							else
 							{
 								sysopen(FILE, $item->path(), O_RDONLY);
 							}
+                            print $FH http_header({
+                                'statuscode' => 200,
+                                'additional_header' => \@additional_header,
+                                'log' => 'httpstream',
+                            });
 							my $buf = undef;
 							while (sysread(FILE, $buf, $CONFIG{'BUFFER_SIZE'}))
 							{
