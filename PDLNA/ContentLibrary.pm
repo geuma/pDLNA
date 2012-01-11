@@ -149,25 +149,6 @@ sub new
 		$i++;
 	}
 
-    foreach my $external (@{$CONFIG{'EXTERNALS'}})
-    {
-        if ($i > 999)
-        {
-            PDLNA::Log::log('More than 900 configured main entries. Skip to load external: '.$external, 1, 'library');
-            next;
-        }
-
-        # BaseView
-        $self->{DIRECTORIES}->{0}->add_external({
-            'path' => $external->{'path'},
-            'type' => $external->{'type'},
-            'recursion' => $external->{'recursion'},
-            'id' => $i,
-            'parent_id' => '',
-        });
-        $i++;
-    }
-    
 	return $self;
 }
 

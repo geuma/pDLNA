@@ -17,6 +17,8 @@ xx-Jan-2012
 - fixed a problem regarding the different duration notations of audio and video files
 - added support for audio mime-types: audio/x-flac
 - fixed 'Upper Folder' problem with Samsung TV (handling @parentID filter value in XML request)
+- small bugfixes regarding external media items (merged https://github.com/jjYBdx4IL/pDLNA/commit/557c692480fc3dfeb6f20d56997e6d41712c4136 by jjYBdx4IL)
+- small changes in documentation regarding external media items (merged https://github.com/jjYBdx4IL/pDLNA/commit/75220bec5e05fcd83664a92cd9a0a45612862988 by jjYBdx4IL)
 
 Version 0.44.0
 04-Jan-2012
