@@ -128,7 +128,10 @@ sub get_browseresponse_item
 	push(@xml, '&lt;/res&gt;');
 
 	# File preview information
-	if (($item->type() eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item->type() eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'}))
+	if (
+			ref $item ne 'PDLNA::ContentExternal' && # for external content, we do not want thumbnails
+			($item->type() eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item->type() eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'})
+		)
 	{
 		push(@xml, '&lt;res protocolInfo=');
 		push(@xml, '&quot;http-get:*:image/jpeg:'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot; ');

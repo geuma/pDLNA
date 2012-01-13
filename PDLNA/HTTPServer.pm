@@ -538,7 +538,10 @@ sub stream_media
 		PDLNA::Log::log('ID: '.$id, 3, 'httpstream');
 
 		my $item = $content->get_object_by_id($id);
-		if (defined($item) && $item->is_item() && -f $item->path())
+		if (
+				(defined($item) && $item->is_item()) &&
+				(-f $item->path() || ref $item eq 'PDLNA::ContentExternal')
+			)
 		{
 			my @additional_header = (
 				'Content-Type: '.$item->mime_type($model_name),
@@ -607,16 +610,6 @@ sub stream_media
 								'log' => 'httpstream',
 							});
 
-#							if (ref $item eq 'PDLNA::ContentExternal')
-#							{
-#								open(FILE, '-|', $item->path());
-#								binmode(FILE);
-#							}
-#							else
-#							{
-#								sysopen(FILE, $item->path(), O_RDONLY);
-#								sysseek(FILE, $lowrange, 0);
-#							}
 							sysopen(FILE, $item->path(), O_RDONLY);
 							sysseek(FILE, $lowrange, 0);
 
@@ -777,7 +770,7 @@ sub preview_media
 		my $item = $content->get_object_by_id($id);
 		if (defined($item) && $item->is_item())
 		{
-			unless (-f $item->path())
+			unless (ref $item ne 'PDLNA::ContentExternal' || -f $item->path())
 			{
 				PDLNA::Log::log('File '.$item->path().' NOT found.', 2, 'httpstream');
 				return http_header({
