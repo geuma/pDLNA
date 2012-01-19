@@ -132,9 +132,13 @@ sub fetch_xml_info
 		my $response = $ua->request($request);
 		if ($response->is_success())
 		{
-			my $xs = XML::Simple->new();
-			my $xml = $xs->XMLin($response->content());
-			$self->{XML_MODEL_NAME} = $xml->{'device'}->{'modelName'};
+			my $res = $response->content();
+			if (defined($res) && length($res) > 0)
+			{
+				my $xs = XML::Simple->new();
+				my $xml = $xs->XMLin($res);
+				$self->{XML_MODEL_NAME} = $xml->{'device'}->{'modelName'};
+			}
 		}
 	}
 }
@@ -191,7 +195,7 @@ sub print_object
 	$string .= "\t\t\tNTS:\n";
 	foreach my $nt (keys %{$self->{NTS}})
 	{
-		$string .= "\t\t\t\t".$nt." (expires at ".time2str("%Y-%m-%d %H:%M:%S", $self->{NTS}->{$nt}).")\n"
+		$string .= "\t\t\t\t".$nt." (expires at ".time2str($CONFIG{'DATE_FORMAT'}, $self->{NTS}->{$nt}).")\n"
 	}
 	$string .= "\t\t\tSSDP Banner:     ".$self->{SSDP_BANNER}."\n" if defined($self->{SSDP_BANNER});
 	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});

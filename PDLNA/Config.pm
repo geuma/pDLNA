@@ -41,10 +41,11 @@ our %CONFIG = (
 	'CACHE_CONTROL' => 1800,
 	'PIDFILE' => '/var/run/pdlna.pid',
 	'ALLOWED_CLIENTS' => [],
+	'LOG_FILE_MAX_SIZE' => 10485761048576, # 10 MB
 	'LOG_FILE' => 'STDERR',
-	'LOG_DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'LOG_CATEGORY' => [],
-	'BUFFER_SIZE' => 32768,
+	'DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
+	'BUFFER_SIZE' => 32768, # 32 kB
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
@@ -56,8 +57,8 @@ our %CONFIG = (
     'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.44.1',
-	'PROGRAM_DATE' => '2012-01-11',
+	'PROGRAM_VERSION' => '0.45.0',
+	'PROGRAM_DATE' => '2012-01-19',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -168,9 +169,9 @@ sub parse_config
 	# CHACHE CONTROL PARSING
 	#
 	$CONFIG{'CACHE_CONTROL'} = int($cfg->get('CacheControl')) if defined($cfg->get('CacheControl'));
-	if ($CONFIG{'CACHE_CONTROL'} < 60 && $CONFIG{'CACHE_CONTROL'} > 18000)
+	unless ($CONFIG{'CACHE_CONTROL'} > 60 && $CONFIG{'CACHE_CONTROL'} < 18000)
 	{
-		push(@{$errormsg}, 'Invalid CacheControl: Please specify the CacheControl between 60 and 18000 seconds.');
+		push(@{$errormsg}, 'Invalid CacheControl: Please specify the CacheControl in seconds (from 61 to 17999).');
 	}
 
 	#
@@ -213,9 +214,34 @@ sub parse_config
 	# LOG FILE PARSING
 	#
 	$CONFIG{'LOG_FILE'} = $cfg->get('LogFile') if defined($cfg->get('LogFile'));
-	unless ($CONFIG{'LOG_FILE'} eq 'STDERR' || $CONFIG{'LOG_FILE'} =~ /^\/[\w\.\_\-\/]+\w$/)
+	unless ($CONFIG{'LOG_FILE'} eq 'STDERR' || $CONFIG{'LOG_FILE'} eq 'SYSLOG' || $CONFIG{'LOG_FILE'} =~ /^\/[\w\.\_\-\/]+\w$/)
 	{
-		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR|<full path to LogFile>]');
+		push(@{$errormsg}, 'Invalid LogFile: Available options [STDERR|SYSLOG|<full path to LogFile>]');
+	}
+
+	#
+	# LOG DATE FORMAT
+	#
+	$CONFIG{'DATE_FORMAT'} = $cfg->get('DateFormat') if defined($cfg->get('DateFormat'));
+	unless ($CONFIG{'DATE_FORMAT'} =~ /^[\%mdHIMpsSoYZ\s\-\:\_\,]+$/)
+	{
+		push(@{$errormsg}, 'Invalid DateFormat: Valid characters are mdHIMpsSoYZ-:_,.% and spaces.');
+	}
+
+	#
+	# LOG FILE SIZE MAX
+	#
+	if ($CONFIG{'LOG_FILE'} =~ /^\/[\w\.\_\-\/]+\w$/) # if a path to a file was specified
+	{
+		if (defined($cfg->get('LogFileMaxSize')))
+		{
+			$CONFIG{'LOG_FILE_MAX_SIZE'} = int($cfg->get('LogFileMaxSize'));
+			unless ($CONFIG{'LOG_FILE_MAX_SIZE'} > 0 && $CONFIG{'LOG_FILE_MAX_SIZE'} < 100)
+			{
+				push(@{$errormsg}, 'Invalid LogFileMaxSize: Please specify LogFileMaxSize in megabytes (from 1 to 99).');
+			}
+			$CONFIG{'LOG_FILE_MAX_SIZE'} = $CONFIG{'LOG_FILE_MAX_SIZE'} * 1024 * 1024; # calc megabytes value from config file to bytes
+		}
 	}
 
 	#
@@ -243,8 +269,6 @@ sub parse_config
 	{
 		push(@{$errormsg}, 'Invalid LogLevel: Please specify the LogLevel with a positive integer.');
 	}
-
-	# TODO log date format
 
 	#
 	# BUFFER_SIZE
@@ -276,15 +300,11 @@ sub parse_config
 	#
 	# MPlayerBinaryPath
 	#
-	if ($CONFIG{'VIDEO_THUMBNAILS'})
+	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
+	# TODO check for x bit or even if it is mplayer
+	unless (-f $CONFIG{'MPLAYER_BIN'})
 	{
-		$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-
-		# TODO check for x bit or even if it is mplayer
-		unless (-f $CONFIG{'MPLAYER_BIN'})
-		{
-			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
-		}
+		push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
 	}
 
 	#
@@ -326,12 +346,15 @@ sub parse_config
 			@exclude_items = split(',', $block->get('ExcludeItems'));
 		}
 
+		my $allow_playlists = eval_binary_value($block->get('AllowPlaylists')) if defined($block->get('AllowPlaylists'));
+
 		push(@{$CONFIG{'DIRECTORIES'}}, {
 				'path' => $directory_block->[1],
 				'type' => $block->get('type'),
 				'recursion' => $recursion,
 				'exclude_dirs' => \@exclude_dirs,
 				'exclude_items' => \@exclude_items,
+				'allow_playlists' => $allow_playlists,
 			}
 		);
 	}

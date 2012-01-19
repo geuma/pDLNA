@@ -124,6 +124,7 @@ sub new
 			'recursion' => $directory->{'recursion'},
 			'exclude_dirs' => $directory->{'exclude_dirs'},
 			'exclude_items' => $directory->{'exclude_items'},
+			'allow_playlists' => $directory->{'allow_playlists'},
 			'id' => $i,
 			'parent_id' => '',
 		});

@@ -21,10 +21,13 @@ use strict;
 use warnings;
 
 use Date::Format;
+use Fcntl;
 use File::Basename;
 use File::Glob qw(bsd_glob);
 use File::MimeInfo;
+use Movie::Info;
 
+use PDLNA::Config;
 use PDLNA::ContentItem;
 use PDLNA::ContentExternal;
 use PDLNA::Log;
@@ -40,9 +43,11 @@ sub new
 	$self->{PATH} = $$params{'path'} || '';
 	$self->{NAME} = $$params{'name'} || basename($self->{PATH});
 	$self->{TYPE} = $$params{'type'};
+	$self->{SUBTYPE} = $$params{'subtype'} || 'directory';
 	$self->{RECURSION} = $$params{'recursion'};
-	$self->{EXCLUDE_DIRS} = $$params{'exclude_dirs'},
-	$self->{EXCLUDE_ITEMS} = $$params{'exclude_items'},
+	$self->{EXCLUDE_DIRS} = $$params{'exclude_dirs'};
+	$self->{EXCLUDE_ITEMS} = $$params{'exclude_items'};
+	$self->{ALLOW_PLAYLISTS} = $$params{'allow_playlists'} || 0;
 	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{ITEMS} = {};
 	$self->{DIRECTORIES} = {};
@@ -138,6 +143,7 @@ sub print_object
 	}
 	$string .= $input."\tPath:          ".$self->{PATH}."\n";
 	$string .= $input."\tName:          ".$self->{NAME}."\n";
+	$string .= $input."\tType (Subtype):".$self->{TYPE}." (".$self->{SUBTYPE}.")\n";
 	$string .= $input."\tDirectories: \n";
 	foreach my $id (sort keys %{$self->{DIRECTORIES}})
 	{
@@ -199,6 +205,8 @@ sub add_external
     my $self = shift;
     my $params = shift;
 
+	PDLNA::Log::log('Adding element '.$$params{'path'}.'.', 2, 'library');
+
     my $id = $$params{'parent_id'}.$$params{'id'};
     $self->{ITEMS}->{$id} = PDLNA::ContentExternal->new($params);
     $self->{AMOUNT}++;
@@ -221,6 +229,90 @@ sub initialize
 	my $self = shift;
 
 	return 0 if $self->{PATH} =~ /lost\+found/;
+
+	if ($self->{SUBTYPE} eq 'playlist' && -f $self->{PATH}) # if we are a playlist and a file
+	{
+		# reading the playlist file
+		sysopen(PLAYLIST, $self->{PATH}, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		my @items = (); # array which will hold the possible media items
+
+		# parsing the playlist file
+		my $mimetype = mimetype($self->{PATH});
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+
+			PDLNA::Log::log('Processing playlist line: '.$line.'.', 3, 'library');
+			if ($mimetype eq 'audio/x-scpls' && $line =~ /^File\d+\=(.+)$/)
+			{
+				push(@items, $1);
+			}
+			elsif (($mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl') && $line !~ /^#/)
+			{
+				push(@items, $line);
+			}
+		}
+
+		# adding items to ContentDirectory
+		my $id = 100;
+		foreach my $element (@items)
+		{
+			if ($element =~ /^(http|mms):\/\//)
+			{
+#				my $movie_info = Movie::Info->new();
+#				unless (defined($movie_info))
+#				{
+#					PDLNA::Log::fatal('Unable to find MPlayer.');
+#				}
+#				my %info = $movie_info->info($element);
+#				foreach (keys %info) { print STDERR "$_ -> $info{$_}\n"; }
+#
+#				my ($media_type, $mimetype, $file_extension) = '';
+#				if (defined($info{'audio_codec'}) && !defined($info{'codec'}))
+#				{
+#					if ($info{'audio_codec'} eq 'mp3')
+#					{
+#						$mimetype = 'audio/mpeg';
+#						$file_extension = 'MP3';
+#					}
+#					$media_type = 'audio';
+#				}
+#				elsif (defined($info{'audio_codec'}) && defined($info{'codec'}))
+#				{
+#					if ($info{'audio_codec'} eq 'ffwmav2' && $info{'codec'} eq 'ffwmv3')
+#					{
+#						$mimetype = 'video/x-ms-wmv';
+#						$file_extension = 'WMV';
+#					}
+#					$media_type = 'video';
+#				}
+#
+#				$self->add_external({
+#					'name' => $element,
+#					'path' => $CONFIG{'MPLAYER_BIN'}.' '.$element.' -dumpstream -dumpfile /dev/stdout 2>/dev/null',
+#					'parent_id' => $self->{ID},
+#					'id' => $id,
+#					'type' => $media_type,
+#					'mimetype' => $mimetype,
+#					'file_extension' => $file_extension,
+#				});
+#				$id++;
+			}
+			else # local items
+			{
+				$element = dirname($self->{PATH}).'/'.$element if $element !~ /^\//;
+				if (-f "$element")
+				{
+					$id = $self->add_content_item($element, undef, $id);
+				}
+			}
+		}
+	}
+
 	PDLNA::Log::log("Processing directory '".$self->{PATH}."'.", 2, 'library');
 
 	$self->{PATH} =~ s/\/$//;
@@ -243,6 +335,7 @@ sub initialize
 				'type' => $self->{TYPE},
 				'recursion' => $self->{RECURSION},
 				'exclude_dirs' => $self->{EXCLUDE_DIRS},
+				'allow_playlists' => $self->{ALLOW_PLAYLISTS},
 				'id' => $id,
 				'parent_id' => $self->{ID},
 			});
@@ -251,39 +344,73 @@ sub initialize
 		elsif (-f "$element")
 		{
 			my $mimetype = mimetype($element);
-			unless (
-					$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
-						# TODO image/png image/tiff
-					$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' ||
-						# TODO video/x-theora+ogg audio/x-wav
-					$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
+			PDLNA::Log::log("Processing $element with MimeType $mimetype.", 3, 'library');
+
+			if (
+					$self->{ALLOW_PLAYLISTS} &&
+					(
+						$mimetype eq 'audio/x-scpls' || # PLS files
+						$mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl' # M3U files
+						# TODO Advanced Stream Redirector (video/x-ms-asf), XML Shareable Playlist Format (application/xspf+xml)
+					)
 				)
 			{
-				next;
-			}
-
-			my ($media_type) = split('/', $mimetype, 0);
-			$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
-			if ($media_type && ($media_type eq $self->{TYPE} || $self->{TYPE} eq "all"))
-			{
-				PDLNA::Log::log("Adding $media_type element '$element' to database.", 2, 'library');
-
-				my @fileinfo = stat($element);
-				my $year = time2str("%Y-%m", $fileinfo[9]);
-				$self->add_item({
-					'filename' => $element,
-					'date' => $fileinfo[9],
-					'size' => $fileinfo[7],
-					'type' => $media_type,
-					'exclude_items' => $self->{EXCLUDE_ITEMS},
+				# we are adding playlist files as directories to the library
+				PDLNA::Log::log("Adding Playlist element '$element' to database.", 2, 'library');
+				$self->add_directory({
+					'path' => $element,
+					'name' => 'PLAYLIST:'.basename($element),
+					'type' => $self->{TYPE},
+					'subtype' => 'playlist',
 					'id' => $id,
 					'parent_id' => $self->{ID},
-					'mimetype' => $mimetype,
 				});
 				$id++;
 			}
+
+			$id = $self->add_content_item($element, $mimetype, $id); # this is for normal items
 		}
 	}
+}
+
+sub add_content_item
+{
+	my $self = shift;
+	my $element = shift;
+	my $mimetype = shift || mimetype($element);
+	my $id = shift;
+	my $stream = shift || 0;
+
+	if (
+			$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
+			# TODO image/png image/tiff
+			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' ||
+			# TODO video/x-theora+ogg audio/x-wav
+			$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
+		)
+	{
+		my ($media_type) = split('/', $mimetype, 0);
+		$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
+		if ($media_type && ($media_type eq $self->{TYPE} || $self->{TYPE} eq "all"))
+		{
+			PDLNA::Log::log("Adding $media_type element '$element' to '".$self->{NAME}."'.", 2, 'library');
+
+			my @fileinfo = stat($element);
+			my $year = time2str("%Y-%m", $fileinfo[9]);
+			$self->add_item({
+				'filename' => $element,
+				'date' => $fileinfo[9],
+				'size' => $fileinfo[7],
+				'type' => $media_type,
+				'exclude_items' => $self->{EXCLUDE_ITEMS},
+				'id' => $id,
+				'parent_id' => $self->{ID},
+				'mimetype' => $mimetype,
+			});
+			$id++;
+		}
+	}
+	return $id;
 }
 
 sub get_object_by_id

@@ -31,6 +31,7 @@ use MP3::Info;
 use MP4::Info;
 use Ogg::Vorbis::Header;
 
+use PDLNA::Config;
 use PDLNA::Utils;
 
 sub new
@@ -41,13 +42,14 @@ sub new
 	my $self = ();
 	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
 	$self->{PATH} = $$params{'filename'};
-	$self->{NAME} = basename($$params{'filename'});
+	$self->{NAME} = $$params{'name'} || basename($$params{'filename'});
 	$self->{FILE_EXTENSION} = uc($1) if ($$params{'filename'} =~ /\.(\w{3,4})$/);
 	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{DATE} = $$params{'date'};
-	$self->{SIZE} = $$params{'size'};
+	$self->{SIZE} = 0 || $$params{'size'};
 	$self->{TYPE} = $$params{'type'};
-	$self->{MIME_TYPE} = $$params{'mimetype'};
+	$self->{MIME_TYPE} = $$params{'mimetype'} || 'unknown';
+	$self->{STREAM} = 0 || $$params{'stream'};
 
 	$self->{WIDTH} = 0;
 	$self->{HEIGHT} = 0;
@@ -61,7 +63,7 @@ sub new
 	$self->{TRACKNUM} = 'n/A';
 	$self->{TITLE} = 'n/A';
 	$self->{GENRE} = 'n/A';
-	$self->{YEAR} = 'n/A'; # a number is needed, but what if we have no year ...
+	$self->{YEAR} = 'n/A';
 
 	$self->{AUDIO_CODEC} = '';
 	$self->{VIDEO_CODEC} = '';
@@ -183,7 +185,6 @@ sub new
 
 		my %info = $movie_info->info($self->{PATH});
 		$self->{AUDIO_CODEC} = $info{'audio_codec'};
-
 	}
 	elsif ($self->{TYPE} eq 'video')
 	{
@@ -392,7 +393,7 @@ sub print_object
 	$string .= $input."\tPath:          ".$self->{PATH}."\n";
 	$string .= $input."\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
 	$string .= $input."\tType:          ".$self->{TYPE}."\n";
-	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str("%Y-%m-%d %H:%M", $self->{DATE}).")\n";
+	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{DATE}).")\n";
 	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
 	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
 
@@ -420,11 +421,11 @@ sub print_object
 
 	if ($self->{TYPE} eq 'audio' || $self->{TYPE} eq 'video')
 	{
-		$string .= $input."\tAudioCodec:    ".$self->{AUDIO_CODEC}."\n";
+		$string .= $input."\tAudioCodec:    ".$self->{AUDIO_CODEC}."\n" if defined($self->{AUDIO_CODEC});
 	}
 	if ($self->{TYPE} eq 'video')
 	{
-		$string .= $input."\tVideoCodec:    ".$self->{VIDEO_CODEC}."\n";
+		$string .= $input."\tVideoCodec:    ".$self->{VIDEO_CODEC}."\n" if defined($self->{VIDEO_CODEC});
 	}
 	$string .= $input."Object PDLNA::ContentItem END\n";
 

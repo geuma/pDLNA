@@ -17,8 +17,6 @@ package PDLNA::ContentExternal;
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# Only video streams supported!
-
 use strict;
 use warnings;
 
@@ -36,22 +34,28 @@ sub new
 	my $self = ();
 	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
 	$self->{PATH} = $$params{'path'};
-	$self->{NAME} = basename($$params{'path'});
-	$self->{FILE_EXTENSION} = 'AVI';
+	$self->{NAME} = $$params{'name'} || basename($$params{'path'});
+	$self->{FILE_EXTENSION} = $$params{'file_extension'} || 'AVI';
 	$self->{PARENT_ID} = $$params{'parent_id'};
 	$self->{DATE} = time();
 	$self->{SIZE} = 0;
-	$self->{TYPE} = $$params{'type'};
+	$self->{TYPE} = $$params{'type'} || 'video';
 
-	$self->{MIME_TYPE} = 'video/x-msvideo';
+	$self->{MIME_TYPE} = $$params{'mimetype'} || 'video/x-msvideo';
 
 	$self->{WIDTH} = '';
 	$self->{HEIGHT} = '';
 	$self->{COLOR} = '';
-	$self->{DURATION} = ''; # beautiful duration, like i.e. 02:31
+	$self->{DURATION} = '00:00:00'; # beautiful duration, like i.e. 02:31
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
 	$self->{BITRATE} = 0;
 	$self->{VBR} = 0;
+
+	$self->{ARTIST} = 'n/A';
+	$self->{ALBUM} = 'n/A';
+	$self->{GENRE} = 'n/A';
+	$self->{YEAR} = 'n/A';
+	$self->{TRACKNUM} = 0;
 
 	bless($self, $class);
 	return $self;
@@ -140,41 +144,14 @@ sub resolution
 sub duration
 {
 	my $self = shift;
-	return $self->{DURATION} if $self->{DURATION};
-
-	my $seconds = $self->{DURATION_SECONDS};
-	my $minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60;
-	my $hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60;
-
-	my $string = '';
-	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':' if $hours;
-	$string .= PDLNA::Utils::add_leading_char($minutes,2,'0').':';
-	$string .= PDLNA::Utils::add_leading_char($seconds,2,'0');
-
-	return $string;
+	return $self->{DURATION};
 }
 
 # TODO make it more beautiful
 sub duration_seconds
 {
 	my $self = shift;
-
-	my $seconds = 0;
-    my @foo;
-	@foo = split(':', $self->{DURATION}) if $self->{'DURATION'};
-
-	my $i = 0;
-	foreach my $bar (reverse @foo)
-	{
-		$seconds += $bar if $i == 0;
-		$seconds += $bar*60 if $i == 1;
-		$seconds += $bar*3600 if $i == 2;
-		$i++;
-	}
-
-	return $seconds;
+	return $self->{DURATION_SECONDS};
 }
 
 sub artist
@@ -218,7 +195,7 @@ sub print_object
 	my $self = shift;
 	my $input = shift;
 
-    my $string = '';
+	my $string = '';
 	$string .= $input."Object PDLNA::ContentExternal\n";
 	$string .= $input."\tID:            ".$self->{ID}."\n";
 	$string .= $input."\tParentID:      ".$self->{PARENT_ID}."\n";
@@ -227,8 +204,7 @@ sub print_object
 	$string .= $input."\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
 	$string .= $input."\tType:          ".$self->{TYPE}."\n";
 	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
-
-	$string .= $input."Object PDLNA::ContentItem END\n";
+	$string .= $input."Object PDLNA::ContentExternal END\n";
 
 	return $string;
 }

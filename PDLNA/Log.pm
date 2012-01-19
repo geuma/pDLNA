@@ -22,6 +22,7 @@ use warnings;
 
 use Date::Format;
 use Fcntl ':flock';
+use Sys::Syslog qw(:standard :macros);
 
 use PDLNA::Config;
 
@@ -58,7 +59,7 @@ sub add_message_info
 	my $category = shift;
 
 	return $message if $CONFIG{'LOG_FILE'} eq 'SYSLOG';
-	return time2str($CONFIG{'LOG_DATE_FORMAT'}, time()).' '.$category.'('.$debuglevel.'): '.$message;
+	return time2str($CONFIG{'DATE_FORMAT'}, time()).' '.$category.'('.$debuglevel.'): '.$message;
 }
 
 sub write_log_msg
@@ -73,7 +74,8 @@ sub write_log_msg
 	}
 	elsif ($CONFIG{'LOG_FILE'} eq 'SYSLOG')
 	{
-		# TODO syslog functionality
+		openlog($CONFIG{'PROGRAM_NAME'}.' ('.$category.')', 'ndelay', LOG_LOCAL0);
+		syslog(LOG_INFO, $message);
 	}
 	else
 	{
@@ -85,7 +87,17 @@ sub append_logfile
 {
 	my $message = shift;
 
-	open(FILE, ">>$CONFIG{'LOG_FILE'}");
+	my $filesize = (stat($CONFIG{'LOG_FILE'}))[7];
+
+	if ($filesize > $CONFIG{'LOG_FILE_MAX_SIZE'})
+	{
+		open(FILE, ">$CONFIG{'LOG_FILE'}");
+	}
+	else
+	{
+		open(FILE, ">>$CONFIG{'LOG_FILE'}");
+	}
+
 	flock(FILE, LOCK_EX);
 	print FILE $message."\n";
 	flock(FILE, LOCK_UN);

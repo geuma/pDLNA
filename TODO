@@ -1,18 +1,17 @@
 - audio thumbnails (e.g. google search - what about limited requests)
 - enable/disable website library (is it useful?)
-- dvd support
-- seeking support
-- subtitle support
+- website library: maybe we should do a webapp for remote control (ControlPoint)
+- dvd support (basic support is existing)
+- seeking support (seeking works in most cases, why not in all?)
+- subtitle support (application/x-subrip, text/x-subviewer)
 - configure UUID
-- configure LOG_DATE_FORMAT
 - implement specificViews
 - more external scripts (online picture services like picasa and so on, youtube, ...)
-- music streams
-- transcoding
+- transcoding (transcoding profiles would be a good idea - transcode specific content for specific clients to specific formats)
 - per client directory configuration
 - dynamic rebuild of ContentDirectory
+- improve performance of crawling directories
 - debian package, repo, rpm packages, ...
 - random music directory
-- playlist (m3u, pls, ...) file support
-- logging via syslog
-- logfile size limitation and rotation
+- playlist support for mime types: Advanced Stream Redirector (video/x-ms-asf), XML Shareable Playlist Format (application/xspf+xml)
+- add support for external streams (music and video - shoutcast, mms, ...) (elements of a playlist file)

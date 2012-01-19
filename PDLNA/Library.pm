@@ -20,19 +20,27 @@ package PDLNA::Library;
 use strict;
 use warnings;
 
+use Date::Format;
+
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
+use PDLNA::Utils;
 
 sub show_library
 {
 	my $content = shift;
 	my $params = shift || 0;
+#	if ($params =~ /^(\d+)\./)
+#	{
+#		$params = $1;
+#	}
 
 	my $response ="HTTP/1.0 200 OK\r\n";
 	$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+	$response .= "Content-Type: text/html\r\n";
 	$response .= "\r\n";
 
-	$response .= '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">';
+	$response .= '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'."\n";
 	$response .= '<html>';
 	$response .= '<head>';
 	$response .= '<title>'.$CONFIG{'FRIENDLY_NAME'}.'</title>';
@@ -40,54 +48,85 @@ sub show_library
 	$response .= '<style type="text/css">';
 	$response .= 'body {';
 	$response .= 'font-family: "lucida grande", verdana, sans-serif;';
+	$response .= 'font-size: 10pt;';
 	$response .= 'color: #3d80df;';
 	$response .= '}';
-	$response .= 'div.left {';
-	$response .= 'float: left;';
-	$response .= 'width: 250px;';
+	$response .= '#container {';
+	$response .= 'width: 960px;';
+	$response .= 'margin-left: auto;';
+	$response .= 'margin-right: auto;';
 	$response .= 'border: 1px solid #3d80df;';
-	$response .= 'background-color: #7DAAEA;';
+	$response .= 'margin-top: 50px;';
 	$response .= '}';
-	$response .= 'div.logo {';
-	$response .= 'display: block;';
+	$response .= '#content {';
+	$response .= 'float: left;';
+	$response .= 'width: 620px;';
+	$response .= 'padding-bottom: 20px;';
+	$response .= '}';
+	$response .= '#sidebar {';
+	$response .= 'float: left;';
+	$response .= 'width: 340px;';
+	$response .= 'background-color: #3d80df;';
+	$response .= 'padding-bottom: 20px;';
+	$response .= '}';
+	$response .= '#footer {';
+	$response .= 'clear:both;';
+	$response .= 'height: 40px;';
+	$response .= 'color: #fff;';
+	$response .= 'background-color: #3d80df;';
+	$response .= 'text-align: center;';
+	$response .= 'line-height: 3em;';
+	$response .= '}';
+	$response .= 'h3 {';
+	$response .= 'font-size: 12pt;';
+	$response .= 'text-align: center;';
+	$response .= '}';
+	$response .= 'a {';
+	$response .= 'color: #fff;';
+	$response .= '}';
+	$response .= 'table{';
+	$response .= 'width: 600px;';
+	$response .= 'border: 1px solid #7DAAEA;';
 	$response .= 'margin-left: auto;';
 	$response .= 'margin-right: auto;';
 	$response .= '}';
-
-	$response .= 'div.header {';
-	$response .= 'height: 150px;';
+	$response .= 'tr td{';
+	$response .= 'padding: 3px 8px;';
+	$response .= 'background: #fff;';
 	$response .= '}';
-	$response .= 'div.right {';
-	$response .= 'margin-left: 20px;';
-	$response .= 'padding-left: 20px;';
+	$response .= 'thead td{';
+	$response .= 'color: #fff;';
+	$response .= 'background-color: #3d80df;';
+	$response .= 'font-weight: bold;';
+	$response .= 'border-bottom: 0px solid #999;';
+	$response .= 'text-align: center;';
 	$response .= '}';
-	$response .= 'div.clear {';
-	$response .= 'height: 10px;';
+	$response .= 'tbody td{';
+	$response .= 'border-left: 0px solid #3d80df;';
 	$response .= '}';
-	$response .= 'a {';
-	$response .= 'color: #FFFFFF;';
+	$response .= 'tbody tr.even td{';
+	$response .= 'background: #eee;';
 	$response .= '}';
 	$response .= '</style>';
 
 	$response .= '</head>';
 	$response .= '<body>';
+	$response .= '<div id="container">';
 
-	$response .= '<div class="header">';
-	$response .= '<div class="left header logo">';
-	$response .= '<img src="/icons/128/logo.png" />';
-	$response .= '</div>';
-	$response .= '<div class="right header">';
+	$response .= '<div id="header">';
 	$response .= '<h3>'.$CONFIG{'FRIENDLY_NAME'}.'</h3>';
 	$response .= '</div>';
-	$response .= '</div>';
-	$response .= '<div class="clear">&nbsp;</div>';
 
-	$response .= '<div class="left">';
+	$response .= '<div id="sidebar">';
 	$response .= build_directory_tree($content, 0, $params);
 	$response .= '</div>';
 
-	$response .= '<div class="right">';
+	$response .= '<div id="content">';
 	$response .= '<table>';
+	$response .= '<thead>';
+	$response .= '<tr><td>Preview</td><td>Filename</td><td>Size</td><td>Date</td></tr>';
+	$response .= '</thead>';
+	$response .= '<tbody>';
 	my $object = $content->get_object_by_id($params);
 	foreach my $id (keys %{$object->items()})
 	{
@@ -101,11 +140,18 @@ sub show_library
 			$response .= '<td>&nbsp;</td>';
 		}
 		$response .= '<td>'.${$object->items()}{$id}->name().'</td>';
-		$response .= '</tr>';
+		$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
+		$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
 	}
+	$response .= '</tbody>';
 	$response .= '</table>';
 	$response .= '</div>';
 
+	$response .= '<div id="footer">';
+	$response .= '<p>provided by <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'" target="_blank">'.$CONFIG{'PROGRAM_NAME'}.'</a> v'.$CONFIG{'PROGRAM_VERSION'}.' | licensed under <a href="http://www.gnu.org/licenses/gpl.txt" target="_blank">GPL v3.0</a></p>';
+	$response .= '</div>';
+
+	$response .= '</div>';
 	$response .= '</body>';
 	$response .= '</html>';
 

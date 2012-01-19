@@ -8,9 +8,17 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.45.0
-xx-Jan-2012
+19-Jan-2012
 
 - thumbnails for external content are disabled
+- added AllowPlaylists configuration parameter for Directory configuration block
+- added support for Playlists (audio/x-scpls and audio/x-mpegurl) with local files
+- added LogFileMaxSize configuration parameter for rotating the logfile
+- fixed a bug (Device.pm line 139) regarding missing response content
+- fixed a bug regarding the validation of the CacheControl configuration parameter
+- added support for logging to syslog (SYSLOG option of LogFile configuration parameter)
+- added configuration parameter DateFormat to define date format in logging, debug output and library
+- changes to PDLNA::Library.pm HTML code
 
 Version 0.44.1
 11-Jan-2012

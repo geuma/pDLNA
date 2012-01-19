@@ -80,6 +80,7 @@ use_ok ('Ogg::Vorbis::Header');
 use_ok ('POSIX');
 use_ok ('Socket');
 use_ok ('Sys::Hostname');
+use_ok ('Sys::Syslog');
 use_ok ('threads');
 use_ok ('threads::shared');
 use_ok ('XML::Simple');
