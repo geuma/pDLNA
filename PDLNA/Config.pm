@@ -25,13 +25,16 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
+use Config qw();
 use Config::ApacheFormat;
+use Digest::MD5;
+use Digest::SHA1;
 use IO::Socket;
 use IO::Interface qw(if_addr);
+use Net::Address::Ethernet qw(get_addresses);
 use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
-use Config qw();
 
 our %CONFIG = (
 	# values which can be modified by configuration file
@@ -49,6 +52,7 @@ our %CONFIG = (
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
+	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 1,
 	'VIDEO_THUMBNAILS' => 0,
@@ -66,27 +70,8 @@ our %CONFIG = (
 	'OS' => $Config::Config{osname},
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
-	'UUID' => generate_uuid(),
 );
 $CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.$CONFIG{'PROGRAM_VERSION'}.' on '.$CONFIG{'HOSTNAME'};
-
-sub generate_uuid
-{
-	my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
-
-	my $uuid = '';
-	while (length($uuid) < 36)
-	{
-		$uuid .= $chars[int(rand(@chars))];
-
-		$uuid .= '-' if length($uuid) == 8;
-		$uuid .= '-' if length($uuid) == 13;
-		$uuid .= '-' if length($uuid) == 18;
-		$uuid .= '-' if length($uuid) == 23;
-	}
-
-	return "uuid:".$uuid;
-}
 
 sub eval_binary_value
 {
@@ -306,6 +291,62 @@ sub parse_config
 	{
 		push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
 	}
+
+	#
+	# UUID
+	#
+	# some of the marked code lines are taken from UUID::Tiny perl module,
+	# which is not working
+	# IMPORTANT NOTE: NOT compliant to RFC 4122
+	my $mac = undef;
+	$CONFIG{'UUID'} = $cfg->get('UUID') if defined($cfg->get('UUID'));
+	if ($CONFIG{'UUID'} eq 'Version3')
+	{
+		my $md5 = Digest::MD5->new;
+		$md5->add($CONFIG{'HOSTNAME'});
+		$CONFIG{'UUID'} = substr($md5->digest(), 0, 16);
+		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
+	}
+	elsif ($CONFIG{'UUID'} eq 'Version4' || $CONFIG{'UUID'} eq 'Version4MAC')
+	{
+		if ($CONFIG{'UUID'} eq 'Version4MAC') # determine the MAC address of our listening interfae
+		{
+			my @addresses = get_addresses();
+			foreach my $obj (@addresses)
+			{
+				$mac = lc($obj->{'sEthernet'}) if $obj->{'sAdapter'} eq $CONFIG{'LISTEN_INTERFACE'};
+			}
+		}
+
+		my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
+		$CONFIG{'UUID'} = '';
+		while (length($CONFIG{'UUID'}) < 36)
+		{
+			$CONFIG{'UUID'} .= $chars[int(rand(@chars))];
+			$CONFIG{'UUID'} .= '-' if length($CONFIG{'UUID'}) =~ /^(8|13|18|23)$/;
+		}
+
+		if (defined($mac))
+		{
+			$mac =~ s/://g;
+			$CONFIG{'UUID'} = substr($CONFIG{'UUID'}, 0, 24).$mac;
+		}
+	}
+	elsif ($CONFIG{'UUID'} eq 'Version5')
+	{
+		my $sha1 = Digest::SHA1->new;
+		$sha1->add($CONFIG{'HOSTNAME'});
+		$CONFIG{'UUID'} = substr($sha1->digest(), 0, 16);
+		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
+	}
+	elsif ($CONFIG{'UUID'} =~ /^[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}$/i)
+	{
+	}
+	else
+	{
+		push(@{$errormsg}, 'Invalid type for UUID: Available options [Version3|Version4|Version4MAC|Version5|<staticUUID>]');
+	}
+	$CONFIG{'UUID'} = 'uuid:'.$CONFIG{'UUID'};
 
 	#
 	# MEDIA DIRECTORY PARSING

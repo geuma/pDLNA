@@ -7,6 +7,11 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.4x.0
+xx-Jan-2012
+
+- added UUID configuration parameter for choosing method to generate UUID
+
 Version 0.45.0
 19-Jan-2012
 
