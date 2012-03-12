@@ -75,6 +75,7 @@ use_ok ('LWP::UserAgent');
 use_ok ('MP3::Info');
 use_ok ('MP4::Info');
 use_ok ('Net::Address::Ethernet');
+use_ok ('Net::Interface');
 use_ok ('Net::IP');
 use_ok ('Net::Netmask');
 use_ok ('Movie::Info');

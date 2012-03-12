@@ -15,6 +15,8 @@ xx-Mar-2012
 - added support for .srt subtitle files (SubRip or application/x-subrip) for Samsung TV
 - improvements to DirectoryListings (interpreting some of the filters)
 - PROGRAM_BETA to CONFIG hash and print_version() to PDLNA::Config module
+- changed default value for EnableImageThumbnails from enabled to disabled to be conform to EnableVideoThumbnails
+- default value for AllowedClients is set to the local subnet
 
 Version 0.45.0
 19-Jan-2012

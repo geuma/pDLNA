@@ -32,6 +32,7 @@ use Digest::SHA1;
 use IO::Socket;
 use IO::Interface qw(if_addr);
 use Net::Address::Ethernet qw(get_addresses);
+use Net::Interface;
 use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
@@ -54,7 +55,7 @@ our %CONFIG = (
 	'CHECK_UPDATES' => 1,
 	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
-	'IMAGE_THUMBNAILS' => 1,
+	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
@@ -194,13 +195,18 @@ sub parse_config
 			# We still need to use Net::IP as it validates that the ip/subnet is valid
 			if (Net::IP->new($ip_subnet))
 			{
-				push (@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
+				push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
 			}
 			else
 			{
 				push(@{$errormsg}, 'Invalid AllowedClient: '.Net::IP::Error().'.');
 			}
 		}
+	}
+	else # AllowedClients is not defined, so take the local subnet
+	{
+		my $interface = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
+		push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
 	}
 
 	#
