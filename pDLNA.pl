@@ -47,7 +47,7 @@ unless (PDLNA::Config::parse_config($opt->config, \@config_file_error))
 	PDLNA::Log::fatal(join("\n", @config_file_error))
 }
 
-PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
+PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
 
 my $device_list = PDLNA::DeviceList->new(); # initialize DeviceList object
 my $ssdp = PDLNA::SSDP->new(\$device_list); # initialize SSDP object

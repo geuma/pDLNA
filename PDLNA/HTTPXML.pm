@@ -33,7 +33,12 @@ sub get_browseresponse_header
 		'<s:Body>',
 		'<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">',
 		'<Result>',
-		'&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot; xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:upnp=&quot;urn:schemas-upnp-org:metadata-1-0/upnp/&quot;&gt;',
+		'&lt;DIDL-Lite xmlns=&quot;urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/&quot;',
+		' xmlns:sec=&quot;http://www.sec.co.kr/dlna&quot;',
+		' xmlns:dlna=&quot;urn:schemas-dlna-org:metadata-1-0/&quot;',
+		' xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot;',
+		' xmlns:upnp=&quot;urn:schemas-upnp-org:metadata-1-0/upnp/&quot;',
+		'&gt;',
 	);
 
 	return join('', @xml);
@@ -61,17 +66,17 @@ sub get_browseresponse_footer
 sub get_browseresponse_directory
 {
 	my $directory = shift;
+	my $filter = shift;
 
-	my @xml = (
-		'&lt;container ',
-		'id=&quot;'.$directory->id().'&quot; ',
-		'parentID=&quot;'.$directory->parent_id().'&quot; ',
-		'restricted=&quot;1&quot; ',
-		'childCount=&quot;'.$directory->amount().'&quot;&gt;',
-		'&lt;dc:title&gt;'.$directory->name().'&lt;/dc:title&gt;',
-		'&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;',
-		'&lt;/container&gt;',
-	);
+	my @xml = ();
+	push(@xml, '&lt;container ');
+	push(@xml, 'id=&quot;'.$directory->id().'&quot; ') if grep(/^\@id$/, @{$filter});
+	push(@xml, 'parentID=&quot;'.$directory->parent_id().'&quot; ') if grep(/^\@parentID$/, @{$filter});
+	push(@xml, 'restricted=&quot;1&quot; ') if grep(/^\@restricted$/, @{$filter});
+	push(@xml, 'childCount=&quot;'.$directory->amount().'&quot;&gt;') if grep(/^\@childCount$/, @{$filter});
+	push(@xml, '&lt;dc:title&gt;'.$directory->name().'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
+	push(@xml, '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;') if grep(/^upnp:class$/, @{$filter});
+	push(@xml, '&lt;/container&gt;');
 
 	return join('', @xml);
 }
@@ -79,49 +84,55 @@ sub get_browseresponse_directory
 sub get_browseresponse_item
 {
 	my $item = shift;
+	my $filter = shift;
 
 	my @xml = ();
 	push(@xml, '&lt;item ');
-	push(@xml, 'id=&quot;'.$item->id().'&quot; ');
-	push(@xml, 'parentID=&quot;'.$item->parent_id().'&quot; ');
-	push(@xml, 'restricted=&quot;1&quot;&gt;');
-	push(@xml, '&lt;dc:title&gt;'.$item->name().'&lt;/dc:title&gt;');
+	push(@xml, 'id=&quot;'.$item->id().'&quot; ') if grep(/^\@id$/, @{$filter});
+	push(@xml, 'parentID=&quot;'.$item->parent_id().'&quot; ') if grep(/^\@parentID$/, @{$filter});
+	push(@xml, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
+	push(@xml, '&lt;dc:title&gt;'.$item->name().'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
 
-	push(@xml, '&lt;upnp:class&gt;object.item.audioItem.musicTrack&lt;/upnp:class&gt;') if $item->type() eq 'audio';
-	push(@xml, '&lt;upnp:class&gt;object.item.imageItem&lt;/upnp:class&gt;') if $item->type() eq 'image';
-	push(@xml, '&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;') if $item->type() eq 'video';
+	if (grep(/^upnp:class$/, @{$filter}))
+	{
+		push(@xml, '&lt;upnp:class&gt;object.item.audioItem.musicTrack&lt;/upnp:class&gt;') if $item->type() eq 'audio';
+		push(@xml, '&lt;upnp:class&gt;object.item.imageItem&lt;/upnp:class&gt;') if $item->type() eq 'image';
+		push(@xml, '&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;') if $item->type() eq 'video';
+	}
 
 	if ($item->type() eq 'audio')
 	{
-		push(@xml, '&lt;upnp:artist&gt;'.$item->artist().'&lt;/upnp:artist&gt;');
-		push(@xml, '&lt;dc:creator&gt;'.$item->artist().'&lt;/dc:creator&gt;');
-		push(@xml, '&lt;upnp:album&gt;'.$item->album().'&lt;/upnp:album&gt;');
-		push(@xml, '&lt;upnp:genre&gt;'.$item->genre().'&lt;/upnp:genre&gt;');
+		push(@xml, '&lt;upnp:artist&gt;'.$item->artist().'&lt;/upnp:artist&gt;') if grep(/^upnp:artist$/, @{$filter});
+		push(@xml, '&lt;dc:creator&gt;'.$item->artist().'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
+		push(@xml, '&lt;upnp:album&gt;'.$item->album().'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
+		push(@xml, '&lt;upnp:genre&gt;'.$item->genre().'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
 		push(@xml, '&lt;upnp:originalTrackNumber&gt;'.$item->tracknum().'&lt;/upnp:originalTrackNumber&gt;');
+		# albumArtURI
 	}
 
-	push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;');
+	#<sec:dcmInfo>CREATIONDATE=1253629219,FOLDER=foo,BM=0</sec:dcmInfo>
+	push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;') if grep(/^dc:date$/, @{$filter});
 
 	our %DLNA_CONTENTFEATURES = (
-		'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'image_sm' => 'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'image_tn' => 'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'video' => 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
-		'audio' => 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+		'image' => 		'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'image_sm' => 	'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'image_tn' => 	'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
+		'video' => 		'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
+		'audio' => 		'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
 	);
 
 	push(@xml, '&lt;res protocolInfo=');
 	push(@xml, '&quot;http-get:*:'.$item->mime_type().':'.$DLNA_CONTENTFEATURES{$item->type()}.'&quot; ');
 
-	push(@xml, 'size=&quot;'.$item->size().'&quot; ');
+	push(@xml, 'size=&quot;'.$item->size().'&quot; ') if grep(/^res\@size$/, @{$filter});
 	if ($item->type() eq 'audio' || $item->type() eq 'video')
 	{
-		push(@xml, 'bitrate=&quot;'.$item->bitrate().'&quot; ');
-		push(@xml, 'duration=&quot;'.$item->duration().'&quot; ');
+		push(@xml, 'bitrate=&quot;'.$item->bitrate().'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
+		push(@xml, 'duration=&quot;'.$item->duration().'&quot; ') if grep(/^res\@duration$/, @{$filter});
 	}
 	if ($item->type() eq 'image' || $item->type() eq 'video')
 	{
-		push(@xml, 'resolution=&quot;'.$item->resolution().'&quot; ');
+		push(@xml, 'resolution=&quot;'.$item->resolution().'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
 	push(@xml, '&gt;');
 	push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item->id().'.'.$item->file_extension());
@@ -138,6 +149,16 @@ sub get_browseresponse_item
 		push(@xml, '&gt;');
 		push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item->id().'.jpg');
 		push(@xml, '&lt;/res&gt;');
+	}
+
+	# subtitles
+	if ($item->type() eq 'video')
+	{
+		my %subtitles = $item->subtitle();
+		foreach my $type (keys %subtitles)
+		{
+			push(@xml, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$type.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$item->id().'.'.$type.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});
+		}
 	}
 	push(@xml, '&lt;/item&gt;');
 
@@ -156,23 +177,36 @@ sub get_serverdescription
 		'<minor>5</minor>',
 		'</specVersion>',
 		'<device>',
-		#'<dlna:X_DLNADOC>DMS-1.50</dlna:X_DLNADOC>', # this seems to break some clients and seems not to be needed
-		'<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>',
-		'<presentationURL>http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/</presentationURL>',
-		'<friendlyName>'.$CONFIG{'FRIENDLY_NAME'}.'</friendlyName>',
-		'<manufacturer>'.$CONFIG{'PROGRAM_AUTHOR'}.'</manufacturer>',
-		'<manufacturerURL>'.$CONFIG{'PROGRAM_WEBSITE'}.'</manufacturerURL>',
-		'<modelDescription>'.$CONFIG{'PROGRAM_DESC'}.'</modelDescription>',
-		'<modelName>'.$CONFIG{'PROGRAM_NAME'}.'</modelName>',
-		'<modelNumber>'.$CONFIG{'PROGRAM_VERSION'}.'</modelNumber>',
-		'<serialNumber>'.$CONFIG{'PROGRAM_SERIAL'}.'</serialNumber>',
 	);
-	if ($CONFIG{'SPECIFIC_VIEWS'} &&
-		($user_agent eq 'SamsungWiselinkPro/1.0'))
+
+	# this seems to break some clients
+	if ($user_agent eq 'SamsungWiselinkPro/1.0')
 	{
-		push(@xml, '<sec:ProductCap>smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec</sec:ProductCap>');
-		push(@xml, '<sec:X_ProductCap>smi,DCM10,getMediaInfo.sec,getCaptionInfo.sec</sec:X_ProductCap>');
+		push(@xml, '<dlna:X_DLNADOC>DMS-1.50</dlna:X_DLNADOC>');
 	}
+	push(@xml, '<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>');
+	push(@xml, '<presentationURL>http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/</presentationURL>');
+	push(@xml, '<friendlyName>'.$CONFIG{'FRIENDLY_NAME'}.'</friendlyName>');
+	push(@xml, '<manufacturer>'.$CONFIG{'PROGRAM_AUTHOR'}.'</manufacturer>');
+	push(@xml, '<manufacturerURL>'.$CONFIG{'PROGRAM_WEBSITE'}.'</manufacturerURL>');
+	push(@xml, '<modelDescription>'.$CONFIG{'PROGRAM_DESC'}.'</modelDescription>');
+	push(@xml, '<modelName>'.$CONFIG{'PROGRAM_NAME'}.'</modelName>');
+	push(@xml, '<modelNumber>'.PDLNA::Config::print_version().'</modelNumber>');
+	push(@xml, '<serialNumber>'.$CONFIG{'PROGRAM_SERIAL'}.'</serialNumber>');
+
+	# specific views
+	my $dcm10 = '';
+	if ($CONFIG{'SPECIFIC_VIEWS'})
+	{
+		$dcm10 = 'DCM10,';
+	}
+
+	if ($user_agent eq 'SamsungWiselinkPro/1.0')
+	{
+		push(@xml, '<sec:ProductCap>smi,'.$dcm10.'getMediaInfo.sec,getCaptionInfo.sec</sec:ProductCap>');
+		push(@xml, '<sec:X_ProductCap>smi,'.$dcm10.'getMediaInfo.sec,getCaptionInfo.sec</sec:X_ProductCap>');
+	}
+
 	push(@xml, '<UDN>'.$CONFIG{'UUID'}.'</UDN>');
 
 	my %TYPES = (

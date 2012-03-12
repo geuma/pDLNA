@@ -38,7 +38,7 @@ sub daemonize
 	#
 	$SIG{'INT'} = sub
 	{
-		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
+		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
@@ -52,7 +52,7 @@ sub daemonize
 #	$SIG{'TERM'} = \&exit_daemon();
 	$SIG{'TERM'} = sub
 	{
-		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
+		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
@@ -66,7 +66,7 @@ sub daemonize
 
 sub exit_daemon
 {
-	PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'}. It may take some time ...", 0, 'default');
+	PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 #	$$ssdp->send_byebye(4);
 	remove_pidfile($CONFIG{'PIDFILE'});
 	exit(1);

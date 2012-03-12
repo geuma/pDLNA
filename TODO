@@ -1,10 +1,11 @@
-- audio thumbnails (e.g. google search - what about limited requests)
+- audio thumbnails (e.g. google search - what about limited requests by google)
+- audio thumbnails (images in the music folder?)
 - enable/disable website library (is it useful?)
 - website library: maybe we should do a webapp for remote control (ControlPoint)
 - dvd support (basic support is existing)
 - seeking support (seeking works in most cases, why not in all?)
-- subtitle support (application/x-subrip, text/x-subviewer)
-- implement specificViews
+- subtitle support (text/x-subviewer)
+- implement specificViews (samsung feature)
 - more external scripts (online picture services like picasa and so on, youtube, ...)
 - transcoding (transcoding profiles would be a good idea - transcode specific content for specific clients to specific formats)
 - per client directory configuration
@@ -14,3 +15,4 @@
 - random music directory
 - playlist support for mime types: Advanced Stream Redirector (video/x-ms-asf), XML Shareable Playlist Format (application/xspf+xml)
 - add support for external streams (music and video - shoutcast, mms, ...) (elements of a playlist file)
+- set bookmark (X_SetBookmark)

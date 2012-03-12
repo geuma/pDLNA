@@ -261,6 +261,11 @@ sub handle_connection
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
 			stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
 		}
+		elsif ($ENV{'OBJECT'} =~ /^\/subtitle\/(.*)$/) # handling delivering of subtitles
+		{
+			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
+			deliver_subtitle($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
+		}
 		elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media previews
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
@@ -312,7 +317,7 @@ sub http_header
 
 	my @response = ();
 	push(@response, "HTTP/1.1 ".$$params{'statuscode'}." ".$HTTP_CODES{$$params{'statuscode'}}); # TODO (maybe) differ between http protocol versions
-	push(@response, "Server: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'});
+	push(@response, "Server: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
 	push(@response, "Content-Type: ".$params->{'content_type'}) if $params->{'content_type'};
 	push(@response, "Content-Length: ".$params->{'content_length'}) if $params->{'content_length'};
 	push(@response, "Date: ".PDLNA::Utils::http_date());
@@ -324,7 +329,8 @@ sub http_header
 			push(@response, $header);
 		}
 	}
-	push(@response, "Connection: close");
+	push(@response, 'Cache-Control: no-cache');
+	push(@response, 'Connection: close');
 
 	PDLNA::Log::log("HTTP Response Header:\n\t".join("\n\t",@response), 3, $$params{'log'}) if defined($$params{'log'});
 	return join("\r\n", @response)."\r\n\r\n";
@@ -342,13 +348,14 @@ sub ctrl_content_directory_1
 
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		my ($object_id, $starting_index, $requested_count, $filter) = 0;
+		my ($object_id, $starting_index, $requested_count, $filter, $browse_flag) = 0;
 		# determine which 'Browse' element was used
 		if (defined($xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'})) # coherence seems to use this one
 		{
 			$object_id = $xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'};
 			$starting_index = $xml->{'s:Body'}->{'ns0:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'ns0:Browse'}->{'RequestedCount'};
+			$browse_flag = $xml->{'s:Body'}->{'ns0:Browse'}->{'BrowseFlag'};
 			$filter = $xml->{'s:Body'}->{'ns0:Browse'}->{'Filter'};
 		}
 		elsif (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}))
@@ -356,6 +363,7 @@ sub ctrl_content_directory_1
 			$object_id = $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'};
 			$starting_index = $xml->{'s:Body'}->{'u:Browse'}->{'StartingIndex'};
 			$requested_count = $xml->{'s:Body'}->{'u:Browse'}->{'RequestedCount'};
+			$browse_flag = $xml->{'s:Body'}->{'u:Browse'}->{'BrowseFlag'};
 			$filter = $xml->{'s:Body'}->{'u:Browse'}->{'Filter'};
 		}
 		elsif (defined($xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'})) # and windows media player this one
@@ -363,6 +371,7 @@ sub ctrl_content_directory_1
 			$object_id = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'};
 			$starting_index = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'StartingIndex'}->{'content'};
 			$requested_count = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'RequestedCount'}->{'content'};
+			$browse_flag = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'BrowseFlag'}->{'content'};
 			$filter = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'Filter'}->{'content'};
 		}
 		else
@@ -374,21 +383,29 @@ sub ctrl_content_directory_1
 			});
 		}
 
-		#
-		# TODO
-		# handle those parameters
-		#
-		# <BrowseFlag>BrowseDirectChildren</BrowseFlag>, <BrowseFlag>BrowseMetadata</BrowseFlag>
-		#
-		if (length($filter) > 0 && $filter eq '@parentID')
+		my @browsefilters = split(',', $filter) if length($filter) > 0;
+		if ($browse_flag eq 'BrowseMetadata')
 		{
-			my $object = $content->get_object_by_id($object_id);
-			$object_id = $object->parent_id();
+			if (grep(/^\@parentID$/, @browsefilters))
+			{
+				my $object = $content->get_object_by_id($object_id);
+				$object_id = $object->parent_id();
+				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+			}
+		}
+		elsif ($browse_flag eq 'BrowseDirectChildren')
+		{
+			if ($browsefilters[0] eq '*')
+			{
+				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+			}
 		}
 
 		PDLNA::Log::log('Starting to handle Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
 		PDLNA::Log::log('StartingIndex: '.$starting_index.'.', 3, 'httpdir');
 		PDLNA::Log::log('RequestedCount: '.$requested_count.'.', 3, 'httpdir');
+		PDLNA::Log::log('BrowseFlag: '.$browse_flag.'.', 3, 'httpdir');
+		PDLNA::Log::log('Filter: '.join(', ', @browsefilters).'.', 3, 'httpdir');
 
 		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount
 
@@ -414,7 +431,7 @@ sub ctrl_content_directory_1
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
 						PDLNA::Log::log('Including Directory with name: '.${$object->directories()}{$id}->name().' to response.', 3, 'httpdir');
-						$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(${$object->directories()}{$id});
+						$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(${$object->directories()}{$id}, \@browsefilters);
 						$element_listed++;
 					}
 					$element_counter++;
@@ -424,7 +441,7 @@ sub ctrl_content_directory_1
 					if ($element_counter >= $starting_index && $element_listed < $requested_count)
 					{
 						PDLNA::Log::log('Including Item with name: '.${$object->items()}{$id}->name().' to response.', 3, 'httpdir');
-						$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(${$object->items()}{$id});
+						$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(${$object->items()}{$id}, \@browsefilters);
 						$element_listed++;
 					}
 					$element_counter++;
@@ -523,6 +540,74 @@ sub ctrl_content_directory_1
 	return $response;
 }
 
+#
+# this functions handels delivering the subtitle files
+#
+sub deliver_subtitle
+{
+	my $content_id = shift;
+	my $method = shift;
+	my $CGI = shift;
+	my $FH = shift;
+	my $model_name = shift;
+
+	if ($content_id =~ /^(\d+)\.(\w+)$/)
+	{
+		my $id = $1;
+		my $type = $2;
+		my $item = $content->get_object_by_id($id);
+		if (defined($item) && $item->is_item() && $item->type() eq 'video')
+		{
+			my %subtitle = $item->subtitle($type);
+			if (-f $subtitle{'path'})
+			{
+				my @additional_header = ();
+				if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+				{
+					push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
+				}
+				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
+				{
+					push(@additional_header, 'transferMode.dlna.org: Background');
+				}
+
+				print $FH http_header({
+					'content_length' => $subtitle{'size'},
+					#'content_type' => $subtitle{'mimetype'}, # smi/caption
+					'content_type' => 'smi/caption',
+					'statuscode' => 200,
+					'additional_header' => \@additional_header,
+					'log' => 'httpstream',
+				});
+				sysopen(FILE, $subtitle{'path'}, O_RDONLY);
+				print $FH <FILE>;
+				close(FILE);
+			}
+			else
+			{
+				print $FH http_header({
+					'statuscode' => 404,
+					'content_type' => 'text/plain',
+				});
+			}
+		}
+		else
+		{
+			print $FH http_header({
+				'statuscode' => 501,
+				'content_type' => 'text/plain',
+			});
+		}
+	}
+	else
+	{
+		print $FH http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+		});
+	}
+}
+
 sub stream_media
 {
 	my $content_id = shift;
@@ -532,7 +617,7 @@ sub stream_media
 	my $model_name = shift;
 
 	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
-	if ($content_id =~ /^(\d+)\./)
+	if ($content_id =~ /^(\d+)\.(\w+)$/)
 	{
 		my $id = $1;
 		PDLNA::Log::log('ID: '.$id, 3, 'httpstream');
@@ -567,6 +652,56 @@ sub stream_media
 				}
 			}
 
+			if (defined($$CGI{'GETCAPTIONINFO.SEC'}))
+			{
+				if ($$CGI{'GETCAPTIONINFO.SEC'} == 1)
+				{
+					if ($item->type() eq 'video')
+					{
+						if (my %subtitle = $item->subtitle('srt'))
+						{
+							if (defined($subtitle{'path'}) && -f $subtitle{'path'})
+							{
+								push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$id.'.srt');
+							}
+						}
+					}
+
+					unless (grep(/^'contentFeatures.dlna.org:/, @additional_header))
+					{
+						push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$item->type()});
+					}
+				}
+				else
+				{
+					PDLNA::Log::log('Invalid getCaptionInfo.sec:'.$$CGI{'GETCAPTIONINFO.SEC'}.'.', 1, 'httpstream');
+					print $FH http_header({
+						'statuscode' => 400,
+						'content_type' => 'text/plain',
+					});
+				}
+			}
+
+			if (defined($$CGI{'GETMEDIAINFO.SEC'}))
+			{
+				if ($$CGI{'GETMEDIAINFO.SEC'} == 1)
+				{
+					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
+					unless (grep(/^'contentFeatures.dlna.org:/, @additional_header))
+					{
+						push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$item->type()});
+					}
+				}
+				else
+				{
+					PDLNA::Log::log('Invalid getMediaInfo.sec:'.$$CGI{'GETMEDIAINFO.SEC'}.'.', 1, 'httpstream');
+					print $FH http_header({
+						'statuscode' => 400,
+						'content_type' => 'text/plain',
+					});
+				}
+			}
+
 			if ($method eq 'HEAD') # handling HEAD requests
 			{
 				PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->path().'.', 1, 'httpstream');
@@ -579,17 +714,21 @@ sub stream_media
 			}
 			elsif ($method eq 'GET') # handling GET requests
 			{
-				if (
-					defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) || (
-						$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
+				# for clients, which are not sending the Streaming value for the transferMode.dlna.org parameter
+				# we set it, because they seem to ignore it
+				if (defined($$CGI{'USER-AGENT'}))
+				{
+					if ($$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
 						$$CGI{'USER-AGENT'} =~ /^vlc/ || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
 						$$CGI{'USER-AGENT'} =~ /^stagefright/ ) # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
-					)
+					{
+						$$CGI{'TRANSFERMODE.DLNA.ORG'} = 'Streaming';
+					}
+				}
+
+				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}))
 				{
-					if (
-						(defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') || # for immediate rendering of audio or video content
-						($$CGI{'USER-AGENT'} =~ /^(foobar2000|vlc|stagefright)/)
-						)
+					if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
 					{
 						if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/ && (ref $item ne 'PDLNA::ContentExternal'))
 						{
@@ -660,11 +799,8 @@ sub stream_media
 							'statuscode' => 200,
 							'additional_header' => \@additional_header,
 						});
-						open(FILE, $item->path());
-						while (<FILE>)
-						{
-							print $FH $_;
-						}
+						sysopen(FILE, $item->path(), O_RDONLY);
+						print $FH <FILE>;
 						close(FILE);
 					}
 					else # unknown TRANSFERMODE.DLNA.ORG is set
@@ -751,11 +887,6 @@ sub stream_media
 #				# found no documentation for this header ... but i think it might be the correct answer to deliver the duration in milliseconds
 #				# device might use this value to show the progress bar
 #				push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$content_item_obj->duration_seconds().'000;')
-#			}
-#
-#			if (defined($$CGI{'GETCAPTIONINFO.SEC'}) && $$CGI{'GETCAPTIONINFO.SEC'} == 1)
-#			{
-#				# TODO - WTF? - it might be the information for the caption
 #			}
 }
 

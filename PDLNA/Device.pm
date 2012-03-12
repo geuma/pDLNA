@@ -127,7 +127,7 @@ sub fetch_xml_info
 	{
 		return if ($self->{SSDP_DESC} eq 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/ServerDesc.xml'); # we should not request our own XML description
 		my $ua = LWP::UserAgent->new();
-		$ua->agent($CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'});
+		$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
 		my $request = HTTP::Request->new(GET => $self->{SSDP_DESC});
 		my $response = $ua->request($request);
 		if ($response->is_success())

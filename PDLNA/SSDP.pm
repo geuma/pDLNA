@@ -369,7 +369,7 @@ sub ssdp_message
 	}
 	if ($$params{'nts'} eq 'alive' || $$params{'response'})
 	{
-		$msg .= "SERVER: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".$CONFIG{'PROGRAM_VERSION'}."\r\n";
+		$msg .= "SERVER: ".$CONFIG{'OS'}."/".$CONFIG{'OS_VERSION'}.", UPnP/1.0, ".$CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version()."\r\n";
 	}
 	$msg .= "ST: $$params{'st'}\r\n" if $$params{'response'};
 	$msg .= "USN: $$params{'usn'}\r\n";

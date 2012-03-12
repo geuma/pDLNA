@@ -36,7 +36,7 @@ sub show_library
 #	}
 
 	my $response ="HTTP/1.0 200 OK\r\n";
-	$response .= "Server: $CONFIG{'PROGRAM_NAME'} v$CONFIG{'PROGRAM_VERSION'} Webserver\r\n";
+	$response .= "Server: $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version()." Webserver\r\n";
 	$response .= "Content-Type: text/html\r\n";
 	$response .= "\r\n";
 
@@ -148,7 +148,7 @@ sub show_library
 	$response .= '</div>';
 
 	$response .= '<div id="footer">';
-	$response .= '<p>provided by <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'" target="_blank">'.$CONFIG{'PROGRAM_NAME'}.'</a> v'.$CONFIG{'PROGRAM_VERSION'}.' | licensed under <a href="http://www.gnu.org/licenses/gpl.txt" target="_blank">GPL v3.0</a></p>';
+	$response .= '<p>provided by <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'" target="_blank">'.$CONFIG{'PROGRAM_NAME'}.'</a> v'.PDLNA::Config::print_version().' | licensed under <a href="http://www.gnu.org/licenses/gpl.txt" target="_blank">GPL v3.0</a></p>';
 	$response .= '</div>';
 
 	$response .= '</div>';

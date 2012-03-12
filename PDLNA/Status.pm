@@ -39,6 +39,7 @@ sub check_update_periodic
 sub check_update
 {
 	my $ua = LWP::UserAgent->new();
+	$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
 	my $xml_obj = XML::Simple->new();
 	my $xml = {
 		'deviceinformation' =>
@@ -48,6 +49,7 @@ sub check_update
 		'statusinformation' =>
 		{
 			'version' => $CONFIG{'PROGRAM_VERSION'},
+			'beta' => $CONFIG{'PROGRAM_BETA'},
 		},
 	};
 

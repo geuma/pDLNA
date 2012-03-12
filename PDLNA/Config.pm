@@ -58,11 +58,12 @@ our %CONFIG = (
 	'VIDEO_THUMBNAILS' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'DIRECTORIES' => [],
-    'EXTERNALS' => [],
+	'EXTERNALS' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.45.0',
-	'PROGRAM_DATE' => '2012-01-19',
+	'PROGRAM_VERSION' => '0.46.0',
+	'PROGRAM_DATE' => '2012-03-xx',
+	'PROGRAM_BETA' => 1,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -71,7 +72,14 @@ our %CONFIG = (
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 );
-$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.$CONFIG{'PROGRAM_VERSION'}.' on '.$CONFIG{'HOSTNAME'};
+$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+
+sub print_version
+{
+	my $string = $CONFIG{'PROGRAM_VERSION'};
+	$string .= 'b' if $CONFIG{'PROGRAM_BETA'};
+	return $string;
+}
 
 sub eval_binary_value
 {
@@ -180,18 +188,18 @@ sub parse_config
 	#
 	if (defined($cfg->get('AllowedClients')))
 	{
-        # Store a list of Net::Netmask blocks that are valid for connections
+		# Store a list of Net::Netmask blocks that are valid for connections
 		foreach my $ip_subnet (split(/\s*,\s*/, $cfg->get('AllowedClients')))
 		{
-            # We still need to use Net::IP as it validates that the ip/subnet is valid
+			# We still need to use Net::IP as it validates that the ip/subnet is valid
 			if (Net::IP->new($ip_subnet))
 			{
-                push (@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
+				push (@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
 			}
-            else
-            {
+			else
+			{
 				push(@{$errormsg}, 'Invalid AllowedClient: '.Net::IP::Error().'.');
-            }
+			}
 		}
 	}
 

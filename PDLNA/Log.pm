@@ -47,7 +47,7 @@ sub fatal
 	my $message = shift;
 
 	print STDERR $message."\n";
-	print STDERR "Going to terminate $CONFIG{'PROGRAM_NAME'}/v$CONFIG{'PROGRAM_VERSION'} on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' ...\n";
+	print STDERR "Going to terminate $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' ...\n";
 
 	exit 1;
 }

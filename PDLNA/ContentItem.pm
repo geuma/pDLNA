@@ -25,6 +25,7 @@ use Audio::Wav;
 use Audio::WMA;
 use Date::Format;
 use File::Basename;
+use File::MimeInfo;
 use Image::Info qw(image_info dim image_type);
 use Movie::Info;
 use MP3::Info;
@@ -50,6 +51,7 @@ sub new
 	$self->{TYPE} = $$params{'type'};
 	$self->{MIME_TYPE} = $$params{'mimetype'} || 'unknown';
 	$self->{STREAM} = 0 || $$params{'stream'};
+	$self->{SUBTITLE} = {};
 
 	$self->{WIDTH} = 0;
 	$self->{HEIGHT} = 0;
@@ -203,6 +205,29 @@ sub new
 
 		$self->{AUDIO_CODEC} = $info{'audio_codec'};
 		$self->{VIDEO_CODEC} = $info{'codec'};
+
+		my $tmp = $1 if $self->{PATH} =~ /^(.+)\.\w{3,4}$/;
+		foreach my $extensions ('srt')
+		{
+			if (-f $tmp.'.'.$extensions)
+			{
+				my $mimetype = mimetype($tmp.'.'.$extensions);
+				my @fileinfo = stat($tmp.'.'.$extensions);
+				if ($mimetype eq 'application/x-subrip') # TODO text/x-subviewer (.sub)
+				{
+					$self->{SUBTITLE}->{$extensions} = {
+						'path' => $tmp.'.'.$extensions,
+						'mimetype' => $mimetype,
+						'size' => $fileinfo[7],
+						'date' => $fileinfo[9]
+					};
+				}
+				else
+				{
+					PDLNA::Log::log('Unknown MimeType '.$mimetype.' for subtitle file '.$tmp.'.'.$extensions.'.', 3, 'library');
+				}
+			}
+		}
 	}
 
 	bless($self, $class);
@@ -283,9 +308,10 @@ sub mime_type
 
 	# Samsung does not accept normal MIME TYPE 'video/x-matroska',
 	# instead it wants 'video/x-mkv' as MIME TYPE
-	if ($self->{MIME_TYPE} eq 'video/x-matroska' && $device eq 'Samsung DTV DMR')
+	if ($device eq 'Samsung DTV DMR')
 	{
-		return 'video/x-mkv';
+		return 'video/x-mkv' if $self->{MIME_TYPE} eq 'video/x-matroska';
+		return 'video/x-avi' if $self->{MIME_TYPE} eq 'video/x-msvideo';
 	}
 	return $self->{MIME_TYPE};
 }
@@ -380,6 +406,18 @@ sub tracknum
 	return $self->{TRACKNUM};
 }
 
+sub subtitle
+{
+	my $self = shift;
+	my $type = shift || undef;
+
+	if (defined($type))
+	{
+		return %{$self->{SUBTITLE}->{$type}} if exists($self->{SUBTITLE}->{$type});
+	}
+	return %{$self->{SUBTITLE}};
+}
+
 sub print_object
 {
 	my $self = shift;
@@ -417,6 +455,10 @@ sub print_object
 		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
 		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
 		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
+		foreach my $type (keys %{$self->{SUBTITLE}})
+		{
+			$string .= $input."\tSubTitleFile   ".$self->{SUBTITLE}->{$type}->{'path'}." (".$type.")\n";
+		}
 	}
 
 	if ($self->{TYPE} eq 'audio' || $self->{TYPE} eq 'video')

@@ -228,8 +228,6 @@ sub initialize
 {
 	my $self = shift;
 
-	return 0 if $self->{PATH} =~ /lost\+found/;
-
 	if ($self->{SUBTYPE} eq 'playlist' && -f $self->{PATH}) # if we are a playlist and a file
 	{
 		# reading the playlist file
@@ -326,7 +324,12 @@ sub initialize
 			return;
 		}
 
-		if (-d "$element" && $self->{RECURSION} eq 'yes')
+		if (-d "$element" && $element =~ /lost\+found$/)
+		{
+			PDLNA::Log::log('Skipping '.$element.' directory.', 1, 'library');
+			next;
+		}
+		elsif (-d "$element" && $self->{RECURSION} eq 'yes')
 		{
 			$element =~ s/\[/\\[/g;
 			$element =~ s/\]/\\]/g;
