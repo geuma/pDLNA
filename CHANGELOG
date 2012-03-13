@@ -8,7 +8,7 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.46.0
-xx-Mar-2012
+13-Mar-2012
 
 - added UUID configuration parameter for choosing method to generate UUID
 - fixed a bug ignoring lost+found directories
@@ -17,6 +17,7 @@ xx-Mar-2012
 - PROGRAM_BETA to CONFIG hash and print_version() to PDLNA::Config module
 - changed default value for EnableImageThumbnails from enabled to disabled to be conform to EnableVideoThumbnails
 - default value for AllowedClients is set to the local subnet
+- fixed a bug regarding default value for LogFileMaxSize
 
 Version 0.45.0
 19-Jan-2012
