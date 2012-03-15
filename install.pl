@@ -198,12 +198,9 @@ for (my $i = 0; $i < @INC; $i++)
 push(@INC, $PREFIX); # push the new LIB directory to PATH
 
 use_ok ('PDLNA::Config');
-use_ok ('PDLNA::Content');
 use_ok ('PDLNA::ContentDirectory');
-use_ok ('PDLNA::ContentGroup');
 use_ok ('PDLNA::ContentItem');
 use_ok ('PDLNA::ContentLibrary');
-use_ok ('PDLNA::ContentType');
 use_ok ('PDLNA::Daemon');
 use_ok ('PDLNA::Device');
 use_ok ('PDLNA::DeviceList');
