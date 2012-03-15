@@ -140,7 +140,7 @@ sub get_browseresponse_item
 
 	# File preview information
 	if (
-			ref $item ne 'PDLNA::ContentExternal' && # for external content, we do not want thumbnails
+			$item->file() && # no thumbnails for commands or streams
 			($item->type() eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item->type() eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'})
 		)
 	{

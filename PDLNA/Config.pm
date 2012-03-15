@@ -58,13 +58,15 @@ our %CONFIG = (
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
+	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
+	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.46.0',
-	'PROGRAM_DATE' => '2012-03-13',
-	'PROGRAM_BETA' => 0,
+	'PROGRAM_VERSION' => '0.47.0',
+	'PROGRAM_DATE' => '2012-03-xx',
+	'PROGRAM_BETA' => 1,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -105,7 +107,7 @@ sub parse_config
 	}
 
 	my $cfg = Config::ApacheFormat->new(
-		valid_blocks => [qw(Directory External)],
+		valid_blocks => [qw(Directory External Transcode)],
 	);
 	unless ($cfg->read($file))
 	{
@@ -307,6 +309,16 @@ sub parse_config
 	}
 
 	#
+	# FFmpegBinaryPath
+	#
+	$CONFIG{'FFMPEG_BIN'} = $cfg->get('FFmpegBinaryPath') if defined($cfg->get('FFmpegBinaryPath'));
+	# TODO check for x bit or even if it is ffmpeg
+	unless (-f $CONFIG{'FFMPEG_BIN'})
+	{
+		push(@{$errormsg}, 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.');
+	}
+
+	#
 	# UUID
 	#
 	# some of the marked code lines are taken from UUID::Tiny perl module,
@@ -372,21 +384,21 @@ sub parse_config
 		{
 			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' is not a directory.');
 		}
-		if ($block->get('type') !~ /^(audio|video|image|all)$/)
+		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video|image|all)$/)
 		{
 			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid type.');
 		}
 
 		my $recursion = 'yes';
-		if (defined($block->get('recursion')))
+		if (defined($block->get('Recursion')))
 		{
-			if ($block->get('recursion') !~ /^(no|yes)$/)
+			if ($block->get('Recursion') !~ /^(no|yes)$/)
 			{
 				push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid recursion type.');
 			}
 			else
 			{
-				$recursion = $block->get('recursion');
+				$recursion = $block->get('Recursion');
 			}
 		}
 
@@ -405,7 +417,7 @@ sub parse_config
 
 		push(@{$CONFIG{'DIRECTORIES'}}, {
 				'path' => $directory_block->[1],
-				'type' => $block->get('type'),
+				'type' => $block->get('MediaType'),
 				'recursion' => $recursion,
 				'exclude_dirs' => \@exclude_dirs,
 				'exclude_items' => \@exclude_items,
@@ -420,23 +432,78 @@ sub parse_config
     foreach my $external_block ($cfg->get('External'))
     {
         my $block = $cfg->block(External => $external_block->[1]);
-        if (!-x $external_block->[1])
+		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video|image)$/)
         {
-            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' is not executable.');
+            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' does not have a valid Mediatype.');
         }
-        if ($block->get('type') !~ /^(audio|video|image|all)$/)
-        {
-            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' does not have a valid type.');
-        }
-        my $recursion = 'no';
-
-        push(@{$CONFIG{'EXTERNALS'}}, {
-                'path' => $external_block->[1],
-                'type' => $block->get('type'),
-                'recursion' => $recursion,
-            }
-        );
+		if (defined($block->get('StreamingURL')))
+		{
+				push(@{$CONFIG{'EXTERNALS'}}, {
+						'name' => $external_block->[1],
+						'type' => $block->get('MediaType'),
+						'streamurl' => $block->get('StreamingURL'),
+						'mimetype' => $block->get('MimeType'),
+					}
+				);
+		}
+		elsif (defined($block->get('Executable')))
+		{
+			if (-x $block->get('Executable'))
+			{
+				push(@{$CONFIG{'EXTERNALS'}}, {
+						'name' => $external_block->[1],
+						'type' => $block->get('MediaType'),
+						'command' => $block->get('Executable'),
+						'mimetype' => $block->get('MimeType'),
+					}
+				);
+			}
+			else
+			{
+            	push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' is not executable.');
+			}
+		}
+		else
+		{
+			push(@{$errormsg}, '');
+		}
     }
+
+	#
+	# TRANSCODING PROFILES
+	#
+	my %audio_codecs = (
+		'aac'	=> 'faad',
+		'flac'	=> 'ffflac',
+		'mp3'	=> 'mp3',
+		'ogg'	=> 'ffvorbis',
+		'wav'	=> 'pcm',
+		'wmav2'	=> 'ffwmav2',
+	);
+	my %video_codecs = (
+	);
+	foreach my $transcode_block ($cfg->get('Transcode'))
+	{
+		my $block = $cfg->block(Transcode => $transcode_block->[1]);
+        if (defined($block->get('MediaType')) && $block->get('MediaType') eq 'audio')
+        {
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioIn').' is not a supported AudioCodec for AudioIn.') unless defined($audio_codecs{lc($block->get('AudioIn'))});
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioOut').' is not a supported AudioCodec for AudioOut.') unless defined($audio_codecs{lc($block->get('AudioOut'))});
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioOut').' is not a supported AudioCodec for AudioOut.') if $block->get('AudioOut') !~ /(flac)/i;
+		}
+		else
+		{
+            push(@{$errormsg}, 'Invalid Transcode: \''.$transcode_block->[1].'\' does not have a valid MediaType.');
+		}
+
+		my %transcode = ();
+		$transcode{'Name'} = $transcode_block->[1];
+		$transcode{'MediaType'} = $block->get('MediaType');
+		$transcode{'AudioIn'} = $audio_codecs{lc($block->get('AudioIn'))} if defined($block->get('AudioIn'));
+		$transcode{'AudioOut'} = $audio_codecs{lc($block->get('AudioOut'))} if defined($block->get('AudioOut'));
+
+		push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
+	}
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;

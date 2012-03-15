@@ -29,7 +29,6 @@ use Movie::Info;
 
 use PDLNA::Config;
 use PDLNA::ContentItem;
-use PDLNA::ContentExternal;
 use PDLNA::Log;
 use PDLNA::Utils;
 
@@ -200,18 +199,6 @@ sub add_directory
 	$self->{AMOUNT}++;
 }
 
-sub add_external
-{
-    my $self = shift;
-    my $params = shift;
-
-	PDLNA::Log::log('Adding element '.$$params{'path'}.'.', 2, 'library');
-
-    my $id = $$params{'parent_id'}.$$params{'id'};
-    $self->{ITEMS}->{$id} = PDLNA::ContentExternal->new($params);
-    $self->{AMOUNT}++;
-}
-
 sub set_ids_for_items
 {
 	my $self = shift;
@@ -289,14 +276,16 @@ sub initialize
 #					$media_type = 'video';
 #				}
 #
-#				$self->add_external({
+#				$self->add_content_item({
 #					'name' => $element,
-#					'path' => $CONFIG{'MPLAYER_BIN'}.' '.$element.' -dumpstream -dumpfile /dev/stdout 2>/dev/null',
+#					'path' => $element,
 #					'parent_id' => $self->{ID},
 #					'id' => $id,
 #					'type' => $media_type,
 #					'mimetype' => $mimetype,
 #					'file_extension' => $file_extension,
+#					'file' => 0,
+#					'command' => $CONFIG{'MPLAYER_BIN'}.' '.$element.' -dumpstream -dumpfile /dev/stdout 2>/dev/null',
 #				});
 #				$id++;
 			}
@@ -387,8 +376,7 @@ sub add_content_item
 	if (
 			$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
 			# TODO image/png image/tiff
-			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' ||
-			# TODO video/x-theora+ogg audio/x-wav
+			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' || $mimetype eq 'audio/x-wav' || $mimetype eq 'video/x-theora+ogg' ||
 			$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
 		)
 	{
@@ -409,6 +397,7 @@ sub add_content_item
 				'id' => $id,
 				'parent_id' => $self->{ID},
 				'mimetype' => $mimetype,
+				'file' => 1,
 			});
 			$id++;
 		}

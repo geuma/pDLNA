@@ -7,6 +7,17 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.47.0
+xx-xxx-2012
+
+- added support for video/x-theora+ogg and audio/x-wav Mime-Types
+- removed PDLNA::ContentExternal Perl Module and integrated external scripts into PDLNA::ContentItem Perl Modul
+- modified configuring <External> blocks (see sample configuration or configuration guide)
+- added configuring audio streams in <External> blocks
+- refractured PDLNA::HTTPServer::stream_media() function
+- added FFmpegBinaryPath configuration parameter for path to installed FFmpeg binary
+- addded Transcoding Profiles for audio files
+
 Version 0.46.0
 13-Mar-2012
 

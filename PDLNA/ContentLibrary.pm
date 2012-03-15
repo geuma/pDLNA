@@ -140,12 +140,18 @@ sub new
 		}
 
 		# BaseView
-		$self->{DIRECTORIES}->{0}->add_external({
-			'path' => $external->{'path'},
+		$self->{DIRECTORIES}->{0}->add_item({
+			'name' => $external->{'name'},
+			'filename' => $external->{'command'},
+			'command' => $external->{'command'},
+			'streamurl' => $external->{'streamurl'},
 			'type' => $external->{'type'},
-			'recursion' => $external->{'recursion'},
+			'file' => 0,
+			'mimetype' => $external->{'mimetype'},
+			'recursion' => 'no',
 			'id' => $i,
 			'parent_id' => '',
+			'file' => 0,
 		});
 		$i++;
 	}
