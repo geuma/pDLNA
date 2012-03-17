@@ -148,10 +148,8 @@ sub new
 			'type' => $external->{'type'},
 			'file' => 0,
 			'mimetype' => $external->{'mimetype'},
-			'recursion' => 'no',
 			'id' => $i,
 			'parent_id' => '',
-			'file' => 0,
 		});
 		$i++;
 	}
