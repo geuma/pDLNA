@@ -378,6 +378,18 @@ sub mime_type
 	return $self->{MIME_TYPE};
 }
 
+sub width
+{
+	my $self = shift;
+	return $self->{WIDTH};
+}
+
+sub height
+{
+	my $self = shift;
+	return $self->{HEIGHT};
+}
+
 sub resolution
 {
 	my $self = shift;
