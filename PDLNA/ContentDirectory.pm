@@ -248,46 +248,45 @@ sub initialize
 		{
 			if ($element =~ /^(http|mms):\/\//)
 			{
-#				my $movie_info = Movie::Info->new();
-#				unless (defined($movie_info))
-#				{
-#					PDLNA::Log::fatal('Unable to find MPlayer.');
-#				}
-#				my %info = $movie_info->info($element);
+				my $movie_info = Movie::Info->new();
+				unless (defined($movie_info))
+				{
+					PDLNA::Log::fatal('Unable to find MPlayer.');
+				}
+				my %info = $movie_info->info($element);
 #				foreach (keys %info) { print STDERR "$_ -> $info{$_}\n"; }
-#
-#				my ($media_type, $mimetype, $file_extension) = '';
-#				if (defined($info{'audio_codec'}) && !defined($info{'codec'}))
-#				{
-#					if ($info{'audio_codec'} eq 'mp3')
-#					{
-#						$mimetype = 'audio/mpeg';
-#						$file_extension = 'MP3';
-#					}
-#					$media_type = 'audio';
-#				}
-#				elsif (defined($info{'audio_codec'}) && defined($info{'codec'}))
-#				{
-#					if ($info{'audio_codec'} eq 'ffwmav2' && $info{'codec'} eq 'ffwmv3')
-#					{
-#						$mimetype = 'video/x-ms-wmv';
-#						$file_extension = 'WMV';
-#					}
-#					$media_type = 'video';
-#				}
-#
-#				$self->add_content_item({
-#					'name' => $element,
-#					'path' => $element,
-#					'parent_id' => $self->{ID},
-#					'id' => $id,
-#					'type' => $media_type,
-#					'mimetype' => $mimetype,
-#					'file_extension' => $file_extension,
-#					'file' => 0,
-#					'command' => $CONFIG{'MPLAYER_BIN'}.' '.$element.' -dumpstream -dumpfile /dev/stdout 2>/dev/null',
-#				});
-#				$id++;
+
+				my ($media_type, $mimetype, $file_extension) = '';
+				if (defined($info{'audio_codec'}) && !defined($info{'codec'}))
+				{
+					if ($info{'audio_codec'} eq 'mp3')
+					{
+						$mimetype = 'audio/mpeg';
+						$file_extension = 'MP3';
+					}
+					$media_type = 'audio';
+				}
+				elsif (defined($info{'audio_codec'}) && defined($info{'codec'}))
+				{
+					if ($info{'audio_codec'} eq 'ffwmav2' && $info{'codec'} eq 'ffwmv3')
+					{
+						$mimetype = 'video/x-ms-wmv';
+						$file_extension = 'WMV';
+					}
+					$media_type = 'video';
+				}
+
+				$self->add_item({
+					'name' => $element,
+					'filename' => $element,
+					'streamurl' => $element,
+					'type' => $media_type,
+					'file' => 0,
+					'mimetype' => $mimetype,
+					'id' => $id,
+					'parent_id' => $self->{ID},
+				});
+				$id++;
 			}
 			else # local items
 			{
@@ -348,6 +347,7 @@ sub initialize
 				)
 			{
 				# we are adding playlist files as directories to the library
+				# and so their elements as items in the directory
 				PDLNA::Log::log("Adding Playlist element '$element' to database.", 2, 'library');
 				$self->add_directory({
 					'path' => $element,
