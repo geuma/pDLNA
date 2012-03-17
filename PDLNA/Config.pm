@@ -382,11 +382,11 @@ sub parse_config
 		my $block = $cfg->block(Directory => $directory_block->[1]);
 		if (!-d $directory_block->[1])
 		{
-			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' is not a directory.');
+			push(@{$errormsg}, 'Invalid Directory \''.$directory_block->[1].'\': Not a directory.');
 		}
 		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video|image|all)$/)
 		{
-			push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid type.');
+			push(@{$errormsg}, 'Invalid Directory \''.$directory_block->[1].'\': Invalid MediaType.');
 		}
 
 		my $recursion = 'yes';
@@ -394,7 +394,7 @@ sub parse_config
 		{
 			if ($block->get('Recursion') !~ /^(no|yes)$/)
 			{
-				push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\' does not have a valid recursion type.');
+				push(@{$errormsg}, 'Invalid Directory: \''.$directory_block->[1].'\': Invalid Recursion value.');
 			}
 			else
 			{
@@ -432,41 +432,37 @@ sub parse_config
     foreach my $external_block ($cfg->get('External'))
     {
         my $block = $cfg->block(External => $external_block->[1]);
-		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video|image)$/)
+		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
         {
-            push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' does not have a valid Mediatype.');
+            push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Invalid MediaType.');
         }
+
+		my %external = (
+			'name' => $external_block->[1],
+			'type' => $block->get('MediaType'),
+			'mimetype' => $block->get('MimeType'),
+		);
+
 		if (defined($block->get('StreamingURL')))
 		{
-				push(@{$CONFIG{'EXTERNALS'}}, {
-						'name' => $external_block->[1],
-						'type' => $block->get('MediaType'),
-						'streamurl' => $block->get('StreamingURL'),
-						'mimetype' => $block->get('MimeType'),
-					}
-				);
+			$external{'streamurl'} = $block->get('StreamingURL');
 		}
 		elsif (defined($block->get('Executable')))
 		{
 			if (-x $block->get('Executable'))
 			{
-				push(@{$CONFIG{'EXTERNALS'}}, {
-						'name' => $external_block->[1],
-						'type' => $block->get('MediaType'),
-						'command' => $block->get('Executable'),
-						'mimetype' => $block->get('MimeType'),
-					}
-				);
+				$external{'command'} = $block->get('Executable');
 			}
 			else
 			{
-            	push(@{$errormsg}, 'Invalid External: \''.$external_block->[1].'\' is not executable.');
+            	push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
 			}
 		}
 		else
 		{
-			push(@{$errormsg}, '');
+			push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Please define Executable or StreamingURL.');
 		}
+		push(@{$CONFIG{'EXTERNALS'}}, \%external);
     }
 
 	#
@@ -493,7 +489,7 @@ sub parse_config
 		}
 		else
 		{
-            push(@{$errormsg}, 'Invalid Transcode: \''.$transcode_block->[1].'\' does not have a valid MediaType.');
+            push(@{$errormsg}, 'Invalid Transcode \''.$transcode_block->[1].'\': Invalid MediaType.');
 		}
 
 		my %transcode = ();
