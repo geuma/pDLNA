@@ -397,7 +397,7 @@ sub ctrl_content_directory_1
 		{
 			if ($browsefilters[0] eq '*')
 			{
-				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class', 'res@bitrate', 'res@duration');
 			}
 		}
 
@@ -466,6 +466,32 @@ sub ctrl_content_directory_1
 				});
 			}
 		}
+	}
+	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSearchCapabilities"')
+	{
+		$response = http_header({
+			'statuscode' => 200,
+		});
+		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response .= '<s:Body>';
+		$response .= '<u:GetSearchCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response .= '<SearchCaps></SearchCaps>';
+		$response .= '</u:GetSearchCapabilitiesResponse>';
+		$response .= '</s:Body>';
+		$response .= '</s:Envelope>';
+	}
+	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSortCapabilities"')
+	{
+		$response = http_header({
+			'statuscode' => 200,
+		});
+		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response .= '<s:Body>';
+		$response .= '<u:GetSortCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response .= '<SortCaps></SortCaps>';
+		$response .= '</u:GetSortCapabilitiesResponse>';
+		$response .= '</s:Body>';
+		$response .= '</s:Envelope>';
 	}
 	# OLD CODE
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
@@ -661,12 +687,11 @@ sub stream_media
 		# for streaming relevant code starts here
 		#
 
-		my @additional_header = (
-			'Content-Type: '.$item->mime_type($model_name),
-			'Content-Length: '.$item->size(),
-			'Content-Disposition: attachment; filename="'.$item->name().'"',
-			'Accept-Ranges: bytes',
-		);
+		my @additional_header = ();
+		push(@additional_header, 'Content-Type: '.$item->mime_type($model_name));
+		push(@additional_header, 'Content-Length: '.$item->size()) if $item->file();
+		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item->name().'"'),
+		push(@additional_header, 'Accept-Ranges: bytes');
 
 		# Streaming of content is NOT working with SAMSUNG without this response header
 		if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
@@ -741,7 +766,7 @@ sub stream_media
 
 		if ($method eq 'HEAD') # handling HEAD requests
 		{
-			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->path().'.', 1, 'httpstream');
+			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->name().'.', 1, 'httpstream');
 
 			print $FH http_header({
 				'statuscode' => 200,
@@ -755,9 +780,12 @@ sub stream_media
 			# we set it, because they seem to ignore it
 			if (defined($$CGI{'USER-AGENT'}))
 			{
-				if ($$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
+				if (
+					$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^vlc/ || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
-					$$CGI{'USER-AGENT'} =~ /^stagefright/ ) # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^stagefright/ || # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^gvfs/ # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+					)
 				{
 					$$CGI{'TRANSFERMODE.DLNA.ORG'} = 'Streaming';
 				}
