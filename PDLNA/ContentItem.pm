@@ -44,61 +44,79 @@ sub new
 	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
 	$self->{PARENT_ID} = $$params{'parent_id'};
 
-	$self->{NAME} = $$params{'name'} || basename($$params{'filename'});
-	$self->{PATH} = $$params{'filename'};
-	$self->{FILE} = $$params{'file'}; # is it a file or it is a command/stream
-
-	$self->{FILE_EXTENSION} = 'foo';
-	if (defined($$params{'filename'}) && $$params{'filename'} =~ /\.(\w{2,4})$/)
+	$self->{FILE} = 0; # is it a file stored on a mounted filesystem
+	$self->{DATE} = 0;
+	$self->{SIZE} = 0;
+	$self->{TYPE} = '';
+	$self->{FILE_EXTENSION} = '';
+	if (defined($$params{'filename'}))
 	{
-		$self->{FILE_EXTENSION} = uc($1);
+		$self->{FILE} = 1;
+		$self->{PATH} = $$params{'filename'};
+		$self->{NAME} = $$params{'name'} || basename($$params{'filename'});
+		$self->{MIME_TYPE} = $$params{'mimetype'};
+		$self->{TYPE} = $$params{'type'} || '';
+
+		$self->{FILE_EXTENSION} = $1 if $self->{NAME} =~ /(\w{3,4})$/;
+		#
+		# FILESYSTEM META DATA
+		#
+		my @fileinfo = stat($self->{PATH});
+		$self->{DATE} = $fileinfo[9];
+		$self->{SIZE} = $fileinfo[7];
+	}
+	elsif (defined($$params{'command'}))
+	{
+		$self->{NAME} = $$params{'name'} || '';
+		$self->{COMMAND} = $$params{'command'};
+		$self->{PATH} = $$params{'command'};
+	}
+	elsif (defined($$params{'streamurl'}))
+	{
+		$self->{NAME} = $$params{'name'} || '';
+		$self->{COMMAND} = $CONFIG{'MPLAYER_BIN'}.' '.$$params{'streamurl'}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
+		$self->{PATH} = $$params{'streamurl'};
 	}
 
-	$self->{DATE} = $$params{'date'} || 0;
-	$self->{SIZE} = $$params{'size'} || 0;
-
-	$self->{TYPE} = $$params{'type'};
-	$self->{MIME_TYPE} = $$params{'mimetype'} || 'unknown';
-
-	$self->{SUBTITLE} = {};
-
+	#
+	# resolution, encoding, ...
+	#
 	$self->{WIDTH} = 0;
 	$self->{HEIGHT} = 0;
-	$self->{COLOR} = '';
+
 	$self->{DURATION_SECONDS} = 0; # duration in seconds
 	$self->{BITRATE} = 0,
 	$self->{VBR} = 0,
 
-	$self->{ARTIST} = 'n/A';
-	$self->{ALBUM} = 'n/A';
-	$self->{TRACKNUM} = 'n/A';
-	$self->{TITLE} = 'n/A';
-	$self->{GENRE} = 'n/A';
-	$self->{YEAR} = 'n/A';
-
+	$self->{CONTAINER} = '';
 	$self->{AUDIO_CODEC} = '';
 	$self->{VIDEO_CODEC} = '';
-
-	$self->{AUDIO_CODEC_TRANSCODE} = '';
-	$self->{VIDEO_CODEC_TRANSCODE} = '';
-
-	$self->{COMMAND} = $$params{'command'} || '';
-	$self->{COMMAND} = $CONFIG{'MPLAYER_BIN'}.' '.$$params{'streamurl'}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null' if $$params{'streamurl'};
 
 	if ($self->{TYPE} eq 'image')
 	{
 		my $info = image_info($self->{PATH});
 		($self->{WIDTH}, $self->{HEIGHT}) = dim($info);
 	}
-	elsif ($self->{FILE} && $self->{TYPE} eq 'audio')
+	else
 	{
-		if ($self->{MIME_TYPE} eq 'audio/mpeg')
-		{
-			my $info = get_mp3info($self->{PATH});
-			$self->{DURATION_SECONDS} = convert_to_seconds($info->{'TIME'});
-			$self->{BITRATE} = int($info->{'BITRATE'});
-			$self->{VBR} = $info->{'VBR'};
+		PDLNA::Media::info($self);
+	}
 
+	#
+	# ADD AUDIO INFORMATION (artist, ...)
+	#
+	$self->{ARTIST} = 'n/A';
+	$self->{ALBUM} = 'n/A';
+	$self->{TRACKNUM} = 0;
+	$self->{TITLE} = 'n/A';
+	$self->{GENRE} = 'n/A';
+	$self->{YEAR} = '0000';
+
+	if ($self->{TYPE} eq 'audio' && defined($self->{AUDIO_CODEC}))
+	{
+		if ($self->{AUDIO_CODEC} eq 'mp3')
+		{
+			#my $info = get_mp3info($self->{PATH});
 			my $tag = get_mp3tag($self->{PATH});
 			if (keys %{$tag})
 			{
@@ -110,13 +128,9 @@ sub new
 				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		if ($self->{MIME_TYPE} eq 'audio/mp4')
+		elsif ($self->{AUDIO_CODEC} eq 'faad')
 		{
-			my $info = get_mp4info($self->{PATH});
-			$self->{DURATION_SECONDS} = convert_to_seconds($info->{'TIME'});
-			$self->{BITRATE} = int($info->{'BITRATE'});
-			$self->{VBR} = 0;
-
+			#my $info = get_mp4info($self->{PATH});
 			my $tag = get_mp4tag($self->{PATH});
 			if (keys %{$tag})
 			{
@@ -128,14 +142,10 @@ sub new
 				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		elsif ($self->{MIME_TYPE} eq 'audio/x-ms-wma')
+		elsif ($self->{AUDIO_CODEC} eq 'ffwmav2')
 		{
 			my $wma = Audio::WMA->new($self->{PATH});
-
-			my $info = $wma->info();
-			$self->{DURATION_SECONDS} = $1 if $info->{'playtime_seconds'} =~ /^(\d+)/;
-			$self->{BITRATE} = int($info->{'bitrate'});
-
+			#my $info = $wma->info();
 			my $tag = $wma->tags();
 			if (keys %{$tag})
 			{
@@ -145,18 +155,11 @@ sub new
 				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
 				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
 				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-
-				$self->{VBR} = $tag->{'VBR'};
 			}
 		}
-		elsif ($self->{MIME_TYPE} eq 'audio/x-flac')
+		elsif ($self->{AUDIO_CODEC} eq 'ffflac')
 		{
 			my $flac = Audio::FLAC::Header->new($self->{PATH});
-
-			$self->{DURATION_SECONDS} = $1 if $flac->{'trackTotalLengthSeconds'} =~ /^(\d+)/;
-			$self->{BITRATE} = int($flac->{'bitRate'});
-			$self->{VBR} = 0;
-
 			my $tag = $flac->tags();
 			if (keys %{$tag})
 			{
@@ -168,61 +171,34 @@ sub new
 				$self->{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
 			}
 		}
-		elsif ($self->{MIME_TYPE} eq 'video/x-theora+ogg')
+		elsif ($self->{AUDIO_CODEC} eq 'ffvorbis')
 		{
-			my $ogg = Ogg::Vorbis::Header->new($self->{PATH});
-
-			my $info = $ogg->info();
-			$self->{DURATION_SECONDS} = $1 if $info->{'length'} =~ /^(\d+)/;
-			$self->{BITRATE} = int($info->{'bitrate_nominal'});
-			$self->{VBR} = 0;
-
-			#$self->{ARTIST} = $ogg->comment('ARTIST') if $ogg->comment('ARTIST');
-			#$self->{ALBUM} = $ogg->comment('ALBUM') if $ogg->comment('ALBUM');
-			#$self->{TRACKNUM} = $ogg->comment('TRACKNUMBER') if $ogg->comment('TRACKNUMBER');
-			#$self->{TITLE} = $ogg->comment('TITLE') if $ogg->comment('TITLE');
-			#$self->{GENRE} = $ogg->comment('GENRE') if $ogg->comment('GENRE');
-			#$self->{YEAR} = $ogg->comment('YEAR') if $ogg->comment('YEAR');
+#			my $ogg = Ogg::Vorbis::Header->new($self->{PATH});
+#			$self->{ARTIST} = $ogg->comment('ARTIST') if $ogg->comment('ARTIST');
+#			$self->{ALBUM} = $ogg->comment('ALBUM') if $ogg->comment('ALBUM');
+#			$self->{TRACKNUM} = $ogg->comment('TRACKNUMBER') if $ogg->comment('TRACKNUMBER');
+#			$self->{TITLE} = $ogg->comment('TITLE') if $ogg->comment('TITLE');
+#			$self->{GENRE} = $ogg->comment('GENRE') if $ogg->comment('GENRE');
+#			$self->{YEAR} = $ogg->comment('YEAR') if $ogg->comment('YEAR');
 		}
-		elsif ($self->{MIME_TYPE} eq 'audio/x-wav')
+		elsif ($self->{AUDIO_CODEC} eq 'pcm')
 		{
-			my $wav = Audio::Wav->new();
-			my $read = $wav->read($self->{PATH});
-
-			$self->{DURATION_SECONDS} = $1 if $read->length_seconds() =~ /^(\d+)/;
-			#my $info = $read->get_info();
-
-			$self->{BITRATE} = 0;
-			$self->{VBR} = 0;
+#			my $wav = Audio::Wav->new();
+#			my $read = $wav->read($self->{PATH});
 		}
-
-		my $movie_info = Movie::Info->new();
-		unless (defined($movie_info))
+		else
 		{
-			PDLNA::Log::fatal('Unable to find MPlayer.');
 		}
-
-		my %info = $movie_info->info($self->{PATH});
-		$self->{AUDIO_CODEC} = $info{'audio_codec'};
 	}
-	elsif ($self->{TYPE} eq 'video')
+
+	#
+	# SUBTITLES
+	# TODO support more subtitles (text/x-subviewer (.sub))
+	#
+	$self->{SUBTITLE} = {};
+
+	if ($self->{TYPE} eq 'video')
 	{
-		my $movie_info = Movie::Info->new();
-		unless (defined($movie_info))
-		{
-			PDLNA::Log::fatal('Unable to find MPlayer.');
-		}
-
-		my %info = $movie_info->info($self->{PATH});
-
-		$self->{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/; # ignore milliseconds
-		$self->{BITRATE} = $info{'bitrate'} || 0;
-		$self->{WIDTH} = $info{'width'} || 0;
-		$self->{HEIGHT} = $info{'height'} || 0;
-
-		$self->{AUDIO_CODEC} = $info{'audio_codec'};
-		$self->{VIDEO_CODEC} = $info{'codec'};
-
 		my $tmp = $1 if $self->{PATH} =~ /^(.+)\.\w{3,4}$/;
 		foreach my $extensions ('srt')
 		{
@@ -230,7 +206,7 @@ sub new
 			{
 				my $mimetype = mimetype($tmp.'.'.$extensions);
 				my @fileinfo = stat($tmp.'.'.$extensions);
-				if ($mimetype eq 'application/x-subrip') # TODO text/x-subviewer (.sub)
+				if ($mimetype eq 'application/x-subrip')
 				{
 					$self->{SUBTITLE}->{$extensions} = {
 						'path' => $tmp.'.'.$extensions,
@@ -247,36 +223,38 @@ sub new
 		}
 	}
 
-	if ($self->{TYPE} eq 'audio')
+	#
+	# TRANSCODING
+	#
+	$self->{CONTAINER_TRANSCODE} = undef;
+	$self->{AUDIO_CODEC_TRANSCODE} = undef;
+	$self->{VIDEO_CODEC_TRANSCODE} = undef;
+
+	if ($self->{TYPE} =~ /^(audio|video)$/ && $self->{FILE})
 	{
 		foreach my $transcode_profile (@{$CONFIG{'TRANSCODING_PROFILES'}})
 		{
-			if (
-				defined($self->{AUDIO_CODEC}) &&
-				defined($$transcode_profile{'AudioIn'}) &&
-				$self->{AUDIO_CODEC} eq $$transcode_profile{'AudioIn'} &&
-				$$transcode_profile{'MediaType'} eq $self->{TYPE}
-			)
-			{
-				$self->{AUDIO_CODEC_TRANSCODE} = $$transcode_profile{'AudioOut'};
-				$self->{FILE} = 0;
+			next if $self->{CONTAINER} ne $$transcode_profile{'ContainerIn'};
 
-				if ($self->{AUDIO_CODEC_TRANSCODE} eq 'ffflac')
-				{
-					$self->{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i '.$self->{PATH}.' -f flac pipe:';
-					$self->{MIME_TYPE} = 'audio/x-flac';
-				}
-#				elsif ($self->{AUDIO_CODEC_TRANSCODE} eq 'ffvorbis')
-#				{
-#					$self->{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i '.$self->{PATH}.' -f ogg pipe:';
-#					$self->{MIME_TYPE} = 'video/x-theora+ogg';
-#				}
-#				elsif ($self->{AUDIO_CODEC_TRANSCODE} eq 'pcm')
-#				{
-#					$self->{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i '.$self->{PATH}.' -f wav pipe:';
-#					$self->{MIME_TYPE} = 'audio/x-wav';
-#				}
+			if (defined($$transcode_profile{'AudioIn'}) && $self->{AUDIO_CODEC} ne $$transcode_profile{'AudioIn'})
+			{
+				next;
 			}
+
+			if (defined($$transcode_profile{'VideoIn'}) && $self->{VIDEO_CODEC} ne $$transcode_profile{'VideoIn'})
+			{
+				next;
+			}
+
+			$self->{FILE} = 0;
+			$self->{CONTAINER_TRANSCODE} = $$transcode_profile{'ContainerOut'};
+			$self->{AUDIO_CODEC_TRANSCODE} = $$transcode_profile{'AudioOut'} if defined($$transcode_profile{'AudioOut'});
+			$self->{VIDEO_CODEC_TRANSCODE} = $$transcode_profile{'VideoOut'} if defined($$transcode_profile{'VideoOut'});
+			$self->{MIME_TYPE} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'MimeType');
+			$self->{TYPE} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'MediaType');
+			$self->{FILE_EXTENSION} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'FileExtension');
+
+			$self->{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i "'.$self->{PATH}.'" '.PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'FFmpegParam').' pipe: 2>/dev/null';
 		}
 	}
 
@@ -368,14 +346,70 @@ sub mime_type
 	my $self = shift;
 	my $device = shift || '';
 
-	# Samsung does not accept normal MIME TYPE 'video/x-matroska',
-	# instead it wants 'video/x-mkv' as MIME TYPE
+	# Samsung does not accept some normal MIME_TYPEs
 	if ($device eq 'Samsung DTV DMR')
 	{
 		return 'video/x-mkv' if $self->{MIME_TYPE} eq 'video/x-matroska';
 		return 'video/x-avi' if $self->{MIME_TYPE} eq 'video/x-msvideo';
+#		return 'audio/L16' if $self->{MIME_TYPE} eq 'audio/x-aiff';
+#		return 'audio/L16' if $self->{MIME_TYPE} eq 'audio/x-wav';
 	}
 	return $self->{MIME_TYPE};
+}
+
+sub dlna_contentfeatures
+{
+	my $self = shift;
+	my $type = shift || '';
+
+	my $contentfeature = '';
+
+	# DLNA.ORG_PN - media profile
+#	$contentfeature = 'DLNA.ORG_PN=WMABASE;' if $self->{MIME_TYPE} eq 'audio/x-ms-wma';
+#	$contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/L16';
+#	$contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/x-aiff';
+#	$contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/x-wav';
+	$contentfeature = 'DLNA.ORG_PN=WMABASE;' if $self->{MIME_TYPE} eq 'audio/x-ms-wma';
+	$contentfeature = 'DLNA.ORG_PN=MP3;' if $self->{MIME_TYPE} eq 'audio/mpeg';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_LRG;' if $self->{MIME_TYPE} eq 'image/jpeg';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_TN;' if $type eq 'JPEG_TN';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_SM;' if $type eq 'JPEG_SM';
+
+	# DLNA.ORG_OP=ab
+	# 	a - server supports TimeSeekRange
+	# 	b - server supports RANGE
+	unless ($type eq 'JPEG_TN' || $type eq 'JPEG_SM' || $self->{TYPE} eq 'image' || !$self->{FILE})
+	{
+		$contentfeature .= 'DLNA.ORG_OP=01;'; # deactivate seeking for transcoded or streamed media files (and images :P)
+	}
+
+	# DLNA.ORG_PS - supported play speeds
+
+	# DLNA.ORG_CI - if media is transcoded
+	if ($type eq 'JPEG_TN' || $type eq 'JPEG_SM')
+	{
+		$contentfeature .= 'DLNA.ORG_CI=1;';
+	}
+	else
+	{
+		$contentfeature .= 'DLNA.ORG_CI=0;';
+	}
+
+	# DLNA.ORG_FLAGS - binary flags with device parameters
+	if ($type eq 'JPEG_TN' || $type eq 'JPEG_SM' || $self->{TYPE} eq 'image')
+	{
+		$contentfeature .= 'DLNA.ORG_FLAGS=00D00000000000000000000000000000';
+	}
+#	elsif ($self->{MIME_TYPE} eq 'audio/x-aiff' || $self->{MIME_TYPE} eq 'audio/x-wav')
+#	{
+#		$contentfeature .= 'DLNA.ORG_FLAGS=61F00000000000000000000000000000';
+#	}
+	else
+	{
+		$contentfeature .= 'DLNA.ORG_FLAGS=01500000000000000000000000000000';
+	}
+
+	return $contentfeature;
 }
 
 sub width
@@ -502,25 +536,25 @@ sub print_object
 	$string .= $input."\tID:            ".$self->{ID}."\n";
 	$string .= $input."\tParentID:      ".$self->{PARENT_ID}."\n";
 	$string .= $input."\tFileName:      ".$self->{NAME}."\n";
-	if ($self->{FILE})
+	if ($self->{FILE} || $self->{CONTAINER_TRANSCODE})
 	{
 		$string .= $input."\tPath:          ".$self->{PATH}."\n";
 	}
-	else
+	if (!$self->{FILE})
 	{
-		$string .= $input."\tCommand:       ".$self->{COMMAND}."\n";
+		$string .= $input."\tCommand:       ".$self->{COMMAND}."\n" if $self->{COMMAND};
 	}
 	$string .= $input."\tFileExtension: ".$self->{FILE_EXTENSION}."\n";
 	$string .= $input."\tType:          ".$self->{TYPE}."\n";
-	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{DATE}).")\n";
-	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n";
-	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n";
+	$string .= $input."\tDate:          ".$self->{DATE}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{DATE}).")\n" if $self->{DATE};
+	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n" if $self->{SIZE};
+	$string .= $input."\tMimeType:      ".$self->{MIME_TYPE}."\n" if $self->{MIME_TYPE};
 
 	if ($self->{TYPE} eq 'image')
 	{
 		$string .= $input."\tResolution:    ".$self->{WIDTH}."x".$self->{HEIGHT}." px\n";
 	}
-	if ($self->{FILE} && $self->{TYPE} eq 'audio')
+	if ($self->{TYPE} eq 'audio' && ($self->{FILE} || $self->{AUDIO_CODEC_TRANSCODE}))
 	{
 		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
 		$string .= $input."\tBitrate:       ".$self->{BITRATE}." (k)bit/s (VBR ".$self->{VBR}.")\n";
@@ -531,7 +565,7 @@ sub print_object
 		$string .= $input."\tGenre:         ".$self->{GENRE}."\n";
 		$string .= $input."\tYear:          ".$self->{YEAR}."\n";
 	}
-	elsif ($self->{FILE} && $self->{TYPE} eq 'video')
+	elsif ($self->{TYPE} eq 'video' && ($self->{FILE} || $self->{AUDIO_CODEC_TRANSCODE} || $self->{VIDEO_CODEC_TRANSCODE}))
 	{
 		$string .= $input."\tDuration:      ".$self->duration()." (".$self->duration_seconds()." seconds)\n";
 		$string .= $input."\tBitrate:       ".$self->{BITRATE}." bit/s\n";
@@ -544,6 +578,11 @@ sub print_object
 
 	if ($self->{TYPE} eq 'audio' || $self->{TYPE} eq 'video')
 	{
+		$string .= $input."\tContainer:     ";
+		$string .= $self->{CONTAINER} if $self->{CONTAINER};
+		$string .= " (transcode to ".$self->{CONTAINER_TRANSCODE}.")" if $self->{CONTAINER_TRANSCODE};
+		$string .= "\n";
+
 		$string .= $input."\tAudioCodec:    ";
 		$string .= $self->{AUDIO_CODEC} if $self->{AUDIO_CODEC};
 		$string .= " (transcode to ".$self->{AUDIO_CODEC_TRANSCODE}.")" if $self->{AUDIO_CODEC_TRANSCODE};

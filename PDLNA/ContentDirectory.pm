@@ -240,6 +240,10 @@ sub initialize
 			{
 				push(@items, $line);
 			}
+			elsif ($mimetype eq 'audio/x-ms-asx')
+			{
+				# TODO parse asx file
+			}
 		}
 
 		# adding items to ContentDirectory
@@ -248,41 +252,9 @@ sub initialize
 		{
 			if ($element =~ /^(http|mms):\/\//)
 			{
-				my $movie_info = Movie::Info->new();
-				unless (defined($movie_info))
-				{
-					PDLNA::Log::fatal('Unable to find MPlayer.');
-				}
-				my %info = $movie_info->info($element);
-#				foreach (keys %info) { print STDERR "$_ -> $info{$_}\n"; }
-
-				my ($media_type, $mimetype, $file_extension) = '';
-				if (defined($info{'audio_codec'}) && !defined($info{'codec'}))
-				{
-					if ($info{'audio_codec'} eq 'mp3')
-					{
-						$mimetype = 'audio/mpeg';
-						$file_extension = 'MP3';
-					}
-					$media_type = 'audio';
-				}
-				elsif (defined($info{'audio_codec'}) && defined($info{'codec'}))
-				{
-					if ($info{'audio_codec'} eq 'ffwmav2' && $info{'codec'} eq 'ffwmv3')
-					{
-						$mimetype = 'video/x-ms-wmv';
-						$file_extension = 'WMV';
-					}
-					$media_type = 'video';
-				}
-
 				$self->add_item({
 					'name' => $element,
-					'filename' => $element,
 					'streamurl' => $element,
-					'type' => $media_type,
-					'file' => 0,
-					'mimetype' => $mimetype,
 					'id' => $id,
 					'parent_id' => $self->{ID},
 				});
@@ -341,8 +313,9 @@ sub initialize
 					$self->{ALLOW_PLAYLISTS} &&
 					(
 						$mimetype eq 'audio/x-scpls' || # PLS files
-						$mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl' # M3U files
-						# TODO Advanced Stream Redirector (video/x-ms-asf), XML Shareable Playlist Format (application/xspf+xml)
+						$mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl' || # M3U files
+						$mimetype eq 'audio/x-ms-asx' || $mimetype eq 'video/x-ms-asf' # Advanced Stream Redirector (there might be some other MimeTypes too
+						# TODO XML Shareable Playlist Format (application/xspf+xml)
 					)
 				)
 			{
@@ -371,13 +344,12 @@ sub add_content_item
 	my $element = shift;
 	my $mimetype = shift || mimetype($element);
 	my $id = shift;
-	my $stream = shift || 0;
 
 	if (
 			$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
 			# TODO image/png image/tiff
-			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' || $mimetype eq 'audio/x-wav' || $mimetype eq 'video/x-theora+ogg' ||
-			$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg'
+			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' || $mimetype eq 'audio/x-wav' || $mimetype eq 'video/x-theora+ogg' || $mimetype eq 'audio/ac3' || $mimetype eq 'audio/x-aiff' ||
+			$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg' || $mimetype eq 'video/x-flv'
 		)
 	{
 		my ($media_type) = split('/', $mimetype, 0);
@@ -386,18 +358,12 @@ sub add_content_item
 		{
 			PDLNA::Log::log("Adding $media_type element '$element' to '".$self->{NAME}."'.", 2, 'library');
 
-			my @fileinfo = stat($element);
-			my $year = time2str("%Y-%m", $fileinfo[9]);
 			$self->add_item({
 				'filename' => $element,
-				'date' => $fileinfo[9],
-				'size' => $fileinfo[7],
 				'type' => $media_type,
-				'exclude_items' => $self->{EXCLUDE_ITEMS},
 				'id' => $id,
 				'parent_id' => $self->{ID},
 				'mimetype' => $mimetype,
-				'file' => 1,
 			});
 			$id++;
 		}

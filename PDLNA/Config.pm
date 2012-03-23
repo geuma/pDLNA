@@ -37,6 +37,8 @@ use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
 
+use PDLNA::Media;
+
 our %CONFIG = (
 	# values which can be modified by configuration file
 	'LOCAL_IPADDR' => undef,
@@ -432,15 +434,15 @@ sub parse_config
     foreach my $external_block ($cfg->get('External'))
     {
         my $block = $cfg->block(External => $external_block->[1]);
-		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
-        {
-            push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Invalid MediaType.');
-        }
+#		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
+#        {
+#            push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Invalid MediaType.');
+#        }
 
 		my %external = (
 			'name' => $external_block->[1],
-			'type' => $block->get('MediaType'),
-			'mimetype' => $block->get('MimeType'),
+#			'type' => $block->get('MediaType'),
+#			'mimetype' => $block->get('MimeType'),
 		);
 
 		if (defined($block->get('StreamingURL')))
@@ -468,35 +470,102 @@ sub parse_config
 	#
 	# TRANSCODING PROFILES
 	#
-	my %audio_codecs = (
-		'aac'	=> 'faad',
-		'flac'	=> 'ffflac',
-		'mp3'	=> 'mp3',
-		'ogg'	=> 'ffvorbis',
-		'wav'	=> 'pcm',
-		'wmav2'	=> 'ffwmav2',
-	);
-	my %video_codecs = (
-	);
 	foreach my $transcode_block ($cfg->get('Transcode'))
 	{
 		my $block = $cfg->block(Transcode => $transcode_block->[1]);
-        if (defined($block->get('MediaType')) && $block->get('MediaType') eq 'audio')
-        {
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioIn').' is not a supported AudioCodec for AudioIn.') unless defined($audio_codecs{lc($block->get('AudioIn'))});
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioOut').' is not a supported AudioCodec for AudioOut.') unless defined($audio_codecs{lc($block->get('AudioOut'))});
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioOut').' is not a supported AudioCodec for AudioOut.') if $block->get('AudioOut') !~ /(flac)/i;
-		}
-		else
-		{
-            push(@{$errormsg}, 'Invalid Transcode \''.$transcode_block->[1].'\': Invalid MediaType.');
-		}
 
 		my %transcode = ();
+		$transcode{'ContainerIn'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerIn')));
+		$transcode{'ContainerOut'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerOut')));
+
+		$transcode{'AudioIn'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecIn')));
+		$transcode{'AudioOut'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecOut')));
+
+		$transcode{'VideoIn'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecIn')));
+		$transcode{'VideoOut'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecOut')));
+
+		# did we recognize the configured Container
+		if (!defined($transcode{'ContainerIn'}))
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerIn').' is not a supported Container for ContainerIn.');
+			next;
+		}
+		if (!defined($transcode{'ContainerOut'}))
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerOut').' is not a supported Container for ContainerOut.');
+			next;
+		}
+
+		# sanity checks for audio codecs
+		if ($block->get('AudioCodecIn') || $block->get('AudioCodecOut'))
+		{
+			if (!defined($transcode{'AudioIn'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecIn').' is not a supported AudioCodec for AudioCodecIn.');
+				next;
+			}
+			if (!defined($transcode{'AudioOut'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecOut').' is not a supported AudioCodec for AudioCodecOut.');
+				next;
+			}
+		}
+
+		# sanity checks for video codecs
+		# TODO
+
+		if (PDLNA::Media::container_supports_video($transcode{'ContainerOut'}))
+		{
+			if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
+				next;
+			}
+			if (!defined($transcode{'VideoIn'}) || !defined($transcode{'VideoOut'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure VideoCodecIn and VideoCodecOut.');
+				next;
+			}
+		}
+
+		if (PDLNA::Media::container_supports_audio($transcode{'ContainerOut'}))
+		{
+			if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
+				next;
+			}
+		}
+
+		unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerIn'}, $transcode{'AudioIn'}))
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecIn '.$transcode{'AudioIn'}.' is not supported by ContainerIn '.$transcode{'ContainerIn'}.'.');
+		}
+		unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerOut'}, $transcode{'AudioOut'}))
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$transcode{'AudioOut'}.' is not supported by ContainerOut '.$transcode{'ContainerOut'}.'.');
+		}
+
+		# final sanity checks (support)
+		if (defined($transcode{'ContainerIn'}) && $transcode{'ContainerIn'} !~ /^(audio)$/)
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerIn '.$transcode{'ContainerIn'}.' is NOT supported yet.');
+		}
+		if (defined($transcode{'ContainerOut'}) && $transcode{'ContainerOut'} !~ /^(audio)$/)
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerOut '.$transcode{'ContainerOut'}.' is NOT supported yet.');
+		}
+		if (defined($transcode{'AudioOut'}) && $transcode{'AudioOut'} !~ /^(ffflac)$/)
+		{
+			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$transcode{'AudioOut'}.' is NOT supported yet.');
+		}
+
+
+
+
+
 		$transcode{'Name'} = $transcode_block->[1];
-		$transcode{'MediaType'} = $block->get('MediaType');
-		$transcode{'AudioIn'} = $audio_codecs{lc($block->get('AudioIn'))} if defined($block->get('AudioIn'));
-		$transcode{'AudioOut'} = $audio_codecs{lc($block->get('AudioOut'))} if defined($block->get('AudioOut'));
+#		$transcode{'MediaType'} = $block->get('MediaType');
 
 		push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
 	}

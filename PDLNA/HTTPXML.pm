@@ -72,10 +72,17 @@ sub get_browseresponse_directory
 	push(@xml, '&lt;container ');
 	push(@xml, 'id=&quot;'.$directory->id().'&quot; ') if grep(/^\@id$/, @{$filter});
 	push(@xml, 'parentID=&quot;'.$directory->parent_id().'&quot; ') if grep(/^\@parentID$/, @{$filter});
+#	searchable=&quot;0&quot;
 	push(@xml, 'restricted=&quot;1&quot; ') if grep(/^\@restricted$/, @{$filter});
 	push(@xml, 'childCount=&quot;'.$directory->amount().'&quot;&gt;') if grep(/^\@childCount$/, @{$filter});
 	push(@xml, '&lt;dc:title&gt;'.$directory->name().'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
 	push(@xml, '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;') if grep(/^upnp:class$/, @{$filter});
+#	&lt;upnp:objectUpdateID&gt;5&lt;/upnp:objectUpdateID&gt;
+#	&lt;sec:initUpdateID&gt;5&lt;/sec:initUpdateID&gt;
+#	&lt;sec:classCount class=&quot;object.container&quot;&gt;0&lt;/sec:classCount&gt;
+#	&lt;sec:classCount class=&quot;object.item.imageItem&quot;&gt;0&lt;/sec:classCount&gt;
+#	&lt;sec:classCount class=&quot;object.item.audioItem&quot;&gt;0&lt;/sec:classCount&gt;
+#	&lt;sec:classCount class=&quot;object.item.videoItem&quot;&gt;0&lt;/sec:classCount&gt;
 	push(@xml, '&lt;/container&gt;');
 
 	return join('', @xml);
@@ -95,7 +102,7 @@ sub get_browseresponse_item
 
 	if (grep(/^upnp:class$/, @{$filter}))
 	{
-		push(@xml, '&lt;upnp:class&gt;object.item.audioItem.musicTrack&lt;/upnp:class&gt;') if $item->type() eq 'audio';
+		push(@xml, '&lt;upnp:class&gt;object.item.audioItem&lt;/upnp:class&gt;') if $item->type() eq 'audio';
 		push(@xml, '&lt;upnp:class&gt;object.item.imageItem&lt;/upnp:class&gt;') if $item->type() eq 'image';
 		push(@xml, '&lt;upnp:class&gt;object.item.videoItem&lt;/upnp:class&gt;') if $item->type() eq 'video';
 	}
@@ -106,25 +113,60 @@ sub get_browseresponse_item
 		push(@xml, '&lt;dc:creator&gt;'.$item->artist().'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
 		push(@xml, '&lt;upnp:album&gt;'.$item->album().'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
 		push(@xml, '&lt;upnp:genre&gt;'.$item->genre().'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
-		push(@xml, '&lt;upnp:originalTrackNumber&gt;'.$item->tracknum().'&lt;/upnp:originalTrackNumber&gt;');
+		push(@xml, '&lt;upnp:originalTrackNumber&gt;'.$item->tracknum().'&lt;/upnp:originalTrackNumber&gt;') if grep(/^upnp:originalTrackNumber$/, @{$filter});
 		# albumArtURI
 	}
+	elsif ($item->type() eq 'image')
+	{
+#		&lt;sec:manufacturer&gt;NIKON CORPORATION&lt;/sec:manufacturer&gt;
+#		&lt;sec:fvalue&gt;4.5&lt;/sec:fvalue&gt;
+#		&lt;sec:exposureTime&gt;0.008&lt;/sec:exposureTime&gt;
+#		&lt;sec:iso&gt;2500&lt;/sec:iso&gt;
+#		&lt;sec:model&gt;NIKON D700&lt;/sec:model&gt;
+#		&lt;sec:composition&gt;0&lt;/sec:composition&gt;
+#		&lt;sec:color&gt;0&lt;/sec:color&gt;
+	}
 
-	#<sec:dcmInfo>CREATIONDATE=1253629219,FOLDER=foo,BM=0</sec:dcmInfo>
+
+
+
+
+
+	push(@xml, '&lt;upnp:playbackCount&gt;0&lt;/upnp:playbackCount&gt;') if grep(/^upnp:playbackCount$/, @{$filter});
+	push(@xml, '&lt;sec:preference&gt;0&lt;/sec:preference&gt;') if grep(/^sec:preference$/, @{$filter});
 	push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/dc:date&gt;') if grep(/^dc:date$/, @{$filter});
+	push(@xml, '&lt;sec:modifiationDate&gt;'. time2str("%Y-%m-%d", $item->date()).'&lt;/sec:modifiationDate&gt;') if grep(/^sec:modifiationDate$/, @{$filter});
 
-	our %DLNA_CONTENTFEATURES = (
-		'image' => 		'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'image_sm' => 	'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'image_tn' => 	'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-		'video' => 		'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
-		'audio' => 		'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
-	);
+	if (grep(/^sec:dcmInfo$/, @{$filter}))
+	{
+		my @infos = ();
+		push(@infos, 'MOODSCORE=0') if $item->type() eq 'audio';
+		push(@infos, 'MOODID=5') if $item->type() eq 'audio';
 
-	push(@xml, '&lt;res protocolInfo=');
-	push(@xml, '&quot;http-get:*:'.$item->mime_type().':'.$DLNA_CONTENTFEATURES{$item->type()}.'&quot; ');
+		push(@infos, 'WIDTH='.$item->width()) if $item->type() eq 'image';
+		push(@infos, 'HEIGHT='.$item->height()) if $item->type() eq 'image';
+		push(@infos, 'COMPOSCORE=0') if $item->type() eq 'image';
+		push(@infos, 'COMPOID=0') if $item->type() eq 'image';
+		push(@infos, 'COLORSCORE=0') if $item->type() eq 'image';
+		push(@infos, 'COLORID=0') if $item->type() eq 'image';
+		push(@infos, 'MONTHLY=12') if $item->type() eq 'image';
+		push(@infos, 'ORT=1') if $item->type() eq 'image';
 
-	push(@xml, 'size=&quot;'.$item->size().'&quot; ') if grep(/^res\@size$/, @{$filter});
+		push(@infos, 'CREATIONDATE='.$item->date());
+		push(@infos, 'YEAR='.time2str("%Y", $item->date())) if $item->type() eq 'audio';
+#		push(@infos, 'FOLDER=') if $item->type() =~ /^(image|video)$/;
+		push(@infos, 'BM=0') if $item->type() eq 'video';
+
+		push(@xml, '&lt;sec:dcmInfo&gt;'.join(',', @infos).'&lt;/sec:dcmInfo&gt;');
+	}
+
+	push(@xml, '&lt;res ');
+	if ($item->type() eq 'video')
+	{
+#		push(@xml, 'sec:acodec=&quot;'..'&quot; ');
+#		push(@xml, 'sec:vcodec=&quot;'..'&quot; ');
+#		sec:acodec=&quot;ac3&quot; sec:vcodec=&quot;mpeg2video&quot;
+	}
 	if ($item->type() eq 'audio' || $item->type() eq 'video')
 	{
 		push(@xml, 'bitrate=&quot;'.$item->bitrate().'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
@@ -134,6 +176,8 @@ sub get_browseresponse_item
 	{
 		push(@xml, 'resolution=&quot;'.$item->resolution().'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
+	push(@xml, 'size=&quot;'.$item->size().'&quot; ') if grep(/^res\@size$/, @{$filter});
+	push(@xml, 'protocolInfo=&quot;http-get:*:'.$item->mime_type().':'.$item->dlna_contentfeatures().'&quot; ');
 	push(@xml, '&gt;');
 	push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item->id().'.'.$item->file_extension());
 	push(@xml, '&lt;/res&gt;');
@@ -145,7 +189,7 @@ sub get_browseresponse_item
 		)
 	{
 		push(@xml, '&lt;res protocolInfo=');
-		push(@xml, '&quot;http-get:*:image/jpeg:'.$DLNA_CONTENTFEATURES{'image_tn'}.'&quot; ');
+		push(@xml, '&quot;http-get:*:image/jpeg:'.$item->dlna_contentfeatures('JPEG_TN').'&quot; ');
 		push(@xml, '&gt;');
 		push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item->id().'.jpg');
 		push(@xml, '&lt;/res&gt;');

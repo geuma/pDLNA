@@ -145,9 +145,9 @@ sub new
 			'filename' => $external->{'command'},
 			'command' => $external->{'command'},
 			'streamurl' => $external->{'streamurl'},
-			'type' => $external->{'type'},
-			'file' => 0,
-			'mimetype' => $external->{'mimetype'},
+#			'type' => $external->{'type'},
+#			'file' => 0,
+#			'mimetype' => $external->{'mimetype'},
 			'id' => $i,
 			'parent_id' => '',
 		});

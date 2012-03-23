@@ -41,14 +41,6 @@ use PDLNA::Log;
 
 our $content = undef;
 
-our %DLNA_CONTENTFEATURES = (
-	'image' => 'DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-	'image_sm' => 'DLNA.ORG_PN=JPEG_SM;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-	'image_tn' => 'DLNA.ORG_PN=JPEG_TN;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=00D00000000000000000000000000000',
-	'video' => 'DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
-	'audio' => 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000',
-);
-
 sub initialize_content
 {
 	$content = PDLNA::ContentLibrary->new();
@@ -239,9 +231,12 @@ sub handle_connection
 		}
 		elsif ($ENV{'OBJECT'} eq '/upnp/event/ContentDirectory1' || $ENV{'OBJECT'} eq '/upnp/event/ConnectionManager1')
 		{
+			my $response_content = '';
+			$response_content = '<html><body><h1>200 OK</h1></body></html>' if $ENV{'METHOD'} eq 'UNSUBSCRIBE';
+
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' is '.$ENV{'METHOD'}.' to '.$ENV{'OBJECT'}, 1, 'discovery');
 			my @additional_header = (
-				'Content-Length: 0',
+				'Content-Length: '.length($response_content),
 				'SID: '.$CONFIG{'UUID'},
 				'Timeout: Second-'.$CONFIG{'CACHE_CONTROL'},
 			);
@@ -249,6 +244,7 @@ sub handle_connection
 				'statuscode' => 200,
 				'additional_header' => \@additional_header,
 			});
+			$response .= $response_content;
 			print $FH $response;
 		}
 		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1') # handling Directory Listings
@@ -256,6 +252,10 @@ sub handle_connection
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
 			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $ssdp_devices{$peer_ip_addr});
 		}
+#		elsif ($ENV{'OBJECT'} eq '/upnp/control/ConnectionManager1')
+#		{
+#			PDLNA::Log::log('HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
+#		}
 		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
@@ -493,6 +493,19 @@ sub ctrl_content_directory_1
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
 	}
+	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSystemUpdateID"')
+	{
+		$response = http_header({
+			'statuscode' => 200,
+		});
+		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response .= '<s:Body>';
+		$response .= '<u:GetSystemUpdateIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response .= '<Id>0</Id>';
+		$response .= '</u:GetSystemUpdateIDResponse>';
+		$response .= '</s:Body>';
+		$response .= '</s:Envelope>';
+	}
 	# OLD CODE
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
 	{
@@ -698,7 +711,7 @@ sub stream_media
 		{
 			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 			{
-				push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$item->type()});
+				push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
 			}
 			else
 			{
@@ -725,9 +738,9 @@ sub stream_media
 					}
 				}
 
-				unless (grep(/^'contentFeatures.dlna.org:/, @additional_header))
+				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 				{
-					push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$item->type()});
+					push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
 				}
 			}
 			else
@@ -748,9 +761,9 @@ sub stream_media
 				{
 					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
 
-					unless (grep(/^'contentFeatures.dlna.org:/, @additional_header))
+					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
-						push(@additional_header, 'contentFeatures.dlna.org: '.$DLNA_CONTENTFEATURES{$item->type()});
+						push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
 					}
 				}
 			}
@@ -795,6 +808,8 @@ sub stream_media
 			{
 				if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
 				{
+					push(@additional_header, 'transferMode.dlna.org: Streaming');
+
 					my $statuscode = 200;
 					my ($lowrange, $highrange) = 0;
 					if (
@@ -829,7 +844,7 @@ sub stream_media
 					{
 						open(ITEM, '-|', $item->command());
 						binmode(ITEM);
-						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header;
+						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
 					}
 					print $FH http_header({
 						'statuscode' => $statuscode,

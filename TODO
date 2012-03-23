@@ -5,6 +5,7 @@
 - dvd support (basic support is existing)
 - seeking support (seeking works in most cases, why not in all?)
 - subtitle support (text/x-subviewer)
+- transcode subtitle files
 - implement specificViews (samsung feature)
 - more external scripts (online picture services like picasa and so on, youtube, ...)
 - transcoding (transcoding profiles would be a good idea - transcode specific content for specific clients to specific formats)
