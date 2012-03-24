@@ -175,6 +175,13 @@ sub audio_codec_by_beautiful_name
 	return undef;
 }
 
+sub audio_codec_by_name
+{
+	my $name = shift;
+	return $AUDIO_CODECS{$name} if defined($AUDIO_CODECS{$name});
+	return undef;
+}
+
 sub video_codec_by_beautiful_name
 {
 	my $beautiful_name = shift;
