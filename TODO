@@ -15,5 +15,5 @@
 - improve performance of crawling directories
 - debian package, repo, rpm packages, ...
 - random music directory
-- playlist support for mime types: Advanced Stream Redirector (video/x-ms-asf), XML Shareable Playlist Format (application/xspf+xml)
+- more playlist support: Windows Media Player Playlist
 - set bookmark soap action (X_SetBookmark)

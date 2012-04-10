@@ -7,6 +7,11 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.51.0
+xx-Apr-2012
+
+- added support for additional playlist files (audio/x-ms-asx, video/x-ms-asf, application/xspf+xml)
+
 Version 0.50.0
 28-Mar-2012
 

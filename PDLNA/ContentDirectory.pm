@@ -26,6 +26,7 @@ use File::Basename;
 use File::Glob qw(bsd_glob);
 use File::MimeInfo;
 use Movie::Info;
+use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::ContentItem;
@@ -217,32 +218,69 @@ sub initialize
 
 	if ($self->{SUBTYPE} eq 'playlist' && -f $self->{PATH}) # if we are a playlist and a file
 	{
-		# reading the playlist file
-		sysopen(PLAYLIST, $self->{PATH}, O_RDONLY);
-		my @content = <PLAYLIST>;
-		close(PLAYLIST);
-
-		my @items = (); # array which will hold the possible media items
-
-		# parsing the playlist file
 		my $mimetype = mimetype($self->{PATH});
-		foreach my $line (@content)
+		my @items = (); # array which will hold the possible media items
+		if ($mimetype eq 'audio/x-scpls')
 		{
-			$line =~ s/\r\n//g;
-			$line =~ s/\n//g;
+			# reading the playlist file
+			sysopen(PLAYLIST, $self->{PATH}, O_RDONLY);
+			my @content = <PLAYLIST>;
+			close(PLAYLIST);
 
-			PDLNA::Log::log('Processing playlist line: '.$line.'.', 3, 'library');
-			if ($mimetype eq 'audio/x-scpls' && $line =~ /^File\d+\=(.+)$/)
+			foreach my $line (@content)
 			{
-				push(@items, $1);
+				$line =~ s/\r\n//g;
+				$line =~ s/\n//g;
+				push(@items, $1) if ($line =~ /^File\d+\=(.+)$/);
 			}
-			elsif (($mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl') && $line !~ /^#/)
+		}
+		elsif ($mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl')
+		{
+			# reading the playlist file
+			sysopen(PLAYLIST, $self->{PATH}, O_RDONLY);
+			my @content = <PLAYLIST>;
+			close(PLAYLIST);
+
+			foreach my $line (@content)
 			{
-				push(@items, $line);
+				$line =~ s/\r\n//g;
+				$line =~ s/\n//g;
+				push(@items, $line) if ($line !~ /^#/);
 			}
-			elsif ($mimetype eq 'audio/x-ms-asx')
+		}
+		elsif ($mimetype eq 'audio/x-ms-asx' || $mimetype eq 'video/x-ms-asf')
+		{
+			# TODO
+			# more beautiful way to do this
+			sysopen(PLAYLIST, $self->{PATH}, O_RDONLY);
+			my @content = <PLAYLIST>;
+			close(PLAYLIST);
+
+			foreach my $line (@content)
 			{
-				# TODO parse asx file
+				$line =~ s/\r\n//g;
+				$line =~ s/\n//g;
+				$line =~ s/^\s+//g;
+			}
+			foreach my $entry (split(/(<.+?>)/, join('', @content)))
+			{
+				push(@items, $1) if $entry =~ /^<ref\s+href=\"(.+)\"\s*\/>$/;
+			}
+		}
+		elsif ($mimetype eq 'application/xspf+xml')
+		{
+			my $xs = XML::Simple->new();
+			my $xml = $xs->XMLin($self->{PATH});
+			foreach my $element (@{$xml->{trackList}->{track}})
+			{
+				if ($element->{location} =~ /^file:\/\/(.+)$/)
+				{
+					push(@items, $1);
+				}
+				elsif ($element->{location} =~ /^http:\/\//)
+				{
+					push(@items, $element->{location});
+				}
 			}
 		}
 
@@ -250,6 +288,7 @@ sub initialize
 		my $id = 100;
 		foreach my $element (@items)
 		{
+			PDLNA::Log::log('Processing playlist line: '.$element.'.', 3, 'library');
 			if ($element =~ /^(http|mms):\/\//)
 			{
 				$self->add_item({
@@ -314,8 +353,8 @@ sub initialize
 					(
 						$mimetype eq 'audio/x-scpls' || # PLS files
 						$mimetype eq 'application/vnd.apple.mpegurl' || $mimetype eq 'audio/x-mpegurl' || # M3U files
-						$mimetype eq 'audio/x-ms-asx' || $mimetype eq 'video/x-ms-asf' # Advanced Stream Redirector (there might be some other MimeTypes too
-						# TODO XML Shareable Playlist Format (application/xspf+xml)
+						$mimetype eq 'audio/x-ms-asx' || $mimetype eq 'video/x-ms-asf' || # Advanced Stream Redirector (there might be some other MimeTypes too
+						$mimetype eq 'application/xspf+xml' # XML Shareable Playlist Format
 					)
 				)
 			{
