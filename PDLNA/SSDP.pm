@@ -241,7 +241,7 @@ sub receive_messages
 		else
 		{
 			PDLNA::Log::log('Received SSDP message from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
-			return;
+			next;
 		}
 
 		if ($data =~ /NOTIFY/)
