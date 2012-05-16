@@ -8,10 +8,13 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.51.0
-xx-May-2012
+16-May-2012
 
 - added support for additional playlist files (audio/x-ms-asx, video/x-ms-asf, application/xspf+xml)
 - fixed a bug regarding ignoring SSDP messages from not allowed clients
+- added configuration parameter RescanMediaInterval to define, when pDLNA should rebuild the media database
+- expired devices will be deleted from PDLNA::DeviceList database
+- the running pDLNA installation will not be added to the PDLNA::DeviceList database
 
 Version 0.50.0
 28-Mar-2012

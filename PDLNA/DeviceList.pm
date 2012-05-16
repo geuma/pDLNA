@@ -23,6 +23,7 @@ use warnings;
 use threads;
 use threads::shared;
 
+use PDLNA::Config;
 use PDLNA::Device;
 
 # constructor
@@ -42,6 +43,7 @@ sub new
 sub add
 {
 	my $self = shift;
+	#lock($self);
 	my $params = shift;
 
 	if (defined($self->{DEVICES}{$$params{'ip'}}))
@@ -51,6 +53,7 @@ sub add
 		$self->{DEVICES}{$$params{'ip'}}->uuid($$params{'uuid'}) if defined($$params{'uuid'});
 		$self->{DEVICES}{$$params{'ip'}}->ssdp_desc($$params{'desc_location'}) if defined($$params{'desc_location'});
 		$self->{DEVICES}{$$params{'ip'}}->ssdp_banner($$params{'ssdp_banner'}) if defined($$params{'ssdp_banner'});
+		$self->{DEVICES}{$$params{'ip'}}->last_seen_timestamp(time());
 	}
 	else
 	{
@@ -64,6 +67,7 @@ sub add
 sub del
 {
 	my $self = shift;
+	#lock($self);
 	my $ip = shift;
 	my $nt = shift;
 
@@ -72,16 +76,64 @@ sub del
 	delete($self->{DEVICES}->{$ip}) if $elements == 0;
 }
 
+# calls del() function to deleted expired NT types from database
+sub delete_expired
+{
+	my $self = shift;
+	#lock($self);
+
+	my $time = time();
+
+	foreach my $ip (keys %{$self->{DEVICES}})
+	{
+		foreach my $nt (keys %{$self->{DEVICES}{$ip}{NTS}})
+		{
+			if ($time > $self->{DEVICES}{$ip}{NTS}{$nt})
+			{
+				PDLNA::Log::log('Deleting expired NT '.$nt.' for UPnP device ('.$ip.') from database.', 2, 'discovery');
+				$self->del($ip, $nt);
+			}
+		}
+
+		if (defined($self->{DEVICES}{$ip}))
+		{
+			my $elements = 1;
+			$elements = $self->{DEVICES}{$ip}->nts_amount() if defined($self->{DEVICES}{$ip});
+			my $expire_time = $self->{DEVICES}{$ip}->last_seen_timestamp() + $CONFIG{CACHE_CONTROL};
+			if ($expire_time < $time && $elements == 0)
+			{
+				PDLNA::Log::log('Deleting expired UPnP device ('.$ip.') from database.', 2, 'discovery');
+				delete($self->{DEVICES}->{$ip});
+			}
+		}
+		PDLNA::Log::log($self->print_object(), 3, 'discovery');
+	}
+}
+
 sub devices
 {
 	my $self = shift;
+	#lock($self);
 	return %{$self->{DEVICES}};
+}
+
+sub devices_amount
+{
+	my $self = shift;
+	#lock($self);
+	my $amount = 0;
+	foreach my $ip (keys %{$self->{DEVICES}})
+	{
+		$amount++;
+	}
+	return $amount;
 }
 
 # prints the object
 sub print_object
 {
 	my $self = shift;
+	#lock($self);
 
 	my $string = "\n\tObject PDLNA::DeviceList\n";
 	foreach my $device (keys %{$self->{DEVICES}})

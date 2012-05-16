@@ -42,6 +42,7 @@ sub new
 		SSDP_DESC => $$params{'desc_location'},
 		HTTP_USERAGENT => $$params{'http_useragent'},
 		XML_MODEL_NAME => '',
+		LAST_SEEN_TIMESTAMP => time(),
 	);
 
 	my %nts : shared = ();
@@ -63,6 +64,7 @@ sub add_nt
 	my $expire = shift;
 
 	$self->{NTS}->{$nt} = $expire;
+	$self->{LAST_SEEN_TIMESTAMP} = time();
 }
 
 sub add_dirlist_request
@@ -78,6 +80,7 @@ sub add_dirlist_request
 	{
 		push(@{$self->{DIRLIST_HISTORY}}, $request);
 	}
+	$self->{LAST_SEEN_TIMESTAMP} = time();
 
 	# we should limit the amount of entries in the history
 	# splice(@{$self->{DIRLIST_HISTORY}}, 0, 1) if scalar(@{$self->{DIRLIST_HISTORY}}) == 2;
@@ -106,11 +109,25 @@ sub get_last_dirlist_request
 sub del
 {
 	my $self = shift;
-	my $nt = shift;
+	my $nt = shift || undef;
 
-	delete($self->{NTS}->{$nt}) if defined($self->{NTS}->{$nt});
+	if (defined($nt) && defined($self->{NTS}->{$nt}))
+	{
+		delete($self->{NTS}->{$nt});
+	}
 
-	return scalar(keys %{$self->{NTS}});
+	return $self->nts_amount();
+}
+
+sub nts_amount
+{
+	my $self = shift;
+	my $amount = 0;
+	foreach my $nt (keys %{$self->{NTS}})
+	{
+		$amount++;
+	}
+	return $amount;
 }
 
 sub model_name
@@ -125,7 +142,6 @@ sub fetch_xml_info
 
 	if (defined($self->{SSDP_DESC}) && length($self->{XML_MODEL_NAME}) == 0)
 	{
-		return if ($self->{SSDP_DESC} eq 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/ServerDesc.xml'); # we should not request our own XML description
 		my $ua = LWP::UserAgent->new();
 		$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
 		my $request = HTTP::Request->new(GET => $self->{SSDP_DESC});
@@ -183,6 +199,15 @@ sub uuid
 	return $self->{UUID};
 }
 
+sub last_seen_timestamp
+{
+	my $self = shift;
+	my $time = shift;
+
+	$self->{LAST_SEEN_TIMESTAMP} = $time if defined($time);
+	return $self->{LAST_SEEN_TIMESTAMP};
+}
+
 # prints the object information
 sub print_object
 {
@@ -201,6 +226,7 @@ sub print_object
 	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});
 	$string .= "\t\t\tHTTP User-Agent: ".$self->{HTTP_USERAGENT}."\n" if defined($self->{HTTP_USERAGENT});
 	$string .= "\t\t\tXML ModelName:   ".$self->{XML_MODEL_NAME}."\n" if defined($self->{XML_MODEL_NAME});
+	$string .= "\t\t\tLast seen at:    ".time2str($CONFIG{'DATE_FORMAT'}, $self->{LAST_SEEN_TIMESTAMP})."\n";
 	$string .= "\t\t\tDirectoryListing:".join(', ', @{$self->{DIRLIST_HISTORY}})."\n" if scalar(@{$self->{DIRLIST_HISTORY}}) > 0;
 	$string .= "\t\tObject PDLNA::Device END\n";
 

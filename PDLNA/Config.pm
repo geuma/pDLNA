@@ -55,6 +55,7 @@ our %CONFIG = (
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
+	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 0,
@@ -67,8 +68,8 @@ our %CONFIG = (
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.51.0',
-	'PROGRAM_DATE' => '2012-05-xx',
-	'PROGRAM_BETA' => 1,
+	'PROGRAM_DATE' => '2012-05-16',
+	'PROGRAM_BETA' => 0,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_SERIAL' => 1337,
@@ -296,6 +297,24 @@ sub parse_config
 	#
 	# TODO tmp directory
 	#
+
+	if ($cfg->get('RescanMediaInterval'))
+	{
+		my %values = (
+			'never' => 0,
+			'hourly' => 3600,
+			'daily' => 86400,
+		);
+
+		if (defined($values{$cfg->get('RescanMediaInterval')}))
+		{
+			$CONFIG{'RESCAN_MEDIA'} = $values{$cfg->get('RescanMediaInterval')};
+		}
+		else
+		{
+			push(@{$errormsg}, 'Invalid RescanMediaInterval:  Available options ['.join('|', keys %values).']');
+		}
+	}
 
 	#
 	# EnableImageThumbnails

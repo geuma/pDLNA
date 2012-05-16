@@ -65,6 +65,7 @@ sub add_send_socket
 		PeerPort => $self->{PORT},
 		Proto => $self->{PROTO},
 		Blocking => 0,
+		#ReuseAddr => 1,
 	) || PDLNA::Log::fatal('Cannot bind to SSDP sending socket: '.$!);
 }
 
@@ -77,6 +78,7 @@ sub add_receive_socket
 	$self->{MULTICAST_LISTEN_SOCKET} = IO::Socket::Multicast->new(
 		Proto => $self->{PROTO},
 		LocalPort => $self->{PORT},
+		#ReuseAddr => 1,
 	) || PDLNA::Log::fatal('Cannot bind to Multicast socket: '.$!);
 	$self->{MULTICAST_LISTEN_SOCKET}->mcast_if($CONFIG{'LISTEN_INTERFACE'});
 	$self->{MULTICAST_LISTEN_SOCKET}->mcast_loopback(0);
@@ -194,6 +196,7 @@ sub send_periodic_alive_messages
 	while(1)
 	{
 		$self->send_alive(2);
+		${$self->{DEVICE_LIST}}->delete_expired();
 		sleeper($CONFIG{'CACHE_CONTROL'});
 	}
 }
@@ -290,20 +293,24 @@ sub receive_messages
 
 			if ($nts_type eq 'alive')
 			{
-				${$self->{DEVICE_LIST}}->add({
-					'ip' => $peer_ip_addr,
-					'uuid' => $uuid,
-					'ssdp_banner' => $server_banner,
-					'desc_location' => $desc_location,
-					'time_of_expire' => $time,
-					'nt' => $nt_type,
-				});
-				PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' to database.', 2, 'discovery');
+				# we will not add the running pDLNA installation to our SSDP database
+				if ($peer_ip_addr ne $CONFIG{'LOCAL_IPADDR'} && $uuid ne $CONFIG{'UUID'})
+				{
+					PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' to database.', 2, 'discovery');
+					${$self->{DEVICE_LIST}}->add({
+						'ip' => $peer_ip_addr,
+						'uuid' => $uuid,
+						'ssdp_banner' => $server_banner,
+						'desc_location' => $desc_location,
+						'time_of_expire' => $time,
+						'nt' => $nt_type,
+					});
+				}
 			}
 			elsif ($nts_type eq 'byebye')
 			{
-				${$self->{DEVICE_LIST}}->del($peer_ip_addr, $nt_type);
 				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' from database.', 2, 'discovery');
+				${$self->{DEVICE_LIST}}->del($peer_ip_addr, $nt_type);
 			}
 			PDLNA::Log::log(${$self->{DEVICE_LIST}}->print_object(), 3, 'discovery');
 		}

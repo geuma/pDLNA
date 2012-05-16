@@ -58,7 +58,7 @@ sub start_webserver
 	socket(S, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die "Can't open HTTPServer socket: $!\n";
 	setsockopt(S, SOL_SOCKET, SO_REUSEADDR, 1);
 	my $server_ip = inet_aton($CONFIG{'LOCAL_IPADDR'});
-	bind(S, sockaddr_in($CONFIG{'HTTP_PORT'}, $server_ip)); # INADDR_ANY
+	bind(S, sockaddr_in($CONFIG{'HTTP_PORT'}, $server_ip));
 	listen(S, 5) || die "Can't listen to HTTPServer socket: $!\n";
 
 	my $ss = IO::Select->new();
@@ -66,7 +66,7 @@ sub start_webserver
 
 	while(1)
 	{
-		my @connections_pending = $ss->can_read();
+		my @connections_pending = $ss->can_read(60);
 		foreach my $connection (@connections_pending)
 		{
 			my $FH;
@@ -76,6 +76,18 @@ sub start_webserver
 
 			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port, $device_list);
 			$thread->detach();
+		}
+
+		# handling rescan of media database (if expired and no devices in DeviceList database)
+		if ($CONFIG{'RESCAN_MEDIA'} && $$device_list->devices_amount() == 0)
+		{
+			my $expiretime = $content->timestamp() + $CONFIG{'RESCAN_MEDIA'};
+			if ($expiretime < time())
+			{
+				PDLNA::Log::log('PDLNA::ContentLibrary has expired and no SSDP devices are currently online.', 2, 'library');
+				$content = PDLNA::ContentLibrary->new();
+				PDLNA::Log::log($content->print_object(), 3, 'library');
+			}
 		}
 	}
 }
@@ -157,6 +169,7 @@ sub handle_connection
 		}
 	}
 
+	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
 	# Check if the peer is one of our allowed clients
 	my $client_allowed = 0;
 	foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
@@ -164,20 +177,19 @@ sub handle_connection
 		$client_allowed++ if $block->match($peer_ip_addr);
 	}
 
-	$$device_list->add({
-		'ip' => $peer_ip_addr,
-		'http_useragent' => $CGI{'USER-AGENT'},
-	});
-	my %ssdp_devices = $$device_list->devices();
-	my $model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
-	PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
-	PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
-
-	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
-
 	# handling different HTTP requests
 	if ($client_allowed)
 	{
+		# adding device and/or request to PDLNA::DeviceList
+		$$device_list->add({
+			'ip' => $peer_ip_addr,
+			'http_useragent' => $CGI{'USER-AGENT'},
+		});
+		my %ssdp_devices = $$device_list->devices();
+		my $model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
+		PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
+		PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
+
 		PDLNA::Log::log('Received HTTP Request from allowed client IP '.$peer_ip_addr.'.', 2, 'httpgeneric');
 
 		if ($ENV{'OBJECT'} eq '/ServerDesc.xml') # delivering server description XML

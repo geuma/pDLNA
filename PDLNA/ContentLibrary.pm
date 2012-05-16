@@ -20,6 +20,8 @@ package PDLNA::ContentLibrary;
 use strict;
 use warnings;
 
+use Date::Format;
+
 use PDLNA::Config;
 use PDLNA::ContentDirectory;
 use PDLNA::Log;
@@ -30,7 +32,7 @@ sub new
 	my $params = shift;
 
 	my $self = ();
-	$self->{TIMESTAMP} = '';
+	$self->{TIMESTAMP} = time();
 	$self->{DIRECTORIES} = {};
 
 	bless($self, $class);
@@ -145,9 +147,6 @@ sub new
 			'filename' => $external->{'command'},
 			'command' => $external->{'command'},
 			'streamurl' => $external->{'streamurl'},
-#			'type' => $external->{'type'},
-#			'file' => 0,
-#			'mimetype' => $external->{'mimetype'},
 			'id' => $i,
 			'parent_id' => '',
 		});
@@ -173,6 +172,12 @@ sub directories
 	return $self->{DIRECTORIES};
 }
 
+sub timestamp
+{
+	my $self = shift;
+	return $self->{TIMESTAMP};
+}
+
 sub print_object
 {
 	my $self = shift;
@@ -182,7 +187,7 @@ sub print_object
 	{
 		$string .= $self->{DIRECTORIES}->{$id}->print_object("\t\t");
 	}
-	$string .= "\t\tTimestamp: $self->{TIMESTAMP}\n";
+	$string .= "\t\tTimestamp: ".$self->{TIMESTAMP}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{TIMESTAMP}).")\n";
 	$string .= "\tObject PDLNA::ContentLibrary END\n";
 
 	return $string;

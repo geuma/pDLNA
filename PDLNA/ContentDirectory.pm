@@ -21,6 +21,7 @@ use strict;
 use warnings;
 
 use Date::Format;
+use Digest::SHA1;
 use Fcntl;
 use File::Basename;
 use File::Glob qw(bsd_glob);
@@ -52,6 +53,7 @@ sub new
 	$self->{ITEMS} = {};
 	$self->{DIRECTORIES} = {};
 	$self->{AMOUNT} = 0;
+	$self->{SHA1} = '';
 
 	bless($self, $class);
 
@@ -125,6 +127,14 @@ sub parent_id
 	return 0;
 }
 
+sub sha1_checksum
+{
+	my $self = shift;
+	my $sha1 = shift;
+
+	$self->{SHA1} = $sha1;
+}
+
 sub print_object
 {
 	my $self = shift;
@@ -155,6 +165,7 @@ sub print_object
 		$string .= $self->{ITEMS}->{$id}->print_object($input."\t");
 	}
 	$string .= $input."\tAmount:        ".$self->{AMOUNT}."\n";
+	$string .= $input."\tSHA1 Checksum: ".$self->{SHA1}."\n";
 	$string .= $input."Object PDLNA::ContentDirectory END\n";
 
 	return $string;
@@ -315,6 +326,14 @@ sub initialize
 	$self->{PATH} =~ s/\/$//;
 	my $id = 100;
 	my @elements = bsd_glob($self->{PATH}."/*");
+
+	# some initial code for only recrawling changed directories
+	# but using only the names of the directories/files may not be a good idea
+	# maybe we should include the size and/or timestamp too
+	my $sha1 = Digest::SHA1->new();
+	$sha1->add(@elements);
+	$self->sha1_checksum($sha1->hexdigest());
+
 	foreach my $element (sort @elements)
 	{
 		if ($id > 999)
