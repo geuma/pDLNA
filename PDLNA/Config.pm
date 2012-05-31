@@ -67,8 +67,8 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.51.0',
-	'PROGRAM_DATE' => '2012-05-16',
+	'PROGRAM_VERSION' => '0.51.1',
+	'PROGRAM_DATE' => '2012-05-31',
 	'PROGRAM_BETA' => 0,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -303,6 +303,7 @@ sub parse_config
 		my %values = (
 			'never' => 0,
 			'hourly' => 3600,
+			'halfdaily' => '43200',
 			'daily' => 86400,
 		);
 

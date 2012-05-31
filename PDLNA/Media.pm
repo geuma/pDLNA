@@ -89,6 +89,20 @@ my %CONTAINER = (
 			'MediaType' => 'video',
 		},
 	},
+	'avini' => {
+		'AudioCodecs' => ['mp3', 'a52', ],
+		'VideoCodecs' => ['ffodivx', 'ffdivx', ],
+		'ffodivx' => {
+			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+		'ffdivx' => {
+			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+	},
 	'lavf' => {
 		'AudioCodecs' => ['a52', 'pcm'],
 		'VideoCodecs' => [],
@@ -105,7 +119,7 @@ my %CONTAINER = (
 	},
 	'lavfpref' => {
 		'AudioCodecs' => ['faad', ],
-		'VideoCodecs' => ['ffodivx', 'ffh264'],
+		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f'],
 		'ffh264' => {
 			'MimeType' => 'video/x-flv',
 			'FileExtension' => 'flv',
@@ -121,11 +135,21 @@ my %CONTAINER = (
 			'FileExtension' => 'mp4',
 			'MediaType' => 'video',
 		},
+		'ffvp6f' => {
+			'MimeType' => 'video/x-flv',
+			'FileExtension' => 'flv',
+			'MediaType' => 'video',
+		},
 	},
 	'mkv' => {
 		'AudioCodecs' => ['a52', ],
-		'VideoCodecs' => ['ffh264', ],
+		'VideoCodecs' => ['ffh264', 'ffodivx', ],
 		'ffh264' => {
+			'MimeType' => 'video/x-matroska',
+			'FileExtension' => 'mkv',
+			'MediaType' => 'video',
+		},
+		'ffodivx' => {
 			'MimeType' => 'video/x-matroska',
 			'FileExtension' => 'mkv',
 			'MediaType' => 'video',
@@ -133,13 +157,18 @@ my %CONTAINER = (
 	},
 	'mov' => {
 		'AudioCodecs' => ['faad', ],
-		'VideoCodecs' => ['ffodivx', ],
+		'VideoCodecs' => ['ffodivx', 'ffh264', ],
 		'faad' => {
 			'MimeType' => 'audio/mp4',
 			'FileExtension' => 'mp4', # m4a
 			'MediaType' => 'audio',
 		},
 		'ffodivx' => {
+			'MimeType' => 'video/mp4',
+			'FileExtension' => 'mp4',
+			'MediaType' => 'video',
+		},
+		'ffh264' => {
 			'MimeType' => 'video/mp4',
 			'FileExtension' => 'mp4',
 			'MediaType' => 'video',

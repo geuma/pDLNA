@@ -7,6 +7,12 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.51.1
+31-05-2012
+
+- added halfdaily configuration parameter for RescanMediaInterval
+- added some additional media formats to PDLNA::Media perl module
+
 Version 0.51.0
 16-May-2012
 
