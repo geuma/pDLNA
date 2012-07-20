@@ -807,7 +807,7 @@ sub stream_media
 			{
 				if (
 					$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
-					$$CGI{'USER-AGENT'} =~ /^vlc/ || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^vlc/i || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^stagefright/ || # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^gvfs/ # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
 					)
