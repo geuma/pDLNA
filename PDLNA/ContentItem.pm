@@ -114,7 +114,7 @@ sub new
 
 	if ($self->{TYPE} eq 'audio' && defined($self->{AUDIO_CODEC}))
 	{
-		if ($self->{AUDIO_CODEC} eq 'mp3')
+		if ($self->{AUDIO_CODEC} eq 'mp3' || $self->{AUDIO_CODEC} eq 'ffmp3float')
 		{
 			#my $info = get_mp3info($self->{PATH});
 			my $tag = get_mp3tag($self->{PATH});
@@ -128,7 +128,7 @@ sub new
 				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'faad')
+		elsif ($self->{AUDIO_CODEC} eq 'faad' || $self->{AUDIO_CODEC} eq 'ffaac')
 		{
 			#my $info = get_mp4info($self->{PATH});
 			my $tag = get_mp4tag($self->{PATH});
