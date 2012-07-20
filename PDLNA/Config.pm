@@ -360,7 +360,7 @@ sub parse_config
 		my @output = <CMD>;
 		close(CMD);
 
-		if ($output[0] =~ /^FFmpeg\s+version\s+(.+),\sCopyright/)
+		if ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
 		{
 			my $codec_found = 0;
 			foreach my $line (@output)
