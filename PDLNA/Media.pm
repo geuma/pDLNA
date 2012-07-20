@@ -30,6 +30,8 @@ my %AUDIO_CODECS = (
 	'ffvorbis' => 'vorbis',
 	'pcm' => 'wav',
 	'ffwmav2' => 'wmav2',
+	'ffmp3float' => 'mp3',
+	'ffaac' => 'aac',
 );
 
 my %VIDEO_CODECS = (
@@ -42,9 +44,14 @@ my %VIDEO_CODECS = (
 
 my %CONTAINER = (
 	'audio' => {
-		'AudioCodecs' => ['mp3', 'ffflac', 'pcm', ],
+		'AudioCodecs' => ['mp3', 'ffflac', 'pcm', 'ffmp3float'],
 		'VideoCodecs' => [],
 		'mp3' => {
+			'MimeType' => 'audio/mpeg',
+			'FileExtension' => 'mp3',
+			'MediaType' => 'audio',
+		},
+		'ffmp3float' => {
 			'MimeType' => 'audio/mpeg',
 			'FileExtension' => 'mp3',
 			'MediaType' => 'audio',
@@ -118,7 +125,7 @@ my %CONTAINER = (
 		},
 	},
 	'lavfpref' => {
-		'AudioCodecs' => ['faad', ],
+		'AudioCodecs' => ['faad', 'ffaac'],
 		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f'],
 		'ffh264' => {
 			'MimeType' => 'video/x-flv',
@@ -126,6 +133,11 @@ my %CONTAINER = (
 			'MediaType' => 'video',
 		},
 		'faad' => {
+			'MimeType' => 'audio/mp4',
+			'FileExtension' => 'mp4', # m4a
+			'MediaType' => 'audio',
+		},
+		'ffaac' => {
 			'MimeType' => 'audio/mp4',
 			'FileExtension' => 'mp4', # m4a
 			'MediaType' => 'audio',
