@@ -21,29 +21,67 @@ use strict;
 use warnings;
 
 use Date::Format;
+use Devel::Size qw(size total_size);
+use Proc::ProcessTable;
 
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
+use PDLNA::Daemon;
 use PDLNA::Utils;
 
 sub show_library
 {
 	my $content = shift;
-	my $params = shift || 0;
-#	if ($params =~ /^(\d+)\./)
-#	{
-#		$params = $1;
-#	}
+	my $device_list = shift;
+	my $params = shift;
+
+	my $submenu = 'content';
+	my $id = 0;
+	if ($params =~ /(content|device|perf)\/(.+)/)
+	{
+		$submenu = $1;
+		$id = $2;
+	}
 
 	my $response ="HTTP/1.0 200 OK\r\n";
 	$response .= "Server: $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version()." Webserver\r\n";
 	$response .= "Content-Type: text/html\r\n";
 	$response .= "\r\n";
 
+	my @javascript = (
+		'stripe = function() {',
+		'var tables = document.getElementsByTagName("table");',
+		'for(var x=0;x!=tables.length;x++){',
+		'var table = tables[x];',
+		'if (! table) { return; }',
+		'var tbodies = table.getElementsByTagName("tbody");',
+		'for (var h = 0; h < tbodies.length; h++) {',
+		'var even = true;',
+		'var trs = tbodies[h].getElementsByTagName("tr");',
+		'for (var i = 0; i < trs.length; i++) {',
+		'trs[i].onmouseover=function(){',
+		'this.className += " ruled"; return false',
+		'}',
+		'trs[i].onmouseout=function(){',
+		'this.className = this.className.replace("ruled", ""); return false',
+		'}',
+		'if(even)',
+		'trs[i].className += " even";',
+		'even = !even;',
+		'}',
+		'}',
+		'}',
+		'}',
+		'window.onload = stripe;',
+	);
+
 	$response .= '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'."\n";
 	$response .= '<html>';
 	$response .= '<head>';
 	$response .= '<title>'.$CONFIG{'FRIENDLY_NAME'}.'</title>';
+	$response .= '<script type="text/javascript">';
+	$response .= join("\n", @javascript);
+	$response .= '</script>';
 
 	$response .= '<style type="text/css">';
 	$response .= 'body {';
@@ -81,6 +119,12 @@ sub show_library
 	$response .= 'font-size: 12pt;';
 	$response .= 'text-align: center;';
 	$response .= '}';
+	$response .= 'h5 {';
+	$response .= 'color: #fff;';
+	$response .= 'font-size: 12pt;';
+	$response .= 'text-align: center;';
+	$response .= 'margin-bottom: -10px;';
+	$response .= '}';
 	$response .= 'a {';
 	$response .= 'color: #fff;';
 	$response .= '}';
@@ -101,11 +145,29 @@ sub show_library
 	$response .= 'border-bottom: 0px solid #999;';
 	$response .= 'text-align: center;';
 	$response .= '}';
+	$response .= 'tfoot td{';
+	$response .= 'color: #fff;';
+	$response .= 'background-color: #3d80df;';
+	$response .= 'font-weight: bold;';
+	$response .= 'border-bottom: 0px solid #999;';
+	$response .= 'text-align: center;';
+	$response .= '}';
 	$response .= 'tbody td{';
 	$response .= 'border-left: 0px solid #3d80df;';
 	$response .= '}';
+	$response .= 'tbody td a{';
+	$response .= 'color: #3d80df;';
+	$response .= '}';
 	$response .= 'tbody tr.even td{';
 	$response .= 'background: #eee;';
+	$response .= '}';
+	$response .= 'tbody tr.ruled td{';
+	$response .= 'color: #000;';
+	$response .= 'background-color: #C6E3FF;';
+	$response .= '}';
+	$response .= 'li{';
+	$response .= 'display: block;';
+	$response .= 'margin-left: -15px;';
 	$response .= '}';
 	$response .= '</style>';
 
@@ -118,33 +180,115 @@ sub show_library
 	$response .= '</div>';
 
 	$response .= '<div id="sidebar">';
-	$response .= build_directory_tree($content, 0, $params);
+	$response .= '<h5>Configured media</h5>';
+
+	$response .= build_directory_tree($content, 0, $id);
+	$response .= '<h5>Connected devices</h5>';
+	my %ssdp_devices = $$device_list->devices();
+	$response .= '<ul>';
+	foreach my $device (sort keys %ssdp_devices)
+	{
+		$response .= '<li><a href="/library/device/'.$device.'">'.$device.'</a></li>';
+	}
+	$response .= '</ul>';
+	$response .= '<h5>Statistics</h5>';
+	$response .= '<ul>';
+	$response .= '<li><a href="/library/perf/pi">Process Info</a></li>';
+	$response .= '</ul>';
 	$response .= '</div>';
 
 	$response .= '<div id="content">';
-	$response .= '<table>';
-	$response .= '<thead>';
-	$response .= '<tr><td>Preview</td><td>Filename</td><td>Size</td><td>Date</td></tr>';
-	$response .= '</thead>';
-	$response .= '<tbody>';
-	my $object = $content->get_object_by_id($params);
-	foreach my $id (keys %{$object->items()})
+	if ($submenu eq 'content')
 	{
-		$response .= '<tr>';
-		if ((${$object->items()}{$id}->type() eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || (${$object->items()}{$id}->type() eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'}))
+		$response .= '<table>';
+		$response .= '<thead>';
+		$response .= '<tr><td>Filename</td><td width="110px">Size</td><td width="160px">Date</td></tr>';
+		$response .= '</thead>';
+		my $object = $content->get_object_by_id($id);
+		$response .= '<tfoot>';
+		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes($object->{'SIZE'}).'</td><td>&nbsp;</td></tr>';
+		$response .= '</tfoot>';
+		$response .= '<tbody>';
+		foreach my $id (sort keys %{$object->items()})
 		{
-			$response .= '<td><img src="/preview/'.$id.'.jpg" /></td>';
+			$response .= '<tr>';
+			$response .= '<td title="'.${$object->items()}{$id}->name().'">'.PDLNA::Utils::string_shortener(${$object->items()}{$id}->name(), 30).'</td>';
+			$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
+			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
+			$response .= '</tr>';
+		}
+		$response .= '</tbody>';
+		$response .= '</table>';
+	}
+	elsif ($submenu eq 'device')
+	{
+		if (defined($ssdp_devices{$id}))
+		{
+			$response .= '<table>';
+			$response .= '<thead>';
+			$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+			$response .= '</thead>';
+			$response .= '<tbody>';
+			$response .= '<tr><td>IP</td><td>'.$id.'</td></tr>';
+			$response .= '<tr><td>UUID</td><td>'.$ssdp_devices{$id}->uuid().'</td></tr>';
+			$response .= '<tr><td>SSDP Banner</td><td>'.$ssdp_devices{$id}->ssdp_banner().'</td></tr>';
+			$response .= '<tr><td>Description URL</td><td><a href="'.$ssdp_devices{$id}->ssdp_desc().'" target="_blank">'.$ssdp_devices{$id}->ssdp_desc().'</a></td></tr>';
+			$response .= '<tr><td>XML ModelName</td><td>'.$ssdp_devices{$id}->model_name().'</td></tr>';
+			$response .= '<tr><td>HTTP UserAgent</td><td>'.$ssdp_devices{$id}->http_useragent().'</td></tr>';
+			$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $ssdp_devices{$id}->last_seen_timestamp()).'</td></tr>';
+			$response .= '</tbody>';
+			$response .= '</table>';
+
+			$response .= '<p>&nbsp;</p>';
+
+			$response .= '<table>';
+			$response .= '<thead>';
+			$response .= '<tr><td>NTS</td><td width="160px">expires at</td></tr>';
+			$response .= '</thead>';
+			$response .= '<tbody>';
+			my %nts = %{$ssdp_devices{$id}->nts()};
+			foreach my $key (keys %nts)
+			{
+				$response .= '<tr><td>'.$key.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts{$key}).'</td></tr>';
+			}
+			$response .= '</tbody>';
+			$response .= '</table>';
 		}
 		else
 		{
-			$response .= '<td>&nbsp;</td>';
+			$response .= '<p>Device not found.</p>';
 		}
-		$response .= '<td>'.${$object->items()}{$id}->name().'</td>';
-		$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
-		$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
 	}
-	$response .= '</tbody>';
-	$response .= '</table>';
+	elsif ($submenu eq 'perf')
+	{
+		my $proc = Proc::ProcessTable->new();
+		my %fields = map { $_ => 1 } $proc->fields;
+		return undef unless exists $fields{'pid'};
+		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
+		foreach my $process (@{$proc->table()})
+		{
+			if ($process->pid() eq $pid)
+			{
+				$response .= '<table>';
+				$response .= '<thead>';
+				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+				$response .= '</thead>';
+				$response .= '<tbody>';
+				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with PID</td><td>'.$pid.'</td></tr>';
+				$response .= '<tr><td>Parent PID of '.$CONFIG{'PROGRAM_NAME'}.'</td><td>'.$process->{ppid}.'</td></tr>';
+				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $process->{start}).'</td></tr>';
+				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$process->{priority}.'</td></tr>';
+				$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$process->{pctcpu}.' %</td></tr>';
+				$response .= '<tr><td>Current Virtual Memory Size</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
+				$response .= '<tr><td>Current Memory Utilization in RAM</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
+				$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
+				$response .= '<tr><td>Memory Utilization of ContentLibrary</td><td>'.PDLNA::Utils::convert_bytes(total_size($content)).'</td></tr>';
+				$response .= '<tr><td>Memory Utilization of DeviceList</td><td>'.PDLNA::Utils::convert_bytes(total_size($device_list)).'</td></tr>';
+				$response .= '</tbody>';
+				$response .= '</table>';
+			}
+		}
+	}
 	$response .= '</div>';
 
 	$response .= '<div id="footer">';
@@ -169,9 +313,9 @@ sub build_directory_tree
 
 	my $object = $content->get_object_by_id($start_id);
 	$response .= '<ul>';
-	foreach my $id (keys %{$object->directories()})
+	foreach my $id (sort keys %{$object->directories()})
 	{
-		$response .= '<li><a href="/library/'.$id.'">'.${$object->directories()}{$id}->name().' ('.${$object->directories()}{$id}->amount().')</a></li>';
+		$response .= '<li><a href="/library/content/'.$id.'">'.${$object->directories()}{$id}->name().' ('.${$object->directories()}{$id}->amount().')</a></li>';
 		my $tmpid = substr($end_id, 0, length($id));
 		$response .= build_directory_tree ($content, $id, $end_id) if ($tmpid eq $id);
 	}

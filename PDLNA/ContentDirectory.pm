@@ -54,6 +54,7 @@ sub new
 	$self->{DIRECTORIES} = {};
 	$self->{AMOUNT} = 0;
 	$self->{SHA1} = '';
+	$self->{SIZE} = 0;
 
 	bless($self, $class);
 
@@ -165,6 +166,7 @@ sub print_object
 		$string .= $self->{ITEMS}->{$id}->print_object($input."\t");
 	}
 	$string .= $input."\tAmount:        ".$self->{AMOUNT}."\n";
+	$string .= $input."\tSize:          ".$self->{SIZE}." Bytes (".PDLNA::Utils::convert_bytes($self->{SIZE}).")\n" if $self->{SIZE};
 	$string .= $input."\tSHA1 Checksum: ".$self->{SHA1}."\n";
 	$string .= $input."Object PDLNA::ContentDirectory END\n";
 
@@ -188,6 +190,12 @@ sub add_item
 
 	my $id = $$params{'parent_id'}.$$params{'id'};
 	$self->{ITEMS}->{$id} = PDLNA::ContentItem->new($params);
+
+	unless (defined($$params{'streamurl'}))
+	{
+		my @fileinfo = stat($$params{'filename'});
+		$self->{SIZE} += $fileinfo[7];
+	}
 	$self->{AMOUNT}++;
 }
 

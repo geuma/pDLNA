@@ -87,7 +87,7 @@ sub append_logfile
 {
 	my $message = shift;
 
-	my $filesize = (stat($CONFIG{'LOG_FILE'}))[7];
+	my $filesize = (stat($CONFIG{'LOG_FILE'}))[7] || 0;
 
 	if ($filesize > $CONFIG{'LOG_FILE_MAX_SIZE'})
 	{

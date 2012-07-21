@@ -72,4 +72,17 @@ sub get_randid
 	return $sha1->hexdigest;
 }
 
+sub string_shortener
+{
+	my $string = shift;
+	my $length = shift;
+
+	if (length($string) > $length)
+	{
+		return substr($string, 0, $length-3).'...';
+	}
+	return $string;
+
+}
+
 1;

@@ -119,6 +119,12 @@ sub del
 	return $self->nts_amount();
 }
 
+sub nts
+{
+	my $self = shift;
+	return $self->{NTS};
+}
+
 sub nts_amount
 {
 	my $self = shift;
@@ -133,7 +139,7 @@ sub nts_amount
 sub model_name
 {
 	my $self = shift;
-	return $self->{XML_MODEL_NAME};
+	return $self->{XML_MODEL_NAME} || '';
 }
 
 sub fetch_xml_info
@@ -169,7 +175,7 @@ sub http_useragent
 	my $user_agent = shift;
 
 	$self->{HTTP_USERAGENT} = $user_agent if defined($user_agent);
-	return $self->{HTTP_USERAGENT};
+	return $self->{HTTP_USERAGENT} || '';
 }
 
 sub ssdp_banner
@@ -178,7 +184,7 @@ sub ssdp_banner
 	my $ssdp_banner = shift;
 
 	$self->{SSDP_BANNER} = $ssdp_banner if defined($ssdp_banner);
-	return $self->{SSDP_BANNER};
+	return $self->{SSDP_BANNER} || '';
 }
 
 sub ssdp_desc
@@ -187,7 +193,7 @@ sub ssdp_desc
 	my $ssdp_desc = shift;
 
 	$self->{SSDP_DESC} = $ssdp_desc if defined($ssdp_desc);
-	return $self->{SSDP_DESC};
+	return $self->{SSDP_DESC} || '';
 }
 
 sub uuid
@@ -196,7 +202,7 @@ sub uuid
 	my $uuid = shift;
 
 	$self->{UUID} = $uuid if defined($uuid);
-	return $self->{UUID};
+	return $self->{UUID} || '';
 }
 
 sub last_seen_timestamp
@@ -205,7 +211,7 @@ sub last_seen_timestamp
 	my $time = shift;
 
 	$self->{LAST_SEEN_TIMESTAMP} = $time if defined($time);
-	return $self->{LAST_SEEN_TIMESTAMP};
+	return $self->{LAST_SEEN_TIMESTAMP} || '';
 }
 
 # prints the object information

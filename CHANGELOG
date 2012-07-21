@@ -7,6 +7,18 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.51.2
+21-07-2012
+
+- improved regex to detect valid FFmpeg installation
+- added some additional media formats to PDLNA::Media perl module
+- improved regex to detect VLC version 2.0
+- added SIZE to ContentDirectory Object, which is the size of all included items
+- improved WebUI (more beautiful listings)
+- added connected devices information to WebUI
+- added some general process statistics to WebUI
+- removed transcoding profile from default configuration file
+
 Version 0.51.1
 31-05-2012
 

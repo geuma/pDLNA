@@ -290,7 +290,7 @@ sub handle_connection
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/) # this is just to be something different (not DLNA stuff)
 		{
-			print $FH PDLNA::Library::show_library($content, $1);
+			print $FH PDLNA::Library::show_library($content, $device_list, $1);
 		}
 		else
 		{
