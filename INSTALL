@@ -21,7 +21,7 @@ the extra perl modules you will probably need are:
  XML::Simple
  Net::Netmask
 
-If your on a debian system these can be installed with apt using the
+If you're on a debian system these can be installed with apt using the
 following packages:
 sudo apt-get install libgetopt-long-descriptive-perl \
 libconfig-apacheformat-perl libio-interface-perl libio-socket-multicast-perl \
