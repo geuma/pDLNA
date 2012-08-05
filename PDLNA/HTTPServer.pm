@@ -186,7 +186,8 @@ sub handle_connection
 			'http_useragent' => $CGI{'USER-AGENT'},
 		});
 		my %ssdp_devices = $$device_list->devices();
-		my $model_name = $ssdp_devices{$peer_ip_addr}->model_name() if defined($ssdp_devices{$peer_ip_addr});
+		my $model_name = $ssdp_devices{$peer_ip_addr}->model_name_by_device_type('urn:schemas-upnp-org:device:MediaRenderer:1');
+
 		PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
 		PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
 

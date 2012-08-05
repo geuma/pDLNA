@@ -297,20 +297,31 @@ sub receive_messages
 				if ($peer_ip_addr ne $CONFIG{'LOCAL_IPADDR'} && $uuid ne $CONFIG{'UUID'})
 				{
 					PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' to database.', 2, 'discovery');
+
 					${$self->{DEVICE_LIST}}->add({
 						'ip' => $peer_ip_addr,
-						'uuid' => $uuid,
+						'udn' => $uuid,
 						'ssdp_banner' => $server_banner,
-						'desc_location' => $desc_location,
-						'time_of_expire' => $time,
+						'device_description_location' => $desc_location,
 						'nt' => $nt_type,
+						'nt_time_of_expire' => $time,
 					});
+				}
+				else
+				{
+					PDLNA::Log::log('Ignored SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
 				}
 			}
 			elsif ($nts_type eq 'byebye')
 			{
 				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' from database.', 2, 'discovery');
-				${$self->{DEVICE_LIST}}->del($peer_ip_addr, $nt_type);
+				${$self->{DEVICE_LIST}}->del(
+					{
+						'ip' => $peer_ip_addr,
+						'udn' => $uuid,
+						'nt' => $nt_type,
+					},
+				);
 			}
 			PDLNA::Log::log(${$self->{DEVICE_LIST}}->print_object(), 3, 'discovery');
 		}

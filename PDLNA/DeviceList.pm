@@ -39,88 +39,98 @@ sub new
 	return \%self;
 }
 
-# adds a new Device object to the DeviceList object
+# adds/updates a new/existing Device object to the DeviceList object
 sub add
 {
 	my $self = shift;
-	#lock($self);
 	my $params = shift;
 
 	if (defined($self->{DEVICES}{$$params{'ip'}}))
 	{
-		$self->{DEVICES}{$$params{'ip'}}->http_useragent($$params{'http_useragent'});
-		$self->{DEVICES}{$$params{'ip'}}->add_nt($$params{'nt'}, $$params{'time_of_expire'}) if defined($$params{'nt'});
-		$self->{DEVICES}{$$params{'ip'}}->uuid($$params{'uuid'}) if defined($$params{'uuid'});
-		$self->{DEVICES}{$$params{'ip'}}->ssdp_desc($$params{'desc_location'}) if defined($$params{'desc_location'});
-		$self->{DEVICES}{$$params{'ip'}}->ssdp_banner($$params{'ssdp_banner'}) if defined($$params{'ssdp_banner'});
+		$self->{DEVICES}{$$params{'ip'}}->add_udn(
+			{
+				'udn' => $$params{'udn'},
+				'ssdp_banner' => $$params{'ssdp_banner'},
+				'device_description_location' => $$params{'device_description_location'},
+				'nt' => $$params{'nt'},
+				'nt_time_of_expire' => $$params{'nt_time_of_expire'},
+			},
+		);
 		$self->{DEVICES}{$$params{'ip'}}->last_seen_timestamp(time());
 	}
 	else
 	{
 		$self->{DEVICES}{$$params{'ip'}} = PDLNA::Device->new($params);
 	}
-	$self->{DEVICES}{$$params{'ip'}}->fetch_xml_info();
 }
 
-# deletes a nt type from the Device by IP
-# if there's no nt type left, it deletes the whole Device object
+# deletes a NT from the PDLNA::Device by IP
 sub del
 {
 	my $self = shift;
-	#lock($self);
-	my $ip = shift;
-	my $nt = shift;
+	my $params = shift;
 
-	my $elements = 1;
-	$elements = $self->{DEVICES}{$ip}->del($nt) if defined($self->{DEVICES}{$ip});
-	delete($self->{DEVICES}->{$ip}) if $elements == 0;
+	if (defined($self->{DEVICES}{$$params{'ip'}}))
+	{
+		$self->{DEVICES}{$$params{'ip'}}->del_udn(
+			{
+				'udn' => $$params{'udn'},
+				'nt' => $$params{'nt'},
+			},
+		);
+	}
 }
 
-# calls del() function to deleted expired NT types from database
+# calls del() function to deleted expired NT from database
 sub delete_expired
 {
 	my $self = shift;
-	#lock($self);
 
 	my $time = time();
-
 	foreach my $ip (keys %{$self->{DEVICES}})
 	{
-		foreach my $nt (keys %{$self->{DEVICES}{$ip}{NTS}})
+		foreach my $udn (keys %{$self->{DEVICES}{$ip}->udn()})
 		{
-			if ($time > $self->{DEVICES}{$ip}{NTS}{$nt})
+			foreach my $nt (keys %{$self->{DEVICES}{$ip}{UDN}{$udn}->nts()})
 			{
-				PDLNA::Log::log('Deleting expired NT '.$nt.' for UPnP device ('.$ip.') from database.', 2, 'discovery');
-				$self->del($ip, $nt);
+				if ($time > $self->{DEVICES}{$ip}{UDN}{$udn}{NTS}{$nt})
+				{
+					PDLNA::Log::log('Deleting expired NT '.$nt.' from UPnP device ('.$ip.'/'.$udn.') from database.', 2, 'discovery');
+					$self->{DEVICES}{$ip}->del_udn(
+						{
+							'udn' => $udn,
+							'nt' => $nt,
+						},
+					);
+				}
 			}
 		}
 
 		if (defined($self->{DEVICES}{$ip}))
 		{
-			my $elements = 1;
-			$elements = $self->{DEVICES}{$ip}->nts_amount() if defined($self->{DEVICES}{$ip});
+			my $udn_amount = $self->{DEVICES}{$ip}->udn_amount();
 			my $expire_time = $self->{DEVICES}{$ip}->last_seen_timestamp() + $CONFIG{CACHE_CONTROL};
-			if ($expire_time < $time && $elements == 0)
+			if ($udn_amount == 0 && $expire_time < $time)
 			{
 				PDLNA::Log::log('Deleting expired UPnP device ('.$ip.') from database.', 2, 'discovery');
 				delete($self->{DEVICES}->{$ip});
 			}
 		}
-		PDLNA::Log::log($self->print_object(), 3, 'discovery');
 	}
+	PDLNA::Log::log($self->print_object(), 3, 'discovery');
 }
 
+# returns reference to DEVICES hash
 sub devices
 {
 	my $self = shift;
-	#lock($self);
 	return %{$self->{DEVICES}};
 }
 
+# returns amount of DEVICES
 sub devices_amount
 {
 	my $self = shift;
-	#lock($self);
 	my $amount = 0;
 	foreach my $ip (keys %{$self->{DEVICES}})
 	{
@@ -133,7 +143,6 @@ sub devices_amount
 sub print_object
 {
 	my $self = shift;
-	#lock($self);
 
 	my $string = "\n\tObject PDLNA::DeviceList\n";
 	foreach my $device (keys %{$self->{DEVICES}})

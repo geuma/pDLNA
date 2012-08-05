@@ -67,13 +67,14 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.51.2',
-	'PROGRAM_DATE' => '2012-07-21',
+	'PROGRAM_VERSION' => '0.52.0',
+	'PROGRAM_DATE' => '2012-08-05',
 	'PROGRAM_BETA' => 0,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
+	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
+	'AUTHOR_WEBSITE' => 'http://www.urandom.at',
 	'PROGRAM_SERIAL' => 1337,
-	'PROGRAM_DESC' => 'perl DLNA MediaServer',
 	# arrays holding supported codec
 	'AUDIO_CODECS_ENCODE' => [],
 	'AUDIO_CODECS_DECODE' => [],

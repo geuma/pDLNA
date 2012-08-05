@@ -88,6 +88,7 @@ use_ok ('Sys::Hostname');
 use_ok ('Sys::Syslog');
 use_ok ('threads');
 use_ok ('threads::shared');
+use_ok ('URI::Split');
 use_ok ('XML::Simple');
 
 if (!$opt->install() && !$opt->update())
@@ -206,6 +207,9 @@ use_ok ('PDLNA::ContentLibrary');
 use_ok ('PDLNA::Daemon');
 use_ok ('PDLNA::Device');
 use_ok ('PDLNA::DeviceList');
+use_ok ('PDLNA::DeviceService');
+use_ok ('PDLNA::DeviceServiceAction');
+use_ok ('PDLNA::DeviceUDN');
 use_ok ('PDLNA::HTTPServer');
 use_ok ('PDLNA::HTTPXML');
 use_ok ('PDLNA::Library');

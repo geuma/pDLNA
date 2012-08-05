@@ -35,12 +35,15 @@ sub show_library
 	my $device_list = shift;
 	my $params = shift;
 
-	my $submenu = 'content';
-	my $id = 0;
-	if ($params =~ /(content|device|perf)\/(.+)/)
+	my @nav = split('/', $params);
+	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
 	{
-		$submenu = $1;
-		$id = $2;
+		$nav[0] = 'content';
+		$nav[1] = 0;
+	}
+	if ($nav[0] eq 'content' && (!defined($nav[1]) || $nav[1] !~ /^\d+$/))
+	{
+		$nav[1] = 0;
 	}
 
 	my $response ="HTTP/1.0 200 OK\r\n";
@@ -182,13 +185,19 @@ sub show_library
 	$response .= '<div id="sidebar">';
 	$response .= '<h5>Configured media</h5>';
 
-	$response .= build_directory_tree($content, 0, $id);
+	$response .= build_directory_tree($content, 0, $nav[1]);
 	$response .= '<h5>Connected devices</h5>';
 	my %ssdp_devices = $$device_list->devices();
 	$response .= '<ul>';
 	foreach my $device (sort keys %ssdp_devices)
 	{
 		$response .= '<li><a href="/library/device/'.$device.'">'.$device.'</a></li>';
+		$response .= '<ul>';
+		foreach my $udn (keys %{$ssdp_devices{$device}->udn()})
+		{
+			$response .= '<li><a href="/library/device/'.$device.'/'.$udn.'">'.$udn.'</a></li>';
+		}
+		$response .= '</ul>';
 	}
 	$response .= '</ul>';
 	$response .= '<h5>Statistics</h5>';
@@ -198,13 +207,13 @@ sub show_library
 	$response .= '</div>';
 
 	$response .= '<div id="content">';
-	if ($submenu eq 'content')
+	if ($nav[0] eq 'content')
 	{
 		$response .= '<table>';
 		$response .= '<thead>';
 		$response .= '<tr><td>Filename</td><td width="110px">Size</td><td width="160px">Date</td></tr>';
 		$response .= '</thead>';
-		my $object = $content->get_object_by_id($id);
+		my $object = $content->get_object_by_id($nav[1]);
 		$response .= '<tfoot>';
 		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes($object->{'SIZE'}).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
@@ -220,46 +229,61 @@ sub show_library
 		$response .= '</tbody>';
 		$response .= '</table>';
 	}
-	elsif ($submenu eq 'device')
+	elsif ($nav[0] eq 'device')
 	{
-		if (defined($ssdp_devices{$id}))
+		if (defined($ssdp_devices{$nav[1]}))
 		{
-			$response .= '<table>';
-			$response .= '<thead>';
-			$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
-			$response .= '</thead>';
-			$response .= '<tbody>';
-			$response .= '<tr><td>IP</td><td>'.$id.'</td></tr>';
-			$response .= '<tr><td>UUID</td><td>'.$ssdp_devices{$id}->uuid().'</td></tr>';
-			$response .= '<tr><td>SSDP Banner</td><td>'.$ssdp_devices{$id}->ssdp_banner().'</td></tr>';
-			$response .= '<tr><td>Description URL</td><td><a href="'.$ssdp_devices{$id}->ssdp_desc().'" target="_blank">'.$ssdp_devices{$id}->ssdp_desc().'</a></td></tr>';
-			$response .= '<tr><td>XML ModelName</td><td>'.$ssdp_devices{$id}->model_name().'</td></tr>';
-			$response .= '<tr><td>HTTP UserAgent</td><td>'.$ssdp_devices{$id}->http_useragent().'</td></tr>';
-			$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $ssdp_devices{$id}->last_seen_timestamp()).'</td></tr>';
-			$response .= '</tbody>';
-			$response .= '</table>';
-
-			$response .= '<p>&nbsp;</p>';
-
-			$response .= '<table>';
-			$response .= '<thead>';
-			$response .= '<tr><td>NTS</td><td width="160px">expires at</td></tr>';
-			$response .= '</thead>';
-			$response .= '<tbody>';
-			my %nts = %{$ssdp_devices{$id}->nts()};
-			foreach my $key (keys %nts)
+			if (defined($nav[2]) && defined($ssdp_devices{$nav[1]}{UDN}{$nav[2]}))
 			{
-				$response .= '<tr><td>'.$key.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts{$key}).'</td></tr>';
+				$response .= '<table>';
+				$response .= '<thead>';
+				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+				$response .= '</thead>';
+				$response .= '<tbody>';
+				$response .= '<tr><td>UDN</td><td>'.$nav[2].'</td></tr>';
+				$response .= '<tr><td>SSDP Banner</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->ssdp_banner().'</td></tr>';
+				$response .= '<tr><td>Friendly Name</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->friendly_name.'</td></tr>';
+				$response .= '<tr><td>Model Name</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->model_name().'</td></tr>';
+				$response .= '<tr><td>Device Type</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_type().'</td></tr>';
+				$response .= '<tr><td>Device Description URL</td><td><a href="'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_description_url().'" target="_blank">'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_description_url().'</a></td></tr>';
+				$response .= '</tbody>';
+				$response .= '</table>';
+
+				$response .= '<p>&nbsp;</p>';
+
+				$response .= '<table>';
+				$response .= '<thead>';
+				$response .= '<tr><td>NTS</td><td width="160px">expires at</td></tr>';
+				$response .= '</thead>';
+				$response .= '<tbody>';
+				my %nts = %{$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->nts()};
+				foreach my $key (keys %nts)
+				{
+					$response .= '<tr><td>'.$key.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts{$key}).'</td></tr>';
+				}
+				$response .= '</tbody>';
+				$response .= '</table>';
 			}
-			$response .= '</tbody>';
-			$response .= '</table>';
+			else
+			{
+				$response .= '<table>';
+				$response .= '<thead>';
+				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+				$response .= '</thead>';
+				$response .= '<tbody>';
+				$response .= '<tr><td>IP</td><td>'.$nav[1].'</td></tr>';
+				$response .= '<tr><td>HTTP UserAgent</td><td>'.$ssdp_devices{$nav[1]}->http_useragent().'</td></tr>';
+				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $ssdp_devices{$nav[1]}->last_seen_timestamp()).'</td></tr>';
+				$response .= '</tbody>';
+				$response .= '</table>';
+			}
 		}
 		else
 		{
 			$response .= '<p>Device not found.</p>';
 		}
 	}
-	elsif ($submenu eq 'perf')
+	elsif ($nav[0] eq 'perf')
 	{
 		my $proc = Proc::ProcessTable->new();
 		my %fields = map { $_ => 1 } $proc->fields;

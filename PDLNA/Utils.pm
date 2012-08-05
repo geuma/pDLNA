@@ -21,6 +21,10 @@ use strict;
 use warnings;
 
 use Digest::SHA1;
+use LWP::UserAgent;
+
+use PDLNA::Config;
+use PDLNA::Log;
 
 sub http_date
 {
@@ -83,6 +87,26 @@ sub string_shortener
 	}
 	return $string;
 
+}
+
+sub fetch_http
+{
+	my $url = shift;
+
+	my $ua = LWP::UserAgent->new();
+	$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
+	my $request = HTTP::Request->new(GET => $url);
+	my $response = $ua->request($request);
+	if ($response->is_success())
+	{
+		PDLNA::Log::log('Fetching URL '.$url.' was successful.', 3, 'httpgeneric');
+		return $response->content();
+	}
+	else
+	{
+		PDLNA::Log::log('Fetching URL '.$url.' was NOT successful ('.$response->status_line().').', 3, 'httpgeneric');
+	}
+	return undef;
 }
 
 1;

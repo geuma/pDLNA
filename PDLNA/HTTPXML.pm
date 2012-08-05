@@ -232,10 +232,11 @@ sub get_serverdescription
 	push(@xml, '<presentationURL>http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/</presentationURL>');
 	push(@xml, '<friendlyName>'.$CONFIG{'FRIENDLY_NAME'}.'</friendlyName>');
 	push(@xml, '<manufacturer>'.$CONFIG{'PROGRAM_AUTHOR'}.'</manufacturer>');
-	push(@xml, '<manufacturerURL>'.$CONFIG{'PROGRAM_WEBSITE'}.'</manufacturerURL>');
+	push(@xml, '<manufacturerURL>'.$CONFIG{'AUTHOR_WEBSITE'}.'</manufacturerURL>');
 	push(@xml, '<modelDescription>'.$CONFIG{'PROGRAM_DESC'}.'</modelDescription>');
 	push(@xml, '<modelName>'.$CONFIG{'PROGRAM_NAME'}.'</modelName>');
 	push(@xml, '<modelNumber>'.PDLNA::Config::print_version().'</modelNumber>');
+	push(@xml, '<modelURL>'.$CONFIG{'PROGRAM_WEBSITE'}.'</modelURL>');
 	push(@xml, '<serialNumber>'.$CONFIG{'PROGRAM_SERIAL'}.'</serialNumber>');
 
 	# specific views

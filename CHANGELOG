@@ -7,6 +7,13 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.52.0
+05-08-2012
+
+- fixed a small typo in INSTALL file, thanks to CrisAnderson
+- rewrote a lot of PDLNA::DeviceList database stuff for storing more informations about the devices to maintain better compatibility and features in the future (added PDLNA::DeviceUDN, PDLNA::DeviceService and PDLNA::DeviceServiceAction Perl modules)
+- added manufacturerURL for DeviceDescription XML
+
 Version 0.51.2
 21-07-2012
 

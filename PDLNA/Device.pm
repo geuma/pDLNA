@@ -28,6 +28,7 @@ use LWP::UserAgent;
 use XML::Simple;
 
 use PDLNA::Config;
+use PDLNA::DeviceUDN;
 
 # constructor
 sub new
@@ -37,17 +38,12 @@ sub new
 
 	my %self : shared = (
 		IP => $$params{'ip'},
-		UUID => $$params{'uuid'},
-		SSDP_BANNER => $$params{'ssdp_banner'},
-		SSDP_DESC => $$params{'desc_location'},
 		HTTP_USERAGENT => $$params{'http_useragent'},
-		XML_MODEL_NAME => '',
 		LAST_SEEN_TIMESTAMP => time(),
 	);
 
-	my %nts : shared = ();
-	$nts{$$params{'nt'}} = $$params{'time_of_expire'} if defined($$params{'nt'});
-	$self{NTS} = \%nts;
+	my %udn : shared = ();
+	$self{UDN} = \%udn;
 
 	my @history : shared = ();
 	$self{DIRLIST_HISTORY} = \@history; # array stores a history of the directory listing IDs
@@ -56,17 +52,120 @@ sub new
 	return \%self;
 }
 
-# add a nt type to the object with its expire time
-sub add_nt
+# sets/gets the HTTP_USERAGENT
+# PARAMS:
+# HTTP_USERAGENT
+#
+# RETURNS:
+# HTTP_USERAGENT
+sub http_useragent
 {
 	my $self = shift;
-	my $nt = shift;
-	my $expire = shift;
+	my $user_agent = shift;
 
-	$self->{NTS}->{$nt} = $expire;
-	$self->{LAST_SEEN_TIMESTAMP} = time();
+	$self->{HTTP_USERAGENT} = $user_agent if defined($user_agent);
+	return $self->{HTTP_USERAGENT} || '';
 }
 
+# sets/gets the LAST_SEEN_TIMESTAMP
+# PARAMS:
+# LAST_SEEN_TIMESTAMP
+#
+# RETURNS:
+# LAST_SEEN_TIMESTAMP
+sub last_seen_timestamp
+{
+	my $self = shift;
+	my $time = shift;
+
+	$self->{LAST_SEEN_TIMESTAMP} = $time if defined($time);
+	return $self->{LAST_SEEN_TIMESTAMP} || '';
+}
+
+# return reference to UDN hash
+sub udn
+{
+	my $self = shift;
+
+	return $self->{UDN};
+}
+
+sub udn_amount
+{
+	my $self = shift;
+
+    my $amount = 0;
+	foreach my $udn (keys %{$self->{UDN}})
+	{
+		$amount++;
+	}
+	return $amount;
+}
+
+# add or updates a new PDLNA::DeviceUDN object to UDN hash
+sub add_udn
+{
+	my $self = shift;
+	my $params = shift;
+
+	return 0 if !defined($$params{'udn'}) || length($$params{'udn'}) == 0;
+
+	if (defined($self->{UDN}->{$$params{'udn'}})) # check if UDN is already existing for PDLNA::Device object
+	{
+		# update/add the expiration time of NT
+		$self->{UDN}->{$$params{'udn'}}->add_nt(
+			{
+				'nt' => $$params{'nt'},
+				'nt_time_of_expire' => $$params{'nt_time_of_expire'},
+			},
+		);
+	}
+	else
+	{
+		# add a new DeviceUDN object to UDN hash
+		$self->{UDN}->{$$params{'udn'}} = PDLNA::DeviceUDN->new(
+			{
+				'udn' => $$params{'udn'},
+				'ssdp_banner' => $$params{'ssdp_banner'},
+				'device_description_location' => $$params{'device_description_location'},
+				'nt' => $$params{'nt'},
+				'nt_time_of_expire' => $$params{'nt_time_of_expire'},
+			},
+		);
+	}
+	return 1;
+}
+
+# deletes a single NT or the whole PDLNA::DeviceUDN object from the UDN hash
+sub del_udn
+{
+	my $self = shift;
+	my $params = shift;
+
+	return 0 if !defined($$params{'udn'}) || length($$params{'udn'}) == 0;
+
+	if (defined($self->{UDN}->{$$params{'udn'}})) # check if UDN is existing for PDLNA::Device object
+	{
+		my $nt_amount = $self->{UDN}->{$$params{'udn'}}->del_nt(
+			{
+				'nt' => $$params{'nt'},
+			},
+		);
+
+		if ($nt_amount == 0) # delete the object if no NT is available any more
+		{
+			delete($self->{UDN}->{$$params{'udn'}});
+		}
+	}
+	return 1;
+}
+
+# adds a directory listing request to the history
+# PARAMS:
+# directory listing request
+#
+# RETURNS:
+# -
 sub add_dirlist_request
 {
 	my $self = shift;
@@ -95,6 +194,10 @@ sub add_dirlist_request
 #	}
 }
 
+# returns the latest directory listing request
+#
+# RETURNS:
+# latest directory listing request
 sub get_last_dirlist_request
 {
 	my $self = shift;
@@ -102,116 +205,19 @@ sub get_last_dirlist_request
 	return $self->{DIRLIST_HISTORY}->[-1] if defined($self->{DIRLIST_HISTORY}->[-1]);
 }
 
-# delete a nt type of an object
-#
-# RETURNS:
-# amount of nt elements in the NTS hash
-sub del
+sub model_name_by_device_type
 {
 	my $self = shift;
-	my $nt = shift || undef;
+	my $device_type = shift;
 
-	if (defined($nt) && defined($self->{NTS}->{$nt}))
+	foreach my $udn (keys %{$self->{UDN}})
 	{
-		delete($self->{NTS}->{$nt});
-	}
-
-	return $self->nts_amount();
-}
-
-sub nts
-{
-	my $self = shift;
-	return $self->{NTS};
-}
-
-sub nts_amount
-{
-	my $self = shift;
-	my $amount = 0;
-	foreach my $nt (keys %{$self->{NTS}})
-	{
-		$amount++;
-	}
-	return $amount;
-}
-
-sub model_name
-{
-	my $self = shift;
-	return $self->{XML_MODEL_NAME} || '';
-}
-
-sub fetch_xml_info
-{
-	my $self = shift;
-
-	if (defined($self->{SSDP_DESC}) && length($self->{XML_MODEL_NAME}) == 0)
-	{
-		my $ua = LWP::UserAgent->new();
-		$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
-		my $request = HTTP::Request->new(GET => $self->{SSDP_DESC});
-		my $response = $ua->request($request);
-		if ($response->is_success())
+		if ($self->{UDN}{$udn}->device_type() eq $device_type)
 		{
-			my $res = $response->content();
-			if (defined($res) && length($res) > 0)
-			{
-				my $xs = XML::Simple->new();
-				my $xml = $xs->XMLin($res);
-				$self->{XML_MODEL_NAME} = $xml->{'device'}->{'modelName'};
-			}
+			return $self->{UDN}{$udn}->model_name();
 		}
 	}
-}
-
-# sets the HTTP_USERAGENT
-#
-# RETURNS:
-# HTTP_USERAGENT
-sub http_useragent
-{
-	my $self = shift;
-	my $user_agent = shift;
-
-	$self->{HTTP_USERAGENT} = $user_agent if defined($user_agent);
-	return $self->{HTTP_USERAGENT} || '';
-}
-
-sub ssdp_banner
-{
-	my $self = shift;
-	my $ssdp_banner = shift;
-
-	$self->{SSDP_BANNER} = $ssdp_banner if defined($ssdp_banner);
-	return $self->{SSDP_BANNER} || '';
-}
-
-sub ssdp_desc
-{
-	my $self = shift;
-	my $ssdp_desc = shift;
-
-	$self->{SSDP_DESC} = $ssdp_desc if defined($ssdp_desc);
-	return $self->{SSDP_DESC} || '';
-}
-
-sub uuid
-{
-	my $self = shift;
-	my $uuid = shift;
-
-	$self->{UUID} = $uuid if defined($uuid);
-	return $self->{UUID} || '';
-}
-
-sub last_seen_timestamp
-{
-	my $self = shift;
-	my $time = shift;
-
-	$self->{LAST_SEEN_TIMESTAMP} = $time if defined($time);
-	return $self->{LAST_SEEN_TIMESTAMP} || '';
+	return '';
 }
 
 # prints the object information
@@ -222,18 +228,13 @@ sub print_object
 	my $string = '';
 	$string .= "\t\tObject PDLNA::Device\n";
 	$string .= "\t\t\tIP:              ".$self->{IP}."\n";
-	$string .= "\t\t\tUUID:            ".$self->{UUID}."\n" if defined($self->{UUID});
-	$string .= "\t\t\tNTS:\n";
-	foreach my $nt (keys %{$self->{NTS}})
+	foreach my $udn (keys %{$self->{UDN}})
 	{
-		$string .= "\t\t\t\t".$nt." (expires at ".time2str($CONFIG{'DATE_FORMAT'}, $self->{NTS}->{$nt}).")\n"
+		$string .= $self->{UDN}{$udn}->print_object();
 	}
-	$string .= "\t\t\tSSDP Banner:     ".$self->{SSDP_BANNER}."\n" if defined($self->{SSDP_BANNER});
-	$string .= "\t\t\tDescription URL: ".$self->{SSDP_DESC}."\n" if defined($self->{SSDP_DESC});
 	$string .= "\t\t\tHTTP User-Agent: ".$self->{HTTP_USERAGENT}."\n" if defined($self->{HTTP_USERAGENT});
-	$string .= "\t\t\tXML ModelName:   ".$self->{XML_MODEL_NAME}."\n" if defined($self->{XML_MODEL_NAME});
-	$string .= "\t\t\tLast seen at:    ".time2str($CONFIG{'DATE_FORMAT'}, $self->{LAST_SEEN_TIMESTAMP})."\n";
 	$string .= "\t\t\tDirectoryListing:".join(', ', @{$self->{DIRLIST_HISTORY}})."\n" if scalar(@{$self->{DIRLIST_HISTORY}}) > 0;
+	$string .= "\t\t\tLast seen at:    ".time2str($CONFIG{'DATE_FORMAT'}, $self->{LAST_SEEN_TIMESTAMP})."\n";
 	$string .= "\t\tObject PDLNA::Device END\n";
 
 	return $string;
