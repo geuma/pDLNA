@@ -212,11 +212,11 @@ use_ok ('PDLNA::DeviceServiceAction');
 use_ok ('PDLNA::DeviceUDN');
 use_ok ('PDLNA::HTTPServer');
 use_ok ('PDLNA::HTTPXML');
-use_ok ('PDLNA::Library');
 use_ok ('PDLNA::Log');
 use_ok ('PDLNA::Media');
 use_ok ('PDLNA::SSDP');
 use_ok ('PDLNA::Status');
 use_ok ('PDLNA::Utils');
+use_ok ('PDLNA::WebUI');
 
 done_testing();

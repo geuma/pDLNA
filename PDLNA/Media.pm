@@ -22,6 +22,26 @@ use warnings;
 
 use Movie::Info;
 
+my %MIME_TYPES = (
+	'image/jpeg' => 'jpeg',
+	'image/gif' => 'gif',
+
+	'audio/mpeg' => 'mp3',
+	'audio/mp4' => 'mp4',
+	'audio/x-ms-wma' => 'wma',
+	'audio/x-flac' => 'flac',
+	'audio/x-wav' => 'wav',
+	'video/x-theora+ogg' => 'ogg',
+	'audio/ac3' => 'ac3',
+	'audio/x-aiff' => 'lpcm',
+
+	'video/x-msvideo' => 'avi',
+	'video/x-matroska' => 'mkv',
+	'video/mp4' => 'mp4',
+	'video/mpeg' => 'mpg',
+	'video/x-flv' => 'flv',
+);
+
 my %AUDIO_CODECS = (
 	'a52' => 'ac3',
 	'faad' => 'aac',
@@ -263,30 +283,42 @@ sub container_supports_video
 sub info
 {
 	my $data = shift;
+	my $low_resource_mode = shift;
 
-	my $movie_info = Movie::Info->new();
-	unless (defined($movie_info))
+	if ($low_resource_mode)
 	{
-		PDLNA::Log::fatal('Unable to find MPlayer.');
+		my ($type, undef) = split('/', $$data{MIME_TYPE});
+		$$data{TYPE} = $type;
+		$$data{TYPE} = 'audio' if $$data{MIME_TYPE} eq 'video/x-theora+ogg'; # change the subtype to audio
+		$$data{FILE_EXTENSION} = $MIME_TYPES{$$data{MIME_TYPE}};
+	}
+	else
+	{
+		my $movie_info = Movie::Info->new();
+		unless (defined($movie_info))
+		{
+			PDLNA::Log::fatal('Unable to find MPlayer.');
+		}
+
+		my %info = $movie_info->info($$data{PATH});
+		if (defined($info{'length'}))
+		{
+			$$data{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/; # ignore milliseconds
+		}
+		$$data{BITRATE} = $info{'audio_bitrate'} || 0;
+		$$data{HZ} = $info{'audio_rate'} || 0;
+		$$data{WIDTH} = $info{'width'} || 0;
+		$$data{HEIGHT} = $info{'height'} || 0;
+
+		$$data{AUDIO_CODEC} = $info{'audio_codec'} || '';
+		$$data{VIDEO_CODEC} = $info{'codec'} || '';
+		$$data{CONTAINER} = $info{'demuxer'} || '';
+
+		$$data{MIME_TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MimeType');
+		$$data{TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MediaType');
+		$$data{FILE_EXTENSION} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'FileExtension');
 	}
 
-	my %info = $movie_info->info($$data{PATH});
-	if (defined($info{'length'}))
-	{
-		$$data{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/; # ignore milliseconds
-	}
-	$$data{BITRATE} = $info{'audio_bitrate'} || 0;
-	$$data{HZ} = $info{'audio_rate'} || 0;
-	$$data{WIDTH} = $info{'width'} || 0;
-	$$data{HEIGHT} = $info{'height'} || 0;
-
-	$$data{AUDIO_CODEC} = $info{'audio_codec'} || '';
-	$$data{VIDEO_CODEC} = $info{'codec'} || '';
-	$$data{CONTAINER} = $info{'demuxer'} || '';
-
-	$$data{MIME_TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MimeType');
-	$$data{TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MediaType');
-	$$data{FILE_EXTENSION} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'FileExtension');
 	return 1;
 }
 
@@ -323,6 +355,14 @@ sub details
 	{
 		PDLNA::Log::log('MPlayer was unable to determine MediaInformation.', 1, 'library');
 	}
+	return 0;
+}
+
+sub is_supported_mimetype
+{
+	my $mimetype = shift;
+
+	return 1 if defined($MIME_TYPES{$mimetype});
 	return 0;
 }
 

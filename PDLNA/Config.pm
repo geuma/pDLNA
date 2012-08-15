@@ -60,6 +60,7 @@ our %CONFIG = (
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
+	'LOW_RESOURCE_MODE' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
 	'DIRECTORIES' => [],
@@ -67,8 +68,8 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.52.0',
-	'PROGRAM_DATE' => '2012-08-05',
+	'PROGRAM_VERSION' => '0.53.0',
+	'PROGRAM_DATE' => '2012-08-18',
 	'PROGRAM_BETA' => 0,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -329,32 +330,41 @@ sub parse_config
 	$CONFIG{'VIDEO_THUMBNAILS'} = eval_binary_value($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
 
 	#
+	# LowResourceMode
+	#
+	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
+
+	#
 	# MPlayerBinaryPath
 	#
 	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-	if (-x $CONFIG{'MPLAYER_BIN'})
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
 	{
-		open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
-		my @output = <CMD>;
-		close(CMD);
-
-		if ($output[0] =~ /^MPlayer\s+(.+)\s+\(/ || $output[-1] =~ /^MPlayer\s+(.+)\s+\(/)
+		if (-x $CONFIG{'MPLAYER_BIN'})
 		{
+			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
+			my @output = <CMD>;
+			close(CMD);
+
+			if ($output[0] =~ /^MPlayer\s+(.+)\s+\(/ || $output[-1] =~ /^MPlayer\s+(.+)\s+\(/)
+			{
+			}
+			else
+			{
+				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
+			}
 		}
 		else
 		{
-			push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
+			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
 		}
-	}
-	else
-	{
-		push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
 	}
 
 	#
 	# FFmpegBinaryPath
 	#
 	$CONFIG{'FFMPEG_BIN'} = $cfg->get('FFmpegBinaryPath') if defined($cfg->get('FFmpegBinaryPath'));
+	my $ffmpeg_error_message = undef;
 	if (-x $CONFIG{'FFMPEG_BIN'})
 	{
 		open(CMD, $CONFIG{'FFMPEG_BIN'}.' -formats 2>&1 |');
@@ -398,12 +408,12 @@ sub parse_config
 		}
 		else
 		{
-			push(@{$errormsg}, 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.');
+			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
 	}
 	else
 	{
-		push(@{$errormsg}, 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.');
+		$ffmpeg_error_message = 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.';
 	}
 
 	#
@@ -517,144 +527,149 @@ sub parse_config
     #
     # EXTERNAL SOURCES PARSING
     #
-    foreach my $external_block ($cfg->get('External'))
-    {
-        my $block = $cfg->block(External => $external_block->[1]);
-#		unless (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
-#		{
-#			push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Invalid MediaType.');
-#		}
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore External configured media when LowResourceMode is enabled
+	{
+	    foreach my $external_block ($cfg->get('External'))
+	    {
+	        my $block = $cfg->block(External => $external_block->[1]);
 
-		my %external = (
-			'name' => $external_block->[1],
-#			'type' => $block->get('MediaType'),
-#			'mimetype' => $block->get('MimeType'),
-		);
+			my %external = (
+				'name' => $external_block->[1],
+			);
 
-		if (defined($block->get('StreamingURL')))
-		{
-			$external{'streamurl'} = $block->get('StreamingURL');
-		}
-		elsif (defined($block->get('Executable')))
-		{
-			if (-x $block->get('Executable'))
+			if (defined($block->get('StreamingURL')))
 			{
-				$external{'command'} = $block->get('Executable');
+				$external{'streamurl'} = $block->get('StreamingURL');
+			}
+			elsif (defined($block->get('Executable')))
+			{
+				if (-x $block->get('Executable'))
+				{
+					$external{'command'} = $block->get('Executable');
+				}
+				else
+				{
+    	        	push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
+				}
 			}
 			else
 			{
-            	push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
+				push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Please define Executable or StreamingURL.');
 			}
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Please define Executable or StreamingURL.');
-		}
-		push(@{$CONFIG{'EXTERNALS'}}, \%external);
-    }
+			push(@{$CONFIG{'EXTERNALS'}}, \%external);
+    	}
+	}
 
 	#
 	# TRANSCODING PROFILES
 	#
-	foreach my $transcode_block ($cfg->get('Transcode'))
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore Transcoding when LowResourceMode is enabled
 	{
-		my $block = $cfg->block(Transcode => $transcode_block->[1]);
-
-		my %transcode = ();
-		$transcode{'ContainerIn'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerIn')));
-		$transcode{'ContainerOut'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerOut')));
-
-		$transcode{'AudioIn'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecIn')));
-		$transcode{'AudioOut'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecOut')));
-
-		$transcode{'VideoIn'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecIn')));
-		$transcode{'VideoOut'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecOut')));
-
-		# did we recognize the configured Container
-		if (!defined($transcode{'ContainerIn'}))
+		foreach my $transcode_block ($cfg->get('Transcode'))
 		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerIn').' is not a supported Container for ContainerIn.');
-			next;
-		}
-		if (!defined($transcode{'ContainerOut'}))
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerOut').' is not a supported Container for ContainerOut.');
-			next;
-		}
-
-		# sanity checks for audio codecs
-		if ($block->get('AudioCodecIn') || $block->get('AudioCodecOut'))
-		{
-			if (!defined($transcode{'AudioIn'}))
+			if (defined($ffmpeg_error_message))
 			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecIn').' is not a supported AudioCodec for AudioCodecIn.');
+				push(@{$errormsg}, $ffmpeg_error_message);
+				last;
+			}
+
+			my $block = $cfg->block(Transcode => $transcode_block->[1]);
+
+			my %transcode = ();
+			$transcode{'ContainerIn'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerIn')));
+			$transcode{'ContainerOut'} = PDLNA::Media::container_by_beautiful_name(lc($block->get('ContainerOut')));
+
+			$transcode{'AudioIn'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecIn')));
+			$transcode{'AudioOut'} = PDLNA::Media::audio_codec_by_beautiful_name(lc($block->get('AudioCodecOut')));
+
+			$transcode{'VideoIn'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecIn')));
+			$transcode{'VideoOut'} = PDLNA::Media::video_codec_by_beautiful_name(lc($block->get('VideoCodecOut')));
+
+			# did we recognize the configured Container
+			if (!defined($transcode{'ContainerIn'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerIn').' is not a supported Container for ContainerIn.');
 				next;
 			}
-			if (!defined($transcode{'AudioOut'}))
+			if (!defined($transcode{'ContainerOut'}))
 			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecOut').' is not a supported AudioCodec for AudioCodecOut.');
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('ContainerOut').' is not a supported Container for ContainerOut.');
 				next;
 			}
-		}
 
-		# sanity checks for video codecs
-		# TODO
-
-		if (PDLNA::Media::container_supports_video($transcode{'ContainerOut'}))
-		{
-			if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+			# sanity checks for audio codecs
+			if ($block->get('AudioCodecIn') || $block->get('AudioCodecOut'))
 			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
-				next;
+				if (!defined($transcode{'AudioIn'}))
+				{
+					push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecIn').' is not a supported AudioCodec for AudioCodecIn.');
+					next;
+				}
+				if (!defined($transcode{'AudioOut'}))
+				{
+					push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.$block->get('AudioCodecOut').' is not a supported AudioCodec for AudioCodecOut.');
+					next;
+				}
 			}
-			if (!defined($transcode{'VideoIn'}) || !defined($transcode{'VideoOut'}))
+
+			# sanity checks for video codecs
+			# TODO
+
+			if (PDLNA::Media::container_supports_video($transcode{'ContainerOut'}))
 			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure VideoCodecIn and VideoCodecOut.');
-				next;
+				if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+				{
+					push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
+					next;
+				}
+				if (!defined($transcode{'VideoIn'}) || !defined($transcode{'VideoOut'}))
+				{
+					push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure VideoCodecIn and VideoCodecOut.');
+					next;
+				}
 			}
-		}
 
-		if (PDLNA::Media::container_supports_audio($transcode{'ContainerOut'}))
-		{
-			if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+			if (PDLNA::Media::container_supports_audio($transcode{'ContainerOut'}))
 			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
-				next;
+				if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))
+				{
+					push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure AudioCodecIn and AudioCodecOut.');
+					next;
+				}
 			}
-		}
 
-		unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerIn'}, $transcode{'AudioIn'}))
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecIn '.$block->get('AudioCodecIn').' is not supported by ContainerIn '.$transcode{'ContainerIn'}.'.');
-		}
-		unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerOut'}, $transcode{'AudioOut'}))
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$block->get('AudioCodecOut').' is not supported by ContainerOut '.$transcode{'ContainerOut'}.'.');
-		}
+			unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerIn'}, $transcode{'AudioIn'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecIn '.$block->get('AudioCodecIn').' is not supported by ContainerIn '.$transcode{'ContainerIn'}.'.');
+			}
+			unless (PDLNA::Media::container_supports_audio_codec($transcode{'ContainerOut'}, $transcode{'AudioOut'}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$block->get('AudioCodecOut').' is not supported by ContainerOut '.$transcode{'ContainerOut'}.'.');
+			}
 
-		# final sanity checks (support)
-		if (defined($transcode{'ContainerIn'}) && $transcode{'ContainerIn'} !~ /^(audio|ogg)$/)
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerIn '.$block->get('ContainerIn').' is NOT supported yet.');
-		}
-		if (defined($transcode{'ContainerOut'}) && $transcode{'ContainerOut'} !~ /^(audio)$/)
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerOut '.$block->get('ContainerOut').' is NOT supported yet.');
-		}
+			# final sanity checks (support)
+			if (defined($transcode{'ContainerIn'}) && $transcode{'ContainerIn'} !~ /^(audio|ogg)$/)
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerIn '.$block->get('ContainerIn').' is NOT supported yet.');
+			}
+			if (defined($transcode{'ContainerOut'}) && $transcode{'ContainerOut'} !~ /^(audio)$/)
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ContainerOut '.$block->get('ContainerOut').' is NOT supported yet.');
+			}
 
-		if (defined($transcode{'AudioIn'}) && !grep(/^$transcode{'AudioIn'}$/, @{$CONFIG{'AUDIO_CODECS_DECODE'}}))
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecIn '.$block->get('AudioCodecIn').' is NOT supported yet.');
-		}
-		if (defined($transcode{'AudioOut'}) && !grep(/^$transcode{'AudioOut'}$/, @{$CONFIG{'AUDIO_CODECS_ENCODE'}}))
-		{
-			push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$block->get('AudioCodecOut').' is NOT supported yet.');
-		}
+			if (defined($transcode{'AudioIn'}) && !grep(/^$transcode{'AudioIn'}$/, @{$CONFIG{'AUDIO_CODECS_DECODE'}}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecIn '.$block->get('AudioCodecIn').' is NOT supported yet.');
+			}
+			if (defined($transcode{'AudioOut'}) && !grep(/^$transcode{'AudioOut'}$/, @{$CONFIG{'AUDIO_CODECS_ENCODE'}}))
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': AudioCodecOut '.$block->get('AudioCodecOut').' is NOT supported yet.');
+			}
 
-		$transcode{'Name'} = $transcode_block->[1];
-#		$transcode{'MediaType'} = $block->get('MediaType');
+			$transcode{'Name'} = $transcode_block->[1];
 
-		push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
+			push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
+		}
 	}
 
 	return 1 if (scalar(@{$errormsg}) == 0);

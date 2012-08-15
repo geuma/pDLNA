@@ -36,7 +36,7 @@ no bytes;
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::HTTPXML;
-use PDLNA::Library;
+use PDLNA::WebUI;
 use PDLNA::Log;
 
 our $content = undef;
@@ -289,9 +289,9 @@ sub handle_connection
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
 			print $FH logo($1);
 		}
-		elsif ($ENV{'OBJECT'} =~ /^\/library\/(.*)$/) # this is just to be something different (not DLNA stuff)
+		elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # this is just to be something different (not DLNA stuff)
 		{
-			print $FH PDLNA::Library::show_library($content, $device_list, $1);
+			print $FH PDLNA::WebUI::show($content, $device_list, $1);
 		}
 		else
 		{

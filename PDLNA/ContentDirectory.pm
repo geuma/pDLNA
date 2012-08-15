@@ -26,12 +26,12 @@ use Fcntl;
 use File::Basename;
 use File::Glob qw(bsd_glob);
 use File::MimeInfo;
-use Movie::Info;
 use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::ContentItem;
 use PDLNA::Log;
+use PDLNA::Media;
 use PDLNA::Utils;
 
 sub new
@@ -121,11 +121,47 @@ sub amount
 	return $self->{AMOUNT};
 }
 
+sub amount_items
+{
+	my $self = shift;
+	return scalar(keys %{$self->{ITEMS}});
+}
+
+sub amount_items_recursive
+{
+	my $self = shift;
+
+	my $amount = $self->amount_items();
+	foreach my $id (keys %{$self->{DIRECTORIES}})
+	{
+		$amount += $self->{DIRECTORIES}->{$id}->amount_items_recursive();
+	}
+	return $amount;
+}
+
 sub parent_id
 {
 	my $self = shift;
 	return $self->{PARENT_ID} if length($self->{PARENT_ID}) > 0;
 	return 0;
+}
+
+sub size
+{
+	my $self = shift;
+	return $self->{SIZE};
+}
+
+sub size_recursive
+{
+	my $self = shift;
+
+	my $size = $self->size();
+	foreach my $id (keys %{$self->{DIRECTORIES}})
+	{
+		$size += $self->{DIRECTORIES}->{$id}->size_recursive();
+	}
+	return $size;
 }
 
 sub sha1_checksum
@@ -308,7 +344,7 @@ sub initialize
 		foreach my $element (@items)
 		{
 			PDLNA::Log::log('Processing playlist line: '.$element.'.', 3, 'library');
-			if ($element =~ /^(http|mms):\/\//)
+			if ($element =~ /^(http|mms):\/\// && $CONFIG{'LOW_RESOURCE_MODE'} == 0) # do nat add streamingURLS to ContentDirectory if LOwResourceMode is enabled
 			{
 				$self->add_item({
 					'name' => $element,
@@ -411,12 +447,7 @@ sub add_content_item
 	my $mimetype = shift || mimetype($element);
 	my $id = shift;
 
-	if (
-			$mimetype eq 'image/jpeg' || $mimetype eq 'image/gif' ||
-			# TODO image/png image/tiff
-			$mimetype eq 'audio/mpeg' || $mimetype eq 'audio/mp4' || $mimetype eq 'audio/x-ms-wma' || $mimetype eq 'audio/x-flac' || $mimetype eq 'audio/x-wav' || $mimetype eq 'video/x-theora+ogg' || $mimetype eq 'audio/ac3' || $mimetype eq 'audio/x-aiff' ||
-			$mimetype eq 'video/x-msvideo' || $mimetype eq 'video/x-matroska' || $mimetype eq 'video/mp4' || $mimetype eq 'video/mpeg' || $mimetype eq 'video/x-flv'
-		)
+	if (PDLNA::Media::is_supported_mimetype($mimetype))
 	{
 		my ($media_type) = split('/', $mimetype, 0);
 		$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';

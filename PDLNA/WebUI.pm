@@ -1,4 +1,4 @@
-package PDLNA::Library;
+package PDLNA::WebUI;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
@@ -29,7 +29,7 @@ use PDLNA::ContentLibrary;
 use PDLNA::Daemon;
 use PDLNA::Utils;
 
-sub show_library
+sub show
 {
 	my $content = shift;
 	my $device_list = shift;
@@ -191,18 +191,18 @@ sub show_library
 	$response .= '<ul>';
 	foreach my $device (sort keys %ssdp_devices)
 	{
-		$response .= '<li><a href="/library/device/'.$device.'">'.$device.'</a></li>';
+		$response .= '<li><a href="/webui/device/'.$device.'">'.$device.'</a></li>';
 		$response .= '<ul>';
 		foreach my $udn (keys %{$ssdp_devices{$device}->udn()})
 		{
-			$response .= '<li><a href="/library/device/'.$device.'/'.$udn.'">'.$udn.'</a></li>';
+			$response .= '<li><a href="/webui/device/'.$device.'/'.$udn.'">'.$udn.'</a></li>';
 		}
 		$response .= '</ul>';
 	}
 	$response .= '</ul>';
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
-	$response .= '<li><a href="/library/perf/pi">Process Info</a></li>';
+	$response .= '<li><a href="/webui/perf/pi">Process Info</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
 
@@ -339,7 +339,7 @@ sub build_directory_tree
 	$response .= '<ul>';
 	foreach my $id (sort keys %{$object->directories()})
 	{
-		$response .= '<li><a href="/library/content/'.$id.'">'.${$object->directories()}{$id}->name().' ('.${$object->directories()}{$id}->amount().')</a></li>';
+		$response .= '<li><a href="/webui/content/'.$id.'">'.${$object->directories()}{$id}->name().' ('.${$object->directories()}{$id}->amount().')</a></li>';
 		my $tmpid = substr($end_id, 0, length($id));
 		$response .= build_directory_tree ($content, $id, $end_id) if ($tmpid eq $id);
 	}

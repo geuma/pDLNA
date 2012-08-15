@@ -7,6 +7,15 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.53.0
+15-08-2012
+
+- added LowResourceMode configuration parameter for small devices like NAS and so on, audio and video files will not be openend and analyzed via Mplayer
+- added some general functions to Content object for calculation total indexed amount of files, their size and the total indexing time
+- changed the webgui's URL to http://IP:HTTPPort/webui/ and renamed the perl module itself too
+- changed check for Mplayer - it is necessary when LowResourceMode is disabled and/or VideoThumbnails is enabled
+- changed check for FFmpeg - it is necessary when TranscodingProfiles are configured
+
 Version 0.52.0
 05-08-2012
 

@@ -153,6 +153,8 @@ sub new
 		$i++;
 	}
 
+	$self->{TIMESTAMP_FINISHED} = time();
+
 	return $self;
 }
 
@@ -182,12 +184,21 @@ sub print_object
 {
 	my $self = shift;
 
+	my $size = 0;
+	my $amount = 0;
 	my $string = "\n\tObject PDLNA::ContentLibrary\n";
 	foreach my $id (sort keys %{$self->{DIRECTORIES}})
 	{
 		$string .= $self->{DIRECTORIES}->{$id}->print_object("\t\t");
+
+		$size += $self->{DIRECTORIES}->{$id}->size_recursive();
+		$amount += $self->{DIRECTORIES}->{$id}->amount_items_recursive();
 	}
 	$string .= "\t\tTimestamp: ".$self->{TIMESTAMP}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{TIMESTAMP}).")\n";
+	my $duration = $self->{TIMESTAMP_FINISHED} - $self->{TIMESTAMP};
+	$string .= "\t\tDuration:  ".$duration." seconds\n";
+	$string .= "\t\tItemAmount:".$amount."\n";
+	$string .= "\t\tSize:      ".$size." Bytes (".PDLNA::Utils::convert_bytes($size).")\n";
 	$string .= "\tObject PDLNA::ContentLibrary END\n";
 
 	return $string;
