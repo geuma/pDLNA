@@ -1,4 +1,4 @@
-package PDLNA::ContentLibrary;
+package PDLNA::Database;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
@@ -21,57 +21,253 @@ use strict;
 use warnings;
 
 use DBI;
-use Date::Format;
-use File::Basename;
-use File::Glob qw(bsd_glob);
-use File::MimeInfo;
 
 use PDLNA::Config;
-use PDLNA::Database;
 use PDLNA::Log;
-use PDLNA::Media;
+
+sub connect
+{
+	my $dbh = undef;
+	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	{
+		$dbh = DBI->connect("dbi:SQLite:dbname=".$CONFIG{'DB_NAME'},"","") || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+	}
+	return $dbh;
+}
+
+sub select_db
+{
+	my $dbh = shift;
+	my $params = shift;
+	my $result = shift;
+
+	PDLNA::Log::log($$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+	while (my $data = $sth->fetchrow_hashref)
+	{
+		push(@{$result}, $data);
+	}
+}
+
+sub insert_db
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+}
+
+sub update_db
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+}
+
+sub get_subdirectories_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+	my $starting_index = shift;
+	my $requested_count = shift;
+	my $directory_elements = shift;
+
+	my $sql_query = 'SELECT ID, NAME FROM DIRECTORIES WHERE ';
+	my @sql_param = ();
+
+	if ($object_id == 0)
+	{
+		$sql_query .= 'ROOT = 1';
+	}
+	else
+	{
+		$sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+		push(@sql_param, $object_id);
+	}
+
+	if (defined($starting_index) && defined($requested_count))
+	{
+		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+	}
+
+	select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => \@sql_param,
+		},
+		$directory_elements,
+	);
+}
+
+sub get_subfiles_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+	my $starting_index = shift;
+	my $requested_count = shift;
+	my $file_elements = shift;
+
+	my $sql_query = 'SELECT ID FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+	my @sql_param = ( $object_id, );
+
+	if (defined($starting_index) && defined($requested_count))
+	{
+		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+	}
+
+	select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => \@sql_param,
+		},
+		$file_elements,
+	);
+}
+
+sub get_amount_subdirectories_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @directory_amount = ();
+
+	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE ';
+	my @sql_param = ();
+	if ($object_id == 0)
+	{
+		$sql_query .= 'ROOT = 1';
+	}
+	else
+	{
+		$sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+		push(@sql_param, $object_id);
+	}
+
+	select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => \@sql_param,
+		},
+		\@directory_amount,
+	);
+
+	return $directory_amount[0]->{AMOUNT};
+}
+
+sub get_amount_subfiles_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @files_amount = ();
+
+	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ?)';
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => [ $object_id, ],
+		},
+		\@files_amount,
+	);
+
+	return $files_amount[0]->{AMOUNT};
+}
+
+sub get_amount_elements_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my $directory_amount = 0;
+	$directory_amount += get_amount_subdirectories_by_id($dbh, $object_id);
+	$directory_amount += get_amount_subfiles_by_id($dbh, $object_id);
+
+	return $directory_amount;
+}
+
+sub get_parent_of_directory_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @directory_parent = ();
+	select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? )',
+			'parameters' => [ $object_id, ],
+		},
+		\@directory_parent,
+	);
+	$directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
+
+	return $directory_parent[0]->{ID};
+}
+
+sub get_parent_of_item_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @item_parent = ();
+	select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE ID = ? )',
+			'parameters' => [ $object_id, ],
+		},
+		\@item_parent,
+	);
+
+	return $item_parent[0]->{ID};
+}
+
+
+
+
+
+
+1;
+
+__END__
+
+
+
+
 
 sub new
 {
 	my $class = shift;
 	my $self = ();
 
-	$self->{DBH} = PDLNA::Database::connect();
+	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	{
+		$self->{DBH} = DBI->connect("dbi:SQLite:dbname=".$CONFIG{'DB_NAME'},"","") || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+	}
 
 	if (grep(/^"METADATA"$/, $self->{DBH}->tables()))
 	{
-		my @results = ();
-		PDLNA::Database::select_db(
-			$self->{DBH},
-			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
-				'parameters' => [ 'VERSION', ],
-			},
-			\@results,
-		);
+		my $sth = $self->{DBH}->prepare('SELECT VALUE FROM METADATA WHERE KEY = ?');
+		$sth->execute('VERSION');
+		my $data = $sth->fetchrow_hashref();
 
 		# check if DB was build with a different version of pDLNA
-		if ($results[0]->{VALUE} ne PDLNA::Config::print_version())
+		if ($data->{VALUE} ne PDLNA::Config::print_version())
 		{
 			$self->{DBH}->do('DELETE FROM METADATA;');
-
-			PDLNA::Database::insert_db(
-				$self->{DBH},
-				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
-					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
-				},
-			);
-			PDLNA::Database::insert_db(
-				$self->{DBH},
-				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
-					'parameters' => [ 'TIMESTAMP', time(), ],
-				},
-			);
+			$self->{DBH}->do("INSERT INTO METADATA (KEY, VALUE) VALUES ('VERSION', '".PDLNA::Config::print_version()."');");
+			$self->{DBH}->do("INSERT INTO METADATA (KEY, VALUE) VALUES ('TIMESTAMP', '".time()."');");
 
 			$self->{DBH}->do('DROP TABLE FILES;');
-			$self->{DBH}->do('DROP TABLE FILEINFO;');
+#			$self->{DBH}->do('DROP TABLE FILEINFO;');
 			$self->{DBH}->do('DROP TABLE DIRECTORIES;');
 		}
 	}
@@ -83,20 +279,8 @@ sub new
 			);'
 		);
 
-		PDLNA::Database::insert_db(
-			$self->{DBH},
-			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
-				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
-			},
-		);
-		PDLNA::Database::insert_db(
-			$self->{DBH},
-			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
-				'parameters' => [ 'TIMESTAMP', time(), ],
-			},
-		);
+		$self->{DBH}->do("INSERT INTO METADATA (KEY, VALUE) VALUES ('VERSION', '".PDLNA::Config::print_version()."');");
+		$self->{DBH}->do("INSERT INTO METADATA (KEY, VALUE) VALUES ('TIMESTAMP', '".time()."');");
 	}
 
 	unless (grep(/^"FILES"$/, $self->{DBH}->tables()))
@@ -121,29 +305,6 @@ sub new
 	# TODO low resource mode
 	unless (grep(/^"FILEINFO"$/, $self->{DBH}->tables()))
 	{
-		$self->{DBH}->do("CREATE TABLE FILEINFO (
-				ID_REF				INTEGER PRIMARY KEY,
-				VALID				BOOLEAN,
-
-				WIDTH				INTEGER,
-				HEIGHT				INTEGER,
-
-				DURATION			INTEGER,
-				BITRATE				INTEGER,
-				VBR					BOOLEAN,
-
-				CONTAINER			VARCHAR(128),
-				AUDIO_CODEC			VARCHAR(128),
-				VIDEO_CODEC			VARCHAR(128),
-
-				ARTIST				VARCHAR(128),
-				ALBUM				VARCHAR(128),
-				TITLE				VARCHAR(128),
-				GENRE				VARCHAR(128),
-				YEAR				VARCHAR(4),
-				TRACKNUM			INTEGER
-			);"
-		);
 	}
 
 	unless (grep(/^"DIRECTORIES"$/, $self->{DBH}->tables()))
@@ -186,8 +347,7 @@ sub index_directories
 	my $timestamp_end = time();
 
 	# add our timestamp when finished
-	PDLNA::Database::update_db(
-		$self->{DBH},
+	$self->update_db(
 		{
 			'query' => "UPDATE METADATA SET VALUE = ? WHERE KEY = 'TIMESTAMP'",
 			'parameters' => [ $timestamp_end, ],
@@ -198,8 +358,7 @@ sub index_directories
 	PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
 	my @results = ();
-	PDLNA::Database::select_db(
-		$self->{DBH},
+	$self->select_db(
 		{
 			'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES;',
 			'parameters' => [ ],
@@ -217,8 +376,7 @@ sub process_directory
 
 	# check if directoriy is in db
 	my @results = ();
-	PDLNA::Database::select_db(
-		$self->{DBH},
+	$self->select_db(
 		{
 			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH = ?',
 			'parameters' => [ $$params{'path'}, ],
@@ -229,8 +387,7 @@ sub process_directory
 	unless (defined($results[0]->{ID}))
 	{
 		# add directory to database
-		PDLNA::Database::insert_db(
-			$self->{DBH},
+		$self->insert_db(
 			{
 				'query' => 'INSERT INTO DIRECTORIES (NAME, PATH, DIRNAME, ROOT) VALUES (?,?,?,?)',
 				'parameters' => [ basename($$params{'path'}), $$params{'path'}, dirname($$params{'path'}), $$params{'rootdir'} ],
@@ -281,8 +438,7 @@ sub process_directory
 
 					# check if file is in db
 					my @results = ();
-					PDLNA::Database::select_db(
-						$self->{DBH},
+					$self->select_db(
 						{
 							'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE FROM FILES WHERE FULLNAME = ?',
 							'parameters' => [ $element, ],
@@ -295,52 +451,23 @@ sub process_directory
 						if ($results[0]->{SIZE} != $fileinfo[7] || $results[0]->{DATE} != $fileinfo[9] || $results[0]->{MIME_TYPE} ne $mime_type)
 						{
 							# update the datbase entry (something changed)
-							PDLNA::Database::update_db(
-								$self->{DBH},
+							$self->update_db(
 								{
 									'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?;',
 									'parameters' => [ $fileinfo[9], $fileinfo[7], $mime_type, $media_type, $results[0]->{ID}, ],
 								},
 							);
 
-							# set FILEINFO entry to INVALID data
-							PDLNA::Database::update_db(
-								$self->{DBH},
-								{
-									'query' => 'UPDATE FILEINFO SET VALID = ? WHERE ID = ?;',
-									'parameters' => [ 0, $results[0]->{ID}, ],
-								},
-							);
+							# TODO delete FILEINFO entry
 						}
 					}
 					else
 					{
 						# insert file to db
-						PDLNA::Database::insert_db(
-							$self->{DBH},
+						$self->insert_db(
 							{
 								'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 								'parameters' => [ $element_basename, $element_dirname, $element, $file_extension, $fileinfo[9], $fileinfo[7], $mime_type, $media_type, ],
-							},
-						);
-
-						# select ID of newly added element
-						my @results = ();
-						PDLNA::Database::select_db(
-							$self->{DBH},
-							{
-								'query' => 'SELECT ID FROM FILES WHERE FULLNAME = ?',
-								'parameters' => [ $element, ],
-							},
-							\@results,
-						);
-
-						# insert entry to FILEINFO table
-						PDLNA::Database::insert_db(
-							$self->{DBH},
-							{
-								'query' => 'INSERT INTO FILEINFO (ID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-								'parameters' => [ $results[0]->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ],
 							},
 						);
 					}
@@ -354,7 +481,174 @@ sub process_directory
 	}
 }
 
-1;
+sub select_db
+{
+	my $self = shift;
+	my $params = shift;
+	my $result = shift;
+
+#	my $dbh = $self->{DBH}->clone();
+#	my $sth = $dbh->prepare($$params{'query'});
+	my $sth = $self->{DBH}->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+	while (my $data = $sth->fetchrow_hashref)
+	{
+		push(@{$result}, $data);
+	}
+}
+
+sub insert_db
+{
+	my $self = shift;
+	my $params = shift;
+
+	my $sth = $self->{DBH}->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+}
+
+sub update_db
+{
+	my $self = shift;
+	my $params = shift;
+
+	my $sth = $self->{DBH}->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+}
+
+sub timestamp
+{
+	my $self = shift;
+
+	my @results = ();
+	$self->select_db(
+		{
+			'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
+			'parameters' => [ 'TIMESTAMP', ],
+		},
+		\@results,
+	);
+	return $results[0]->{VALUE};
+}
+
+sub get_direct_childs
+{
+	my $self = shift;
+	my $object_id = shift;
+	my $dire_elements = shift;
+	my $file_elements = shift;
+
+	if ($object_id == 0)
+	{
+		my @results = ();
+		$self->select_db(
+			{
+				'query' => 'SELECT ID FROM DIRECTORIES WHERE ROOT = 1',
+				'parameters' => [],
+			},
+			\@results,
+		);
+
+		foreach my $result (@results)
+		{
+			push(@{$dire_elements}, $result->{ID});
+		}
+	}
+	else
+	{
+#		SELECT DIRECTORIES.PATH FROM DIRECTORIES INNER JOIN FILES ON DIRECTORIES.PATH = FILES.PATH WHERE DIRECTORIES.ID = 147;
+	}
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+sub get_directory_name
+{
+	my $self = shift;
+	my $id = shift;
+
+	my @results = ();
+	$self->select_db(
+		{
+			'query' => 'SELECT NAME FROM DIRECTORIES WHERE ID = ?',
+			'parameters' => [ $id, ],
+		},
+		\@results,
+	);
+	return $results[0]->{ID};
+}
+
+sub get_directory_parent
+{
+	my $self = shift;
+	my $id = shift;
+
+	my @results = ();
+	$self->select_db(
+		{
+			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ?)',
+			'parameters' => [ $id, ],
+		},
+		\@results,
+	);
+	return $results[0]->{ID} if defined($results[0]->{ID});
+	return 0;
+}
+
+# TODO ADD FILE AMOUNT
+sub get_directory_childamount
+{
+	my $self = shift;
+	my $id = shift;
+
+	if ($id == 0)
+	{
+		my @results = ();
+		$self->select_db(
+			{
+				'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE ROOT = 1',
+				'parameters' => [],
+			},
+			\@results,
+		);
+		return $results[0]->{AMOUNT};
+	}
+	else
+	{
+		my @results = ();
+		$self->select_db(
+			{
+				'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )',
+				'parameters' => [ $id, ],
+			},
+			\@results,
+		);
+		return $results[0]->{AMOUNT};
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #	my $params = shift;
 
@@ -484,3 +778,69 @@ sub process_directory
 #	bless(\%self, $class);
 #	return \%self;
 #}
+
+sub initializer
+{
+	my $self = shift;
+}
+
+
+
+
+
+
+
+sub is_directory
+{
+	return 1;
+}
+
+sub is_item
+{
+	return 0;
+}
+
+sub directories
+{
+	my $self = shift;
+	return $self->{DIRECTORIES};
+}
+
+sub print_object
+{
+	my $self = shift;
+
+	my $size = 0;
+	my $amount = 0;
+	my $string = "\n\tObject PDLNA::ContentLibrary\n";
+	foreach my $id (sort keys %{$self->{DIRECTORIES}})
+	{
+		$string .= $self->{DIRECTORIES}->{$id}->print_object("\t\t");
+
+		$size += $self->{DIRECTORIES}->{$id}->size_recursive();
+		$amount += $self->{DIRECTORIES}->{$id}->amount_items_recursive();
+	}
+	$string .= "\t\tTimestamp: ".$self->{TIMESTAMP}." (".time2str($CONFIG{'DATE_FORMAT'}, $self->{TIMESTAMP}).")\n";
+	my $duration = $self->{TIMESTAMP_FINISHED} - $self->{TIMESTAMP};
+	$string .= "\t\tDuration:  ".$duration." seconds\n";
+	$string .= "\t\tItemAmount:".$amount."\n";
+	$string .= "\t\tSize:      ".$size." Bytes (".PDLNA::Utils::convert_bytes($size).")\n";
+	$string .= "\tObject PDLNA::ContentLibrary END\n";
+
+	return $string;
+}
+
+sub get_object_by_id
+{
+	my $self = shift;
+	my $id = shift;
+
+	if ($id =~ /^\d+$/) # if ID is numeric
+	{
+		return $self->{DIRECTORIES}->{0}->get_object_by_id($id);
+	}
+
+	return undef;
+}
+
+1;

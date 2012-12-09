@@ -20,6 +20,9 @@ package PDLNA::ContentItem;
 use strict;
 use warnings;
 
+use threads;
+use threads::shared;
+
 use Audio::FLAC::Header;
 use Audio::Wav;
 use Audio::WMA;
@@ -39,151 +42,151 @@ sub new
 	my $class = shift;
 	my $params = shift;
 
-	my $self = ();
-	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
-	$self->{PARENT_ID} = $$params{'parent_id'};
+	my %self : shared = ();
+	$self{ID} = $$params{'parent_id'}.$$params{'id'};
+	$self{PARENT_ID} = $$params{'parent_id'};
 
-	$self->{FILE} = 0; # is it a file stored on a mounted filesystem
-	$self->{DATE} = 0;
-	$self->{SIZE} = 0;
-	$self->{TYPE} = '';
-	$self->{FILE_EXTENSION} = '';
+	$self{FILE} = 0; # is it a file stored on a mounted filesystem
+	$self{DATE} = 0;
+	$self{SIZE} = 0;
+	$self{TYPE} = '';
+	$self{FILE_EXTENSION} = '';
 	if (defined($$params{'filename'}))
 	{
-		$self->{FILE} = 1;
-		$self->{PATH} = $$params{'filename'};
-		$self->{NAME} = $$params{'name'} || basename($$params{'filename'});
-		$self->{MIME_TYPE} = $$params{'mimetype'};
-		$self->{TYPE} = $$params{'type'} || '';
+		$self{FILE} = 1;
+		$self{PATH} = $$params{'filename'};
+		$self{NAME} = $$params{'name'} || basename($$params{'filename'});
+		$self{MIME_TYPE} = $$params{'mimetype'};
+		$self{TYPE} = $$params{'type'} || '';
 
-		$self->{FILE_EXTENSION} = $1 if $self->{NAME} =~ /(\w{3,4})$/;
+		$self{FILE_EXTENSION} = $1 if $self{NAME} =~ /(\w{3,4})$/;
 		#
 		# FILESYSTEM META DATA
 		#
-		my @fileinfo = stat($self->{PATH});
-		$self->{DATE} = $fileinfo[9];
-		$self->{SIZE} = $fileinfo[7];
+		my @fileinfo = stat($self{PATH});
+		$self{DATE} = $fileinfo[9];
+		$self{SIZE} = $fileinfo[7];
 	}
 	elsif (defined($$params{'command'}))
 	{
-		$self->{NAME} = $$params{'name'} || '';
-		$self->{COMMAND} = $$params{'command'};
-		$self->{PATH} = $$params{'command'};
+		$self{NAME} = $$params{'name'} || '';
+		$self{COMMAND} = $$params{'command'};
+		$self{PATH} = $$params{'command'};
 	}
 	elsif (defined($$params{'streamurl'}))
 	{
-		$self->{NAME} = $$params{'name'} || '';
-		$self->{COMMAND} = $CONFIG{'MPLAYER_BIN'}.' '.$$params{'streamurl'}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
-		$self->{PATH} = $$params{'streamurl'};
+		$self{NAME} = $$params{'name'} || '';
+		$self{COMMAND} = $CONFIG{'MPLAYER_BIN'}.' '.$$params{'streamurl'}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
+		$self{PATH} = $$params{'streamurl'};
 	}
 
 	#
 	# resolution, encoding, ...
 	#
-	$self->{WIDTH} = 0;
-	$self->{HEIGHT} = 0;
+	$self{WIDTH} = 0;
+	$self{HEIGHT} = 0;
 
-	$self->{DURATION_SECONDS} = 0; # duration in seconds
-	$self->{BITRATE} = 0,
-	$self->{VBR} = 0,
+	$self{DURATION_SECONDS} = 0; # duration in seconds
+	$self{BITRATE} = 0,
+	$self{VBR} = 0,
 
-	$self->{CONTAINER} = '';
-	$self->{AUDIO_CODEC} = '';
-	$self->{VIDEO_CODEC} = '';
+	$self{CONTAINER} = '';
+	$self{AUDIO_CODEC} = '';
+	$self{VIDEO_CODEC} = '';
 
-	if ($self->{TYPE} eq 'image')
+	if ($self{TYPE} eq 'image')
 	{
-		my $info = image_info($self->{PATH});
-		($self->{WIDTH}, $self->{HEIGHT}) = dim($info);
+		my $info = image_info($self{PATH});
+		($self{WIDTH}, $self{HEIGHT}) = dim($info);
 	}
 	else
 	{
-		PDLNA::Media::info($self, $CONFIG{'LOW_RESOURCE_MODE'});
+		PDLNA::Media::info(\%self, $CONFIG{'LOW_RESOURCE_MODE'});
 	}
 
 	#
 	# ADD AUDIO INFORMATION (artist, ...)
 	#
-	$self->{ARTIST} = 'n/A';
-	$self->{ALBUM} = 'n/A';
-	$self->{TRACKNUM} = 0;
-	$self->{TITLE} = 'n/A';
-	$self->{GENRE} = 'n/A';
-	$self->{YEAR} = '0000';
+	$self{ARTIST} = 'n/A';
+	$self{ALBUM} = 'n/A';
+	$self{TRACKNUM} = 0;
+	$self{TITLE} = 'n/A';
+	$self{GENRE} = 'n/A';
+	$self{YEAR} = '0000';
 
-	if ($self->{TYPE} eq 'audio' && defined($self->{AUDIO_CODEC}))
+	if ($self{TYPE} eq 'audio' && defined($self{AUDIO_CODEC}))
 	{
-		if ($self->{AUDIO_CODEC} eq 'mp3' || $self->{AUDIO_CODEC} eq 'ffmp3float')
+		if ($self{AUDIO_CODEC} eq 'mp3' || $self{AUDIO_CODEC} eq 'ffmp3float')
 		{
-			#my $info = get_mp3info($self->{PATH});
-			my $tag = get_mp3tag($self->{PATH});
+			#my $info = get_mp3info($self{PATH});
+			my $tag = get_mp3tag($self{PATH});
 			if (keys %{$tag})
 			{
-				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-				$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+				$self{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+				$self{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+				$self{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+				$self{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'faad' || $self->{AUDIO_CODEC} eq 'ffaac')
+		elsif ($self{AUDIO_CODEC} eq 'faad' || $self{AUDIO_CODEC} eq 'ffaac')
 		{
-			#my $info = get_mp4info($self->{PATH});
-			my $tag = get_mp4tag($self->{PATH});
+			#my $info = get_mp4info($self{PATH});
+			my $tag = get_mp4tag($self{PATH});
 			if (keys %{$tag})
 			{
-				$self->{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-				$self->{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-				$self->{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+				$self{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+				$self{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+				$self{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+				$self{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'ffwmav2')
+		elsif ($self{AUDIO_CODEC} eq 'ffwmav2')
 		{
-			my $wma = Audio::WMA->new($self->{PATH});
+			my $wma = Audio::WMA->new($self{PATH});
 			#my $info = $wma->info();
 			my $tag = $wma->tags();
 			if (keys %{$tag})
 			{
-				$self->{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
-				$self->{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
-				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
-				$self->{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-				$self->{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-				$self->{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+				$self{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
+				$self{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
+				$self{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
+				$self{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+				$self{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+				$self{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
 			}
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'ffflac')
+		elsif ($self{AUDIO_CODEC} eq 'ffflac')
 		{
-			my $flac = Audio::FLAC::Header->new($self->{PATH});
+			my $flac = Audio::FLAC::Header->new($self{PATH});
 			my $tag = $flac->tags();
 			if (keys %{$tag})
 			{
-				$self->{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
-				$self->{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
-				$self->{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
-				$self->{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
-				$self->{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
-				$self->{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
+				$self{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
+				$self{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
+				$self{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
+				$self{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
+				$self{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
+				$self{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
 			}
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'ffvorbis')
+		elsif ($self{AUDIO_CODEC} eq 'ffvorbis')
 		{
-#			my $ogg = Ogg::Vorbis::Header->new($self->{PATH});
-#			$self->{ARTIST} = $ogg->comment('ARTIST') if $ogg->comment('ARTIST');
-#			$self->{ALBUM} = $ogg->comment('ALBUM') if $ogg->comment('ALBUM');
-#			$self->{TRACKNUM} = $ogg->comment('TRACKNUMBER') if $ogg->comment('TRACKNUMBER');
-#			$self->{TITLE} = $ogg->comment('TITLE') if $ogg->comment('TITLE');
-#			$self->{GENRE} = $ogg->comment('GENRE') if $ogg->comment('GENRE');
-#			$self->{YEAR} = $ogg->comment('YEAR') if $ogg->comment('YEAR');
+#			my $ogg = Ogg::Vorbis::Header->new($self{PATH});
+#			$self{ARTIST} = $ogg->comment('ARTIST') if $ogg->comment('ARTIST');
+#			$self{ALBUM} = $ogg->comment('ALBUM') if $ogg->comment('ALBUM');
+#			$self{TRACKNUM} = $ogg->comment('TRACKNUMBER') if $ogg->comment('TRACKNUMBER');
+#			$self{TITLE} = $ogg->comment('TITLE') if $ogg->comment('TITLE');
+#			$self{GENRE} = $ogg->comment('GENRE') if $ogg->comment('GENRE');
+#			$self{YEAR} = $ogg->comment('YEAR') if $ogg->comment('YEAR');
 		}
-		elsif ($self->{AUDIO_CODEC} eq 'pcm')
+		elsif ($self{AUDIO_CODEC} eq 'pcm')
 		{
 #			my $wav = Audio::Wav->new();
-#			my $read = $wav->read($self->{PATH});
+#			my $read = $wav->read($self{PATH});
 		}
 		else
 		{
@@ -194,11 +197,10 @@ sub new
 	# SUBTITLES
 	# TODO support more subtitles (text/x-subviewer (.sub))
 	#
-	$self->{SUBTITLE} = {};
-
-	if ($self->{TYPE} eq 'video')
+	my %subtitles : shared = ();
+	if ($self{TYPE} eq 'video')
 	{
-		my $tmp = $1 if $self->{PATH} =~ /^(.+)\.\w{3,4}$/;
+		my $tmp = $1 if $self{PATH} =~ /^(.+)\.\w{3,4}$/;
 		foreach my $extensions ('srt')
 		{
 			if (-f $tmp.'.'.$extensions)
@@ -207,12 +209,13 @@ sub new
 				my @fileinfo = stat($tmp.'.'.$extensions);
 				if ($mimetype eq 'application/x-subrip')
 				{
-					$self->{SUBTITLE}->{$extensions} = {
+					my %subtitles_info : shared = (
 						'path' => $tmp.'.'.$extensions,
 						'mimetype' => $mimetype,
 						'size' => $fileinfo[7],
 						'date' => $fileinfo[9]
-					};
+					);
+					$subtitles{$extensions} = \%subtitles_info;
 				}
 				else
 				{
@@ -221,44 +224,45 @@ sub new
 			}
 		}
 	}
+	$self{SUBTITLE} = \%subtitles;
 
 	#
 	# TRANSCODING
 	#
-	$self->{CONTAINER_TRANSCODE} = undef;
-	$self->{AUDIO_CODEC_TRANSCODE} = undef;
-	$self->{VIDEO_CODEC_TRANSCODE} = undef;
+	$self{CONTAINER_TRANSCODE} = undef;
+	$self{AUDIO_CODEC_TRANSCODE} = undef;
+	$self{VIDEO_CODEC_TRANSCODE} = undef;
 
-	if ($self->{TYPE} =~ /^(audio|video)$/ && $self->{FILE})
+	if ($self{TYPE} =~ /^(audio|video)$/ && $self{FILE})
 	{
 		foreach my $transcode_profile (@{$CONFIG{'TRANSCODING_PROFILES'}})
 		{
-			next if $self->{CONTAINER} ne $$transcode_profile{'ContainerIn'};
+			next if $self{CONTAINER} ne $$transcode_profile{'ContainerIn'};
 
-			if (defined($$transcode_profile{'AudioIn'}) && $self->{AUDIO_CODEC} ne $$transcode_profile{'AudioIn'})
+			if (defined($$transcode_profile{'AudioIn'}) && $self{AUDIO_CODEC} ne $$transcode_profile{'AudioIn'})
 			{
 				next;
 			}
 
-			if (defined($$transcode_profile{'VideoIn'}) && $self->{VIDEO_CODEC} ne $$transcode_profile{'VideoIn'})
+			if (defined($$transcode_profile{'VideoIn'}) && $self{VIDEO_CODEC} ne $$transcode_profile{'VideoIn'})
 			{
 				next;
 			}
 
-			$self->{FILE} = 0;
-			$self->{CONTAINER_TRANSCODE} = $$transcode_profile{'ContainerOut'};
-			$self->{AUDIO_CODEC_TRANSCODE} = $$transcode_profile{'AudioOut'} if defined($$transcode_profile{'AudioOut'});
-			$self->{VIDEO_CODEC_TRANSCODE} = $$transcode_profile{'VideoOut'} if defined($$transcode_profile{'VideoOut'});
-			$self->{MIME_TYPE} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'MimeType');
-			$self->{TYPE} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'MediaType');
-			$self->{FILE_EXTENSION} = PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'FileExtension');
+			$self{FILE} = 0;
+			$self{CONTAINER_TRANSCODE} = $$transcode_profile{'ContainerOut'};
+			$self{AUDIO_CODEC_TRANSCODE} = $$transcode_profile{'AudioOut'} if defined($$transcode_profile{'AudioOut'});
+			$self{VIDEO_CODEC_TRANSCODE} = $$transcode_profile{'VideoOut'} if defined($$transcode_profile{'VideoOut'});
+			$self{MIME_TYPE} = PDLNA::Media::details($self{CONTAINER_TRANSCODE}, $self{VIDEO_CODEC_TRANSCODE}, $self{AUDIO_CODEC_TRANSCODE}, 'MimeType');
+			$self{TYPE} = PDLNA::Media::details($self{CONTAINER_TRANSCODE}, $self{VIDEO_CODEC_TRANSCODE}, $self{AUDIO_CODEC_TRANSCODE}, 'MediaType');
+			$self{FILE_EXTENSION} = PDLNA::Media::details($self{CONTAINER_TRANSCODE}, $self{VIDEO_CODEC_TRANSCODE}, $self{AUDIO_CODEC_TRANSCODE}, 'FileExtension');
 
-			$self->{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i "'.$self->{PATH}.'" '.PDLNA::Media::details($self->{CONTAINER_TRANSCODE}, $self->{VIDEO_CODEC_TRANSCODE}, $self->{AUDIO_CODEC_TRANSCODE}, 'FFmpegParam').' pipe: 2>/dev/null';
+			$self{COMMAND} = $CONFIG{'FFMPEG_BIN'}.' -i "'.$self{PATH}.'" '.PDLNA::Media::details($self{CONTAINER_TRANSCODE}, $self{VIDEO_CODEC_TRANSCODE}, $self{AUDIO_CODEC_TRANSCODE}, 'FFmpegParam').' pipe: 2>/dev/null';
 		}
 	}
 
-	bless($self, $class);
-	return $self;
+	bless(\%self, $class);
+	return \%self;
 }
 
 sub is_directory

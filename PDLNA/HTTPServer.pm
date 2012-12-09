@@ -35,6 +35,7 @@ no bytes;
 
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
+use PDLNA::Database;
 use PDLNA::HTTPXML;
 use PDLNA::WebUI;
 use PDLNA::Log;
@@ -44,7 +45,7 @@ our $content = undef;
 sub initialize_content
 {
 	$content = PDLNA::ContentLibrary->new();
-	PDLNA::Log::log($content->print_object(), 3, 'library');
+	$content->index_directories();
 }
 
 sub start_webserver
@@ -81,13 +82,13 @@ sub start_webserver
 		# handling rescan of media database (if expired and no devices in DeviceList database)
 		if ($CONFIG{'RESCAN_MEDIA'} && $$device_list->devices_amount() == 0)
 		{
-			my $expiretime = $content->timestamp() + $CONFIG{'RESCAN_MEDIA'};
-			if ($expiretime < time())
-			{
-				PDLNA::Log::log('PDLNA::ContentLibrary has expired and no SSDP devices are currently online.', 2, 'library');
-				$content = PDLNA::ContentLibrary->new();
-				PDLNA::Log::log($content->print_object(), 3, 'library');
-			}
+# TODO
+#			my $expiretime = $content->timestamp() + $CONFIG{'RESCAN_MEDIA'};
+#			if ($expiretime < time())
+#			{
+#				PDLNA::Log::log('PDLNA::ContentLibrary has expired and no SSDP devices are currently online.', 2, 'library');
+#				$content->index_directories();
+#			}
 		}
 	}
 }
@@ -355,12 +356,16 @@ sub ctrl_content_directory_1
 	my $action = shift;
 	my $device = shift;
 
+	my $dbh = PDLNA::Database::connect();
+
 	PDLNA::Log::log("Function PDLNA::HTTPServer::ctrl_content_directory_1 called", 3, 'httpdir');
 
 	my $response = undef;
 
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
+		my $response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+
 		my ($object_id, $starting_index, $requested_count, $filter, $browse_flag) = 0;
 		# determine which 'Browse' element was used
 		if (defined($xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'})) # coherence seems to use this one
@@ -397,16 +402,27 @@ sub ctrl_content_directory_1
 		}
 
 		my @browsefilters = split(',', $filter) if length($filter) > 0;
-		if ($browse_flag eq 'BrowseMetadata')
+		if ($browse_flag eq 'BrowseMetadata') # for media times
 		{
 			if (grep(/^\@parentID$/, @browsefilters))
 			{
-				my $object = $content->get_object_by_id($object_id);
-				$object_id = $object->parent_id();
 				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+
+				# set object_id to parentid
+				my @directory_parent = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? );',
+						'parameters' => [ $object_id, ],
+					},
+					\@directory_parent,
+				);
+				$directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
+				$object_id = $directory_parent[0]->{ID};
 			}
 		}
-		elsif ($browse_flag eq 'BrowseDirectChildren')
+		elsif ($browse_flag eq 'BrowseDirectChildren') # for directories
 		{
 			if ($browsefilters[0] eq '*')
 			{
@@ -428,57 +444,72 @@ sub ctrl_content_directory_1
 			$device->add_dirlist_request($object_id);
 
 			PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
-			my $object = $content->get_object_by_id($object_id);
-
-			if (defined($object) && $object->is_directory())
+			if ($browse_flag eq 'BrowseDirectChildren' || $browse_flag eq 'BrowseMetadata')
 			{
-				my $response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+				#
+				# get the subdirectories for the object_id requested
+				#
+				my @dire_elements = ();
+				PDLNA::Database::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
 
-				PDLNA::Log::log('Found Object with ID '.$object->id().'.', 3, 'httpdir');
+				#
+				# get the full amount of subdirectories for the object_id requested
+				#
+				my $amount_directories = PDLNA::Database::get_amount_subdirectories_by_id($dbh, $object_id);
 
-				my $element_counter = 0; # just counts all elements
-				my $element_listed = 0; # count the elements, which are included in the reponse
+				#
+				# get the full amount of files in the directory requested
+				#
+				my $amount_files = PDLNA::Database::get_amount_subfiles_by_id($dbh, $object_id);
 
-				foreach my $id (sort keys %{$object->directories()})
+				$starting_index -= $amount_directories;
+
+				#
+				# get the files for the directory requested
+				#
+				my @file_elements = ();
+				PDLNA::Database::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
+
+				#
+				# build the http response
+				#
+				foreach my $directory (@dire_elements)
 				{
-					if ($element_counter >= $starting_index && $element_listed < $requested_count)
-					{
-						PDLNA::Log::log('Including Directory with name: '.${$object->directories()}{$id}->name().' to response.', 3, 'httpdir');
-						$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(${$object->directories()}{$id}, \@browsefilters);
-						$element_listed++;
-					}
-					$element_counter++;
+					$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
+						$directory->{ID},
+						$directory->{NAME},
+						\@browsefilters,
+						$dbh,
+					);
 				}
-				foreach my $id (sort keys %{$object->items()})
+
+				foreach my $file (@file_elements)
 				{
-					if ($element_counter >= $starting_index && $element_listed < $requested_count)
-					{
-						PDLNA::Log::log('Including Item with name: '.${$object->items()}{$id}->name().' to response.', 3, 'httpdir');
-						$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(${$object->items()}{$id}, \@browsefilters);
-						$element_listed++;
-					}
-					$element_counter++;
+					$response_xml .= PDLNA::HTTPXML::get_browseresponse_item($file->{ID}, \@browsefilters, $dbh);
 				}
 
-				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($element_listed, $object->amount());
+				my $elements_in_listing = scalar(@dire_elements) + scalar(@file_elements);
+				my $elements_in_directory = $amount_directories + $amount_files;
 
-				$response = http_header({
-					'statuscode' => 200,
-					'log' => 'httpdir',
-					'content_length' => length($response_xml),
-					'content_type' => 'text/xml; charset=utf8',
-				});
-				$response .= $response_xml;
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
 			}
 			else
 			{
-				PDLNA::Log::log('Unable to find matching ContentDirectory by ObjectID '.$object_id.'.', 1, 'httpdir');
+				PDLNA::Log::log('BrowseFlag: '.$browse_flag.' is NOT supported yet.', 2, 'httpdir');
 				return http_header({
-					'statuscode' => 404,
+					'statuscode' => 501,
 					'content_type' => 'text/plain',
 				});
 			}
 		}
+
+		$response = http_header({
+			'statuscode' => 200,
+			'log' => 'httpdir',
+			'content_length' => length($response_xml),
+			'content_type' => 'text/xml; charset=utf8',
+		});
+		$response .= $response_xml;
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSearchCapabilities"')
 	{
@@ -668,55 +699,67 @@ sub stream_media
 	my $FH = shift;
 	my $model_name = shift;
 
+	my $dbh = PDLNA::Database::connect();
+
 	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
 	if ($content_id =~ /^(\d+)\.(\w+)$/)
 	{
 		my $id = $1;
 		PDLNA::Log::log('ID: '.$id, 3, 'httpstream');
 
-		my $item = $content->get_object_by_id($id);
+		my @item_info;
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE FROM FILES WHERE ID = ?',
+				'parameters' => [ $id, ],
+			},
+			\@item_info,
+		);
 
-		unless (defined($item) && $item->is_item())
-		{
-			PDLNA::Log::log('Content with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
-			print $FH http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
-				'log' => 'httpstream',
-			});
-			return;
-		}
-
-		if ($item->file() && !(-f $item->path()))
-		{
-			PDLNA::Log::log('Content with ID '.$id.' NOT found (on filesystem): '.$item->path().'.', 1, 'httpstream');
-			print $FH http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
-				'log' => 'httpstream',
-			});
-			return;
-		}
-
-		if (!$item->file() && !($item->command()))
-		{
-			PDLNA::Log::log('Content with ID '.$id.' NOT found (command is missing).', 1, 'httpstream');
-			print $FH http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
-				'log' => 'httpstream',
-			});
-			return;
-		}
+#		unless (defined($item) && $item->is_item())
+#		{
+#			PDLNA::Log::log('Content with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
+#			print $FH http_header({
+#				'statuscode' => 404,
+#				'content_type' => 'text/plain',
+#				'log' => 'httpstream',
+#			});
+#			return;
+#		}
+#
+#		if ($item->file() && !(-f $item->path()))
+#		{
+#			PDLNA::Log::log('Content with ID '.$id.' NOT found (on filesystem): '.$item->path().'.', 1, 'httpstream');
+#			print $FH http_header({
+#				'statuscode' => 404,
+#				'content_type' => 'text/plain',
+#				'log' => 'httpstream',
+#			});
+#			return;
+#		}
+#
+#		if (!$item->file() && !($item->command()))
+#		{
+#			PDLNA::Log::log('Content with ID '.$id.' NOT found (command is missing).', 1, 'httpstream');
+#			print $FH http_header({
+#				'statuscode' => 404,
+#				'content_type' => 'text/plain',
+#				'log' => 'httpstream',
+#			});
+#			return;
+#		}
 
 		#
 		# for streaming relevant code starts here
 		#
 
 		my @additional_header = ();
-		push(@additional_header, 'Content-Type: '.$item->mime_type($model_name));
-		push(@additional_header, 'Content-Length: '.$item->size()) if $item->file();
-		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item->name().'"'),
+#		push(@additional_header, 'Content-Type: '.$item->mime_type($model_name));
+		push(@additional_header, 'Content-Type: '.$item_info[0]->{MIME_TYPE});
+#		push(@additional_header, 'Content-Length: '.$item->size()) if $item->file();
+		push(@additional_header, 'Content-Length: '.$item_info[0]->{SIZE});
+		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item_info[0]->{NAME}.'"'),
 		push(@additional_header, 'Accept-Ranges: bytes');
 
 		# Streaming of content is NOT working with SAMSUNG without this response header
@@ -724,7 +767,7 @@ sub stream_media
 		{
 			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 			{
-				push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
+				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item_info[0]->{TYPE}, $item_info[0]->{MIME_TYPE}));
 			}
 			else
 			{
@@ -740,20 +783,20 @@ sub stream_media
 		{
 			if ($$CGI{'GETCAPTIONINFO.SEC'} == 1)
 			{
-				if ($item->type() eq 'video')
+				if ($item_info[0]->{TYPE} eq 'video')
 				{
-					if (my %subtitle = $item->subtitle('srt'))
-					{
-						if (defined($subtitle{'path'}) && -f $subtitle{'path'})
-						{
-							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$id.'.srt');
-						}
-					}
+#					if (my %subtitle = $item->subtitle('srt'))
+#					{
+#						if (defined($subtitle{'path'}) && -f $subtitle{'path'})
+#						{
+#							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$id.'.srt');
+#						}
+#					}
 				}
 
 				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 				{
-					push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
+					push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item_info[0]->{TYPE}, $item_info[0]->{MIME_TYPE}));
 				}
 			}
 			else
@@ -770,13 +813,13 @@ sub stream_media
 		{
 			if ($$CGI{'GETMEDIAINFO.SEC'} == 1)
 			{
-				if ($item->type() eq 'video' || $item->type() eq 'audio')
+				if ($item_info[0]->{TYPE} eq 'video' || $item_info[0]->{TYPE} eq 'audio')
 				{
-					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
+#					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
 
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
-						push(@additional_header, 'contentFeatures.dlna.org: '.$item->dlna_contentfeatures());
+						push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item_info[0]->{TYPE}, $item_info[0]->{MIME_TYPE}));
 					}
 				}
 			}
@@ -792,7 +835,7 @@ sub stream_media
 
 		if ($method eq 'HEAD') # handling HEAD requests
 		{
-			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->name().'.', 1, 'httpstream');
+			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item_info[0]->{NAME}.'.', 1, 'httpstream');
 
 			print $FH http_header({
 				'statuscode' => 200,
@@ -828,35 +871,37 @@ sub stream_media
 					if (
 						defined($$CGI{'RANGE'}) &&
 						$$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/ &&
-						$item->file()
+						#$item->file()
+						1
 					)
 					{
-						PDLNA::Log::log('Delivering content for: '.$item->path().' with RANGE Request.', 1, 'httpstream');
+						PDLNA::Log::log('Delivering content for: '.$item_info[0]->{FULLNAME}.' with RANGE Request.', 1, 'httpstream');
 						my $statuscode = 206;
 
 						$lowrange = int($1);
 						$highrange = $2 ? int($2) : 0;
-						$highrange = $item->size()-1 if $highrange == 0;
-						$highrange = $item->size()-1 if ($highrange >= $item->size());
+						$highrange = $item_info[0]->{SIZE}-1 if $highrange == 0;
+						$highrange = $item_info[0]->{SIZE}-1 if ($highrange >= $item_info[0]->{SIZE});
 
 						my $bytes_to_ship = $highrange - $lowrange + 1;
 
 						$additional_header[1] = 'Content-Length: '.$bytes_to_ship; # we need to change the Content-Length
-						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item->size());
+						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item_info[0]->{SIZE});
 					}
 
 					#
 					# sending the response
 					#
-					if ($item->file())
+					#if ($item->file())
+					if (1) # file on disk
 					{
-						sysopen(ITEM, $item->path(), O_RDONLY);
+						sysopen(ITEM, $item_info[0]->{FULLNAME}, O_RDONLY);
 						sysseek(ITEM, $lowrange, 0) if $lowrange;
 					}
-					else
+					else # transcoding / external script
 					{
-						open(ITEM, '-|', $item->command());
-						binmode(ITEM);
+						#open(ITEM, '-|', $item->command());
+						#binmode(ITEM);
 						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
 					}
 					print $FH http_header({
@@ -875,7 +920,7 @@ sub stream_media
 				}
 				elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files
 				{
-					PDLNA::Log::log('Delivering (Interactive) content for: '.$item->path().'.', 1, 'httpstream');
+					PDLNA::Log::log('Delivering (Interactive) content for: '.$item_info[0]->{FULLNAME}.'.', 1, 'httpstream');
 					push(@additional_header, 'transferMode.dlna.org: Interactive');
 
 					# Delivering interactive content as a whole
@@ -883,7 +928,7 @@ sub stream_media
 						'statuscode' => 200,
 						'additional_header' => \@additional_header,
 					});
-					sysopen(FILE, $item->path(), O_RDONLY);
+					sysopen(FILE, $item_info[0]->{FULLNAME}, O_RDONLY);
 					print $FH <FILE>;
 					close(FILE);
 				}
@@ -898,7 +943,7 @@ sub stream_media
 			}
 			else # no TRANSFERMODE.DLNA.ORG is set
 			{
-				PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item->path().'.', 1, 'httpstream');
+				PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item_info[0]->{FULLNAME}.'.', 1, 'httpstream');
 				print $FH http_header({
 					'statuscode' => 200,
 					'additional_header' => \@additional_header,
@@ -935,19 +980,31 @@ sub preview_media
 	{
 		my $id = $1;
 
-		my $item = $content->get_object_by_id($id);
-		if (defined($item) && $item->is_item())
-		{
-			unless ($item->file() && -f $item->path())
-			{
-				PDLNA::Log::log('File '.$item->path().' NOT found.', 2, 'httpstream');
-				return http_header({
-					'statuscode' => 404,
-					'content_type' => 'text/plain',
-				});
-			}
+		my $dbh = PDLNA::Database::connect();
 
-			if ($item->type() eq 'audio')
+		my @item_info = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE FROM FILES WHERE ID = ?',
+				'parameters' => [ $id, ],
+			},
+			\@item_info,
+		);
+
+		#if (defined($item) && $item->is_item())
+		if (1)
+		{
+#			unless ($item->file() && -f $item->path())
+#			{
+#				PDLNA::Log::log('File '.$item->path().' NOT found.', 2, 'httpstream');
+#				return http_header({
+#					'statuscode' => 404,
+#					'content_type' => 'text/plain',
+#				});
+#			}
+
+			if ($item_info[0]->{TYPE} eq 'audio')
 			{
 				PDLNA::Log::log('Delivering preview for Audio Item is NOT supported yet.', 2, 'httpstream');
 				return http_header({
@@ -956,15 +1013,15 @@ sub preview_media
 				});
 			}
 
-			PDLNA::Log::log('Delivering preview for: '.$item->path().'.', 2, 'httpstream');
+			PDLNA::Log::log('Delivering preview for: '.$item_info[0]->{FULLNAME}.'.', 2, 'httpstream');
 
 			my $randid = '';
-			my $path = $item->path();
-			if ($item->type() eq 'video') # we need to create the thumbnail
+			my $path = $item_info[0]->{FULLNAME};
+			if ($item_info[0]->{TYPE} eq 'video') # we need to create the thumbnail
 			{
 				$randid = PDLNA::Utils::get_randid();
 				# this way is a little bit ugly ... but works for me
-				system("$CONFIG{'MPLAYER_BIN'} -vo jpeg:outdir=$CONFIG{'TMP_DIR'}/$randid/ -frames 1 -ss 10 '$path' > /dev/null 2>&1");
+				system($CONFIG{'MPLAYER_BIN'}.' -vo jpeg:outdir='.$CONFIG{'TMP_DIR'}.'/'.$randid.'/ -frames 1 -ss 10 "'.$path.'" > /dev/null 2>&1');
 				$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
 				unless (defined($path))
 				{
@@ -992,7 +1049,7 @@ sub preview_media
 			$preview->copyResampled($image, 0, 0, 0, 0, 160, $height, $image->width, $image->height);
 
 			# remove tmp files from thumbnail generation
-			if ($item->type() eq 'video')
+			if ($item_info[0]->{TYPE} eq 'video')
 			{
 				unlink($path);
 				rmdir("$CONFIG{'TMP_DIR'}/$randid");

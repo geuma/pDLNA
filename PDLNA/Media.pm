@@ -366,4 +366,68 @@ sub is_supported_mimetype
 	return 0;
 }
 
+sub return_type_by_mimetype
+{
+	my $mimetype = shift;
+	my ($media_type) = split('/', $mimetype, 0);
+	$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
+	return $media_type;
+}
+
+sub dlna_contentfeatures
+{
+	my $type = shift;
+	my $mimetype = shift;
+
+	my $contentfeature = '';
+
+# DLNA.ORG_PN - media profile
+#   $contentfeature = 'DLNA.ORG_PN=WMABASE;' if $self->{MIME_TYPE} eq 'audio/x-ms-wma';
+#   $contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/L16';
+#   $contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/x-aiff';
+#   $contentfeature = 'DLNA.ORG_PN=LPCM;' if $self->{MIME_TYPE} eq 'audio/x-wav';
+	$contentfeature = 'DLNA.ORG_PN=WMABASE;' if $mimetype eq 'audio/x-ms-wma';
+	$contentfeature = 'DLNA.ORG_PN=MP3;' if $mimetype eq 'audio/mpeg';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_LRG;' if $mimetype eq 'image/jpeg';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_TN;' if $type eq 'JPEG_TN';
+	$contentfeature = 'DLNA.ORG_PN=JPEG_SM;' if $type eq 'JPEG_SM';
+
+# DLNA.ORG_OP=ab
+#   a - server supports TimeSeekRange
+#   b - server supports RANGE
+	#unless ($type eq 'JPEG_TN' || $type eq 'JPEG_SM' || $type eq 'image' || !$self->{FILE})
+	unless ($type eq 'JPEG_TN' || $type eq 'JPEG_SM' || $type eq 'image')
+	{
+		$contentfeature .= 'DLNA.ORG_OP=01;'; # deactivate seeking for transcoded or streamed media files (and images :P)
+	}
+
+# DLNA.ORG_PS - supported play speeds
+
+	# DLNA.ORG_CI - if media is transcoded
+	if ($type eq 'JPEG_TN' || $type eq 'JPEG_SM')
+	{
+		$contentfeature .= 'DLNA.ORG_CI=1;';
+	}
+	else
+	{
+		$contentfeature .= 'DLNA.ORG_CI=0;';
+	}
+
+	# DLNA.ORG_FLAGS - binary flags with device parameters
+	if ($type eq 'JPEG_TN' || $type eq 'JPEG_SM' || $type eq 'image')
+	{
+		$contentfeature .= 'DLNA.ORG_FLAGS=00D00000000000000000000000000000';
+	}
+#   elsif ($self->{MIME_TYPE} eq 'audio/x-aiff' || $self->{MIME_TYPE} eq 'audio/x-wav')
+#   {
+#       $contentfeature .= 'DLNA.ORG_FLAGS=61F00000000000000000000000000000';
+#   }
+	else
+	{
+		$contentfeature .= 'DLNA.ORG_FLAGS=01500000000000000000000000000000';
+	}
+
+	return $contentfeature;
+}
+
 1;

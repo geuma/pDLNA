@@ -20,6 +20,9 @@ package PDLNA::ContentDirectory;
 use strict;
 use warnings;
 
+use threads;
+use threads::shared;
+
 use Date::Format;
 use Digest::SHA1;
 use Fcntl;
@@ -39,31 +42,33 @@ sub new
 	my $class = shift;
 	my $params = shift;
 
-	my $self = ();
-	$self->{ID} = $$params{'parent_id'}.$$params{'id'};
-	$self->{PATH} = $$params{'path'} || '';
-	$self->{NAME} = $$params{'name'} || basename($self->{PATH});
-	$self->{TYPE} = $$params{'type'};
-	$self->{SUBTYPE} = $$params{'subtype'} || 'directory';
-	$self->{RECURSION} = $$params{'recursion'};
-	$self->{EXCLUDE_DIRS} = $$params{'exclude_dirs'};
-	$self->{EXCLUDE_ITEMS} = $$params{'exclude_items'};
-	$self->{ALLOW_PLAYLISTS} = $$params{'allow_playlists'} || 0;
-	$self->{PARENT_ID} = $$params{'parent_id'};
-	$self->{ITEMS} = {};
-	$self->{DIRECTORIES} = {};
-	$self->{AMOUNT} = 0;
-	$self->{SHA1} = '';
-	$self->{SIZE} = 0;
+	my %self : shared = ();
+	$self{ID} = $$params{'parent_id'}.$$params{'id'};
+	$self{PATH} = $$params{'path'} || '';
+	$self{NAME} = $$params{'name'} || basename($self{PATH});
+	$self{TYPE} = $$params{'type'};
+	$self{SUBTYPE} = $$params{'subtype'} || 'directory';
+	$self{RECURSION} = $$params{'recursion'};
+	$self{EXCLUDE_DIRS} = $$params{'exclude_dirs'};
+	$self{EXCLUDE_ITEMS} = $$params{'exclude_items'};
+	$self{ALLOW_PLAYLISTS} = $$params{'allow_playlists'} || 0;
+	$self{PARENT_ID} = $$params{'parent_id'};
+	my %items : shared = ();
+	$self{ITEMS} = \%items;
+	my %directories : shared = ();
+	$self{DIRECTORIES} = \%directories;
+	$self{AMOUNT} = 0;
+	$self{SHA1} = '';
+	$self{SIZE} = 0;
 
-	bless($self, $class);
+	bless(\%self, $class);
 
-	unless ($self->{TYPE} eq 'meta')
-	{
-		$self->initialize();
-	}
+##	unless ($self{TYPE} eq 'meta')
+#	{
+#		$self->initialize();
+#	}
 
-	return $self;
+	return \%self;
 }
 
 sub is_directory

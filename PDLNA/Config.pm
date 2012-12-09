@@ -47,6 +47,10 @@ our %CONFIG = (
 	'CACHE_CONTROL' => 1800,
 	'PIDFILE' => '/var/run/pdlna.pid',
 	'ALLOWED_CLIENTS' => [],
+
+	'DB_TYPE' => 'SQLITE3',
+	'DB_NAME' => '/tmp/pdlna-content.db',
+
 	'LOG_FILE_MAX_SIZE' => 1048576, # 10 MB
 	'LOG_FILE' => 'STDERR',
 	'LOG_CATEGORY' => [],
@@ -68,9 +72,9 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.53.0',
-	'PROGRAM_DATE' => '2012-08-15',
-	'PROGRAM_BETA' => 0,
+	'PROGRAM_VERSION' => '0.60.0',
+	'PROGRAM_DATE' => '2012-12-09',
+	'PROGRAM_BETA' => 1,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
@@ -263,9 +267,9 @@ sub parse_config
 		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
 		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
 		{
-			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric)$/)
+			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');

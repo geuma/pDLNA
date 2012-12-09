@@ -25,7 +25,7 @@ use Devel::Size qw(size total_size);
 use Proc::ProcessTable;
 
 use PDLNA::Config;
-use PDLNA::ContentLibrary;
+use PDLNA::Database;
 use PDLNA::Daemon;
 use PDLNA::Utils;
 
@@ -34,6 +34,8 @@ sub show
 	my $content = shift;
 	my $device_list = shift;
 	my $params = shift;
+
+	my $dbh = PDLNA::Database::connect();
 
 	my @nav = split('/', $params);
 	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
@@ -185,7 +187,7 @@ sub show
 	$response .= '<div id="sidebar">';
 	$response .= '<h5>Configured media</h5>';
 
-	$response .= build_directory_tree($content, 0, $nav[1]);
+	$response .= build_directory_tree($dbh, 0, $nav[1]);
 	$response .= '<h5>Connected devices</h5>';
 	my %ssdp_devices = $$device_list->devices();
 	$response .= '<ul>';
@@ -213,20 +215,28 @@ sub show
 		$response .= '<thead>';
 		$response .= '<tr><td>Filename</td><td width="110px">Size</td><td width="160px">Date</td></tr>';
 		$response .= '</thead>';
-		my $object = $content->get_object_by_id($nav[1]);
-		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes($object->{'SIZE'}).'</td><td>&nbsp;</td></tr>';
-		$response .= '</tfoot>';
-		$response .= '<tbody>';
-		foreach my $id (sort keys %{$object->items()})
-		{
-			$response .= '<tr>';
-			$response .= '<td title="'.${$object->items()}{$id}->name().'">'.PDLNA::Utils::string_shortener(${$object->items()}{$id}->name(), 30).'</td>';
-			$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
-			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
-			$response .= '</tr>';
-		}
-		$response .= '</tbody>';
+
+
+
+
+
+
+
+
+#		my $object = $content->get_object_by_id($nav[1]);
+#		$response .= '<tfoot>';
+#		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes($object->{'SIZE'}).'</td><td>&nbsp;</td></tr>';
+#		$response .= '</tfoot>';
+#		$response .= '<tbody>';
+#		foreach my $id (sort keys %{$object->items()})
+#		{
+#			$response .= '<tr>';
+#			$response .= '<td title="'.${$object->items()}{$id}->name().'">'.PDLNA::Utils::string_shortener(${$object->items()}{$id}->name(), 30).'</td>';
+#			$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
+#			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
+#			$response .= '</tr>';
+#		}
+#		$response .= '</tbody>';
 		$response .= '</table>';
 	}
 	elsif ($nav[0] eq 'device')
@@ -306,7 +316,6 @@ sub show
 				$response .= '<tr><td>Current Virtual Memory Size</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
 				$response .= '<tr><td>Current Memory Utilization in RAM</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
 				$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
-				$response .= '<tr><td>Memory Utilization of ContentLibrary</td><td>'.PDLNA::Utils::convert_bytes(total_size($content)).'</td></tr>';
 				$response .= '<tr><td>Memory Utilization of DeviceList</td><td>'.PDLNA::Utils::convert_bytes(total_size($device_list)).'</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
@@ -329,19 +338,30 @@ sub show
 
 sub build_directory_tree
 {
-	my $content = shift;
+	my $dbh = shift;
 	my $start_id = shift;
 	my $end_id = shift;
 
 	my $response = '';
 
-	my $object = $content->get_object_by_id($start_id);
+#	my $object = $content->get_object_by_id($start_id);
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID, NAME FROM DIRECTORIES WHERE ROOT = 1',
+			'parameters' => [],
+		},
+		\@results,
+	);
+
 	$response .= '<ul>';
-	foreach my $id (sort keys %{$object->directories()})
+	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.$id.'">'.${$object->directories()}{$id}->name().' ('.${$object->directories()}{$id}->amount().')</a></li>';
-		my $tmpid = substr($end_id, 0, length($id));
-		$response .= build_directory_tree ($content, $id, $end_id) if ($tmpid eq $id);
+		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.'amount'.')</a></li>';
+
+#		my $tmpid = substr($end_id, 0, length($id));
+#		$response .= build_directory_tree ($dbh, $start_id, $end_id);
 	}
 	$response .= '</ul>';
 

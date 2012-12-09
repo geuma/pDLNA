@@ -7,6 +7,11 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.60.0
+xx-xx-201x
+
+- using a database instead of the whole huge in memory object for the ContentLibrary
+
 Version 0.53.0
 15-08-2012
 
