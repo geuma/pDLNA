@@ -109,4 +109,12 @@ sub fetch_http
 	return undef;
 }
 
+sub is_path_absolute
+{
+	my $path = shift;
+
+	return 1 if $path =~ /^\//; # TODO fix for WINDOWS
+	return 0;
+}
+
 1;

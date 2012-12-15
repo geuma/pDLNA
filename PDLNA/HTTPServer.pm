@@ -382,7 +382,7 @@ sub ctrl_content_directory_1
 		}
 
 		my @browsefilters = split(',', $filter) if length($filter) > 0;
-		if ($browse_flag eq 'BrowseMetadata') # for media times
+		if ($browse_flag eq 'BrowseMetadata')
 		{
 			if (grep(/^\@parentID$/, @browsefilters))
 			{
@@ -402,7 +402,7 @@ sub ctrl_content_directory_1
 				$object_id = $directory_parent[0]->{ID};
 			}
 		}
-		elsif ($browse_flag eq 'BrowseDirectChildren') # for directories
+		elsif ($browse_flag eq 'BrowseDirectChildren')
 		{
 			if ($browsefilters[0] eq '*')
 			{
@@ -616,52 +616,54 @@ sub deliver_subtitle
 
 	if ($content_id =~ /^(\d+)\.(\w+)$/)
 	{
-# TODO
-#		my $id = $1;
-#		my $type = $2;
-#		my $item = $content->get_object_by_id($id);
-#		if (defined($item) && $item->is_item() && $item->type() eq 'video')
-#		{
-#			my %subtitle = $item->subtitle($type);
-#			if (-f $subtitle{'path'})
-#			{
-#				my @additional_header = ();
-#				if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
-#				{
-#					push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
-#				}
-#				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
-#				{
-#					push(@additional_header, 'transferMode.dlna.org: Background');
-#				}
-#
-#				print $FH http_header({
-#					'content_length' => $subtitle{'size'},
-#					#'content_type' => $subtitle{'mimetype'}, # smi/caption
-#					'content_type' => 'smi/caption',
-#					'statuscode' => 200,
-#					'additional_header' => \@additional_header,
-#					'log' => 'httpstream',
-#				});
-#				sysopen(FILE, $subtitle{'path'}, O_RDONLY);
-#				print $FH <FILE>;
-#				close(FILE);
-#			}
-#			else
-#			{
-#				print $FH http_header({
-#					'statuscode' => 404,
-#					'content_type' => 'text/plain',
-#				});
-#			}
-#		}
-#		else
-#		{
-#			print $FH http_header({
-#				'statuscode' => 501,
-#				'content_type' => 'text/plain',
-#			});
-#		}
+		my $id = $1;
+		my $type = $2;
+
+		PDLNA::Log::log('Delivering subtitle: '.$id.'.'.$type.'.', 3, 'httpstream');
+
+		my $dbh = PDLNA::Database::connect();
+
+		my @subtitles = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT FULLNAME, SIZE FROM SUBTITLES WHERE ID = ? AND TYPE = ?',
+				'parameters' => [ $id, $type, ],
+			},
+			\@subtitles,
+		);
+
+		if (defined($subtitles[0]->{FULLNAME}) && -f $subtitles[0]->{FULLNAME})
+		{
+			my @additional_header = ();
+			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+			{
+				push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
+			}
+			if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
+			{
+				push(@additional_header, 'transferMode.dlna.org: Background');
+			}
+
+			print $FH http_header({
+				'content_length' => $subtitles[0]->{SIZE},
+				'content_type' => 'smi/caption',
+				'statuscode' => 200,
+				'additional_header' => \@additional_header,
+				'log' => 'httpstream',
+			});
+
+			sysopen(FILE, $subtitles[0]->{FULLNAME}, O_RDONLY);
+			print $FH <FILE>;
+			close(FILE);
+		}
+		else
+		{
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+			});
+		}
 	}
 	else
 	{
@@ -698,28 +700,29 @@ sub stream_media
 			\@item_info,
 		);
 
-#		unless (defined($item) && $item->is_item())
-#		{
-#			PDLNA::Log::log('Content with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
-#			print $FH http_header({
-#				'statuscode' => 404,
-#				'content_type' => 'text/plain',
-#				'log' => 'httpstream',
-#			});
-#			return;
-#		}
-#
-#		if ($item->file() && !(-f $item->path()))
-#		{
-#			PDLNA::Log::log('Content with ID '.$id.' NOT found (on filesystem): '.$item->path().'.', 1, 'httpstream');
-#			print $FH http_header({
-#				'statuscode' => 404,
-#				'content_type' => 'text/plain',
-#				'log' => 'httpstream',
-#			});
-#			return;
-#		}
-#
+		unless (defined($item_info[0]->{FULLNAME}))
+		{
+			PDLNA::Log::log('Content with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+			return;
+		}
+
+		if (!$item_info[0]->{EXTERNAL} && !-f $item_info[0]->{FULLNAME})
+		{
+			PDLNA::Log::log('Content with ID '.$id.' NOT found (on filesystem): '.$item_info[0]->{FULLNAME}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+			return;
+		}
+
+		# TODO
 #		if (!$item->file() && !($item->command()))
 #		{
 #			PDLNA::Log::log('Content with ID '.$id.' NOT found (command is missing).', 1, 'httpstream');
@@ -794,8 +797,16 @@ sub stream_media
 			{
 				if ($item_info[0]->{TYPE} eq 'video' || $item_info[0]->{TYPE} eq 'audio')
 				{
-# TODO
-#					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
+					my @item_metainfo = ();
+					PDLNA::Database::select_db(
+						$dbh,
+						{
+							'query' => 'SELECT DURATION FROM FILEINFO WHERE FILEID_REF = ?',
+							'parameters' => [ $id, ],
+						},
+						\@item_metainfo,
+					);
+					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item_metainfo[0]->{DURATION}.'000;'); # in milliseconds
 
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
@@ -833,7 +844,8 @@ sub stream_media
 					$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^vlc/i || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^stagefright/ || # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
-					$$CGI{'USER-AGENT'} =~ /^gvfs/ # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^gvfs/ || # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^\(null\)/
 					)
 				{
 					$$CGI{'TRANSFERMODE.DLNA.ORG'} = 'Streaming';
@@ -878,6 +890,7 @@ sub stream_media
 					}
 					else # transcoding / external script
 					{
+						# TODO
 						#open(ITEM, '-|', $item->command());
 						#binmode(ITEM);
 						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
@@ -970,19 +983,24 @@ sub preview_media
 			\@item_info,
 		);
 
-		#if (defined($item) && $item->is_item())
-		if (1)
+		if (defined($item_info[0]->{FULLNAME}))
 		{
-			if ($item_info[0]->{EXTERNAL})
+			if (-f $item_info[0]->{FULLNAME})
 			{
-#			unless ($item->file() && -f $item->path())
-#			{
-#				PDLNA::Log::log('File '.$item->path().' NOT found.', 2, 'httpstream');
+				PDLNA::Log::log('Delivering preview for NON EXISTING Item is NOT supported.', 2, 'httpstream');
 				return http_header({
 					'statuscode' => 404,
 					'content_type' => 'text/plain',
 				});
-#			}
+			}
+
+			if ($item_info[0]->{EXTERNAL})
+			{
+				PDLNA::Log::log('Delivering preview for EXTERNAL Item is NOT supported yet.', 2, 'httpstream');
+				return http_header({
+					'statuscode' => 501,
+					'content_type' => 'text/plain',
+				});
 			}
 
 			if ($item_info[0]->{TYPE} eq 'audio')

@@ -128,7 +128,7 @@ sub get_browseresponse_item
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM FROM FILEINFO WHERE ID_REF = ?;',
+			'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM FROM FILEINFO WHERE FILEID_REF = ?;',
 			'parameters' => [ $item_id, ],
 		},
 		\@iteminfo,
@@ -216,16 +216,25 @@ sub get_browseresponse_item
 		push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item_id.'.jpg');
 		push(@xml, '&lt;/res&gt;');
 	}
-#
-#	# subtitles
-#	if ($item->type() eq 'video')
-#	{
-#		my %subtitles = $item->subtitle();
-#		foreach my $type (keys %subtitles)
-#		{
-#			push(@xml, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$type.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$item->id().'.'.$type.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});
-#		}
-#	}
+
+	# subtitles
+	if ($item[0]->{TYPE} eq 'video')
+	{
+		my @subtitles = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT ID, TYPE FROM SUBTITLES WHERE FILEID_REF = ?',
+				'parameters' => [ $item_id, ],
+			},
+			\@subtitles,
+		);
+
+		foreach my $subtitle (@subtitles)
+		{
+			push(@xml, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$subtitle->{TYPE}.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.'.$subtitle->{TYPE}.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});
+		}
+	}
 	push(@xml, '&lt;/item&gt;');
 
 	return join('', @xml);

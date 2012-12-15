@@ -129,7 +129,7 @@ sub initialize_db
 	unless (grep(/^"FILEINFO"$/, $dbh->tables()))
 	{
 		$dbh->do("CREATE TABLE FILEINFO (
-				ID_REF				INTEGER PRIMARY KEY,
+				FILEID_REF			INTEGER PRIMARY KEY,
 				VALID				BOOLEAN,
 
 				WIDTH				INTEGER,
@@ -173,6 +173,24 @@ sub initialize_db
 			);"
 		);
 	}
+
+	unless (grep(/^"SUBTITLES"$/, $dbh->tables()))
+	{
+		$dbh->do("CREATE TABLE SUBTITLES (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				FILEID_REF			INTEGER,
+
+				TYPE				VARCHAR(2048),
+				MIME_TYPE			VARCHAR(128),
+				NAME				VARCHAR(2048),
+				FULLNAME			VARCHAR(2048),
+
+				DATE				BIGINT,
+				SIZE				BIGINT
+			);"
+		);
+	}
+
 	PDLNA::Database::disconnect($dbh);
 }
 
@@ -182,7 +200,7 @@ sub select_db
 	my $params = shift;
 	my $result = shift;
 
-	#PDLNA::Log::log($$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}});
 	while (my $data = $sth->fetchrow_hashref)
@@ -206,8 +224,9 @@ sub update_db
 	my $dbh = shift;
 	my $params = shift;
 
+	PDLNA::Log::log('UPDATE:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
 }
 
 sub delete_db
@@ -215,8 +234,9 @@ sub delete_db
 	my $dbh = shift;
 	my $params = shift;
 
+	PDLNA::Log::log('DELETE:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
 }
 
 1;

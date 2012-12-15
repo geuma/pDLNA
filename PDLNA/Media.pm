@@ -60,6 +60,10 @@ my %PLAYLISTS = (
 	'application/xspf+xml' => 'xspf',
 );
 
+my %SUBTITLES = (
+	'application/x-subrip' => 'srt',
+);
+
 my %AUDIO_CODECS = (
 	'a52' => 'ac3',
 	'faad' => 'aac',
@@ -347,6 +351,14 @@ sub is_supported_playlist
 	my $mimetype = shift;
 
 	return 1 if defined($PLAYLISTS{$mimetype});
+	return 0;
+}
+
+sub is_supported_subtitle
+{
+	my $mimetype = shift;
+
+	return 1 if defined($SUBTITLES{$mimetype});
 	return 0;
 }
 

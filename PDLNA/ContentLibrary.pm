@@ -134,7 +134,7 @@ sub process_directory
 				{
 					PDLNA::Log::log('Adding '.$media_type.' element '.$element.'.', 2, 'library');
 
-					add_file_to_db(
+					my $fileid = add_file_to_db(
 						$dbh,
 						{
 							'element' => $element,
@@ -145,6 +145,30 @@ sub process_directory
 							'external' => 0,
 						},
 					);
+
+					if ($media_type eq 'video')
+					{
+						my $tmp = $1 if $element =~ /^(.+)\.\w{3,4}$/;
+						foreach my $extension ('srt')
+						{
+							if (-f $tmp.'.'.$extension)
+							{
+								my $subtitle_mimetype = mimetype($tmp.'.'.$extension);
+								if (PDLNA::Media::is_supported_subtitle($subtitle_mimetype))
+								{
+									add_subtitle_to_db(
+										$dbh,
+										{
+											'file_id' => $fileid,
+											'path' => $tmp.'.'.$extension,
+											'mimetype' => $subtitle_mimetype,
+											'type' => $extension,
+										},
+									);
+								}
+							}
+						}
+					}
 				}
 			}
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
@@ -171,23 +195,29 @@ sub process_directory
 #							},
 #						);
 					}
-					# TODO support for relative paths
-					# works currently only for absolute paths
-					elsif (-f "$item")
+					else
 					{
-						my $mime_type = mimetype($item);
-						my $media_type = PDLNA::Media::return_type_by_mimetype($mime_type);
-						add_file_to_db(
-							$dbh,
-							{
-								'element' => $item,
-								'media_type' => $media_type,
-								'mime_type' => $mime_type,
-								'element_basename' => basename($item),
-								'element_dirname' => $element, # set the directory to the playlist file itself
-								'external' => 0,
-							},
-						);
+						unless (PDLNA::Utils::is_path_absolute($item))
+						{
+							$item = dirname($element).'/'.$item; # TODO fix for WINDOWS
+						}
+
+						if (-f $item)
+						{
+							my $mime_type = mimetype($item);
+							my $media_type = PDLNA::Media::return_type_by_mimetype($mime_type);
+							add_file_to_db(
+								$dbh,
+								{
+									'element' => $item,
+									'media_type' => $media_type,
+									'mime_type' => $mime_type,
+									'element_basename' => basename($item),
+									'element_dirname' => $element, # set the directory to the playlist file itself
+									'external' => 0,
+								},
+							);
+						}
 					}
 				}
 			}
@@ -234,6 +264,51 @@ sub add_directory_to_db
 	}
 }
 
+sub add_subtitle_to_db
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	# check if file is in db
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID, DATE, SIZE FROM SUBTITLES WHERE FULLNAME = ? AND FILEID_REF = ? AND MIME_TYPE = ?',
+			'parameters' => [ $$params{'path'}, $$params{'file_id'}, $$params{'mimetype'}, ],
+		},
+		\@results,
+	);
+
+	my @fileinfo = stat($$params{'path'});
+
+	if (defined($results[0]->{ID}))
+	{
+		if ($results[0]->{SIZE} != $fileinfo[7] || $results[0]->{DATE} != $fileinfo[9])
+		{
+			# update the datbase entry (something changed)
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ?, WHERE ID = ?;',
+					'parameters' => [ $fileinfo[9], $fileinfo[7], $results[0]->{ID}, ],
+				},
+			);
+
+		}
+	}
+	else # element not in database
+	{
+		PDLNA::Database::insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO SUBTITLES (FILEID_REF, FULLNAME, NAME, TYPE, MIME_TYPE, DATE, SIZE) VALUES (?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'file_id'}, $$params{'path'}, basename($$params{'path'}), $$params{'type'}, $$params{'mimetype'}, $fileinfo[9], $fileinfo[7], ],
+			},
+		);
+	}
+}
+
 sub add_file_to_db
 {
 	my $dbh = shift;
@@ -247,22 +322,26 @@ sub add_file_to_db
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE FROM FILES WHERE FULLNAME = ?',
-			'parameters' => [ $$params{'element'}, ],
+			'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE, PATH FROM FILES WHERE FULLNAME = ? AND PATH = ?',
+			'parameters' => [ $$params{'element'}, $$params{'element_dirname'}, ],
 		},
 		\@results,
 	);
 
 	if (defined($results[0]->{ID}))
 	{
-		if ($results[0]->{SIZE} != $fileinfo[7] || $results[0]->{DATE} != $fileinfo[9] || $results[0]->{MIME_TYPE} ne $$params{'mime_type'})
+		if (
+				$results[0]->{SIZE} != $fileinfo[7] ||
+				$results[0]->{DATE} != $fileinfo[9] ||
+				$results[0]->{MIME_TYPE} ne $$params{'mime_type'}
+			)
 		{
 			# update the datbase entry (something changed)
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ?, EXTERNAL = ? WHERE ID = ?;',
-					'parameters' => [ $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $results[0]->{ID}, $$params{'external'}, ],
+					'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?;',
+					'parameters' => [ $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $results[0]->{ID} ],
 				},
 			);
 
@@ -270,30 +349,30 @@ sub add_file_to_db
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILEINFO SET VALID = ? WHERE ID = ?;',
+					'query' => 'UPDATE FILEINFO SET VALID = ? WHERE FILEID_REF = ?;',
 					'parameters' => [ 0, $results[0]->{ID}, ],
 				},
 			);
 		}
 	}
-	else # element not in database
+	else
 	{
 		# insert file to db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)',
+				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL) VALUES (?,?,?,?,?,?,?,?,?)',
 				'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, ],
 			},
 		);
 
 		# select ID of newly added element
-		my @results = ();
+		@results = ();
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT ID FROM FILES WHERE FULLNAME = ?',
-				'parameters' => [ $$params{'element'}, ],
+				'query' => 'SELECT ID FROM FILES WHERE FULLNAME = ? AND PATH = ?',
+				'parameters' => [ $$params{'element'}, $$params{'element_dirname'}, ],
 			},
 			\@results,
 		);
@@ -302,11 +381,13 @@ sub add_file_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILEINFO (ID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+				'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
 				'parameters' => [ $results[0]->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ],
 			},
 		);
 	}
+
+	return $results[0]->{ID};
 }
 
 sub remove_nonexistant_files
@@ -337,7 +418,7 @@ sub remove_nonexistant_files
 			PDLNA::Database::delete_db(
 				$dbh,
 				{
-					'query' => 'DELETE FROM FILEINFO WHERE ID_REF = ?',
+					'query' => 'DELETE FROM FILEINFO WHERE FILEID_REF = ?',
 					'parameters' => [ $file->{ID}, ],
 				},
 			);
@@ -369,6 +450,31 @@ sub remove_nonexistant_files
 			);
 		}
 	}
+
+	my @subtitles = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID, FULLNAME FROM SUBTITLES',
+			'parameters' => [ ],
+		},
+		\@subtitles,
+	);
+	foreach my $subtitle (@subtitles)
+	{
+		unless (-f $subtitle->{FULLNAME})
+		{
+			PDLNA::Database::delete_db(
+				$dbh,
+				{
+					'query' => 'DELETE FROM SUBTITLES WHERE ID = ?',
+					'parameters' => [ $subtitle->{ID}, ],
+				},
+			);
+		}
+	}
+
+	# TODO delete old - not configured - directories from database
 }
 
 sub get_fileinfo
@@ -381,7 +487,7 @@ sub get_fileinfo
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID_REF FROM FILEINFO WHERE VALID = ?',
+			'query' => 'SELECT FILEID_REF FROM FILEINFO WHERE VALID = ?',
 			'parameters' => [ 0, ],
 		},
 		\@results,
@@ -394,7 +500,7 @@ sub get_fileinfo
 			$dbh,
 			{
 				'query' => 'SELECT FULLNAME, TYPE FROM FILES WHERE ID = ?',
-				'parameters' => [ $id->{ID_REF}, ],
+				'parameters' => [ $id->{FILEID_REF}, ],
 			},
 			\@file,
 		);
@@ -408,8 +514,8 @@ sub get_fileinfo
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, VALID = ? WHERE ID_REF = ?',
-					'parameters' => [ $width, $height, 1, $id->{ID_REF}, ],
+					'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, VALID = ? WHERE FILEID_REF = ?',
+					'parameters' => [ $width, $height, 1, $id->{FILEID_REF}, ],
 				},
 			);
 			next;
@@ -430,8 +536,8 @@ sub get_fileinfo
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, DURATION = ?, BITRATE = ?, CONTAINER = ?, AUDIO_CODEC = ?, VIDEO_CODEC = ? WHERE ID_REF = ?',
-					'parameters' => [ $info{WIDTH}, $info{HEIGHT}, $info{DURATION}, $info{BITRATE}, $info{CONTAINER}, $info{AUDIO_CODEC}, $info{VIDEO_CODEC}, $id->{ID_REF}, ],
+					'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, DURATION = ?, BITRATE = ?, CONTAINER = ?, AUDIO_CODEC = ?, VIDEO_CODEC = ? WHERE FILEID_REF = ?',
+					'parameters' => [ $info{WIDTH}, $info{HEIGHT}, $info{DURATION}, $info{BITRATE}, $info{CONTAINER}, $info{AUDIO_CODEC}, $info{VIDEO_CODEC}, $id->{FILEID_REF}, ],
 				},
 			);
 
@@ -440,8 +546,8 @@ sub get_fileinfo
 				PDLNA::Database::update_db(
 					$dbh,
 					{
-						'query' => 'UPDATE FILEINFO SET VALID = ? WHERE ID_REF = ?',
-						'parameters' => [ 1, $id->{ID_REF}, ],
+						'query' => 'UPDATE FILEINFO SET VALID = ? WHERE FILEID_REF = ?',
+						'parameters' => [ 1, $id->{FILEID_REF}, ],
 					},
 				);
 			}
@@ -452,14 +558,21 @@ sub get_fileinfo
 		#
 		if ($file[0]->{TYPE} eq 'audio' && defined($info{AUDIO_CODEC}))
 		{
-			my %audioinfo = ();
+			my %audioinfo = (
+				'ARTIST' => '',
+				'ALBUM' => '',
+				'TRACKNUM' => '',
+				'TITLE' => '',
+				'GENRE' => '',
+				'YEAR' => '',
+			);
 			PDLNA::Media::get_audio_fileinfo($file[0]->{FULLNAME}, $info{AUDIO_CODEC}, \%audioinfo);
 
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILEINFO SET ARTIST = ?, ALBUM = ?, TITLE = ?, GENRE = ?, YEAR = ?, TRACKNUM = ?, VALID = ? WHERE ID_REF = ?',
-					'parameters' => [ $audioinfo{ARTIST}, $audioinfo{ALBUM}, $audioinfo{TITLE}, $audioinfo{GENRE}, $audioinfo{YEAR}, $audioinfo{TRACKNUM}, 1, $id->{ID_REF}, ],
+					'query' => 'UPDATE FILEINFO SET ARTIST = ?, ALBUM = ?, TITLE = ?, GENRE = ?, YEAR = ?, TRACKNUM = ?, VALID = ? WHERE FILEID_REF = ?',
+					'parameters' => [ $audioinfo{ARTIST}, $audioinfo{ALBUM}, $audioinfo{TITLE}, $audioinfo{GENRE}, $audioinfo{YEAR}, $audioinfo{TRACKNUM}, 1, $id->{FILEID_REF}, ],
 				},
 			);
 		}
@@ -491,6 +604,8 @@ sub get_subdirectories_by_id
 		push(@sql_param, $object_id);
 	}
 
+	$sql_query .= ' ORDER BY NAME';
+
 	if (defined($starting_index) && defined($requested_count))
 	{
 		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
@@ -516,6 +631,8 @@ sub get_subfiles_by_id
 
 	my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
 	my @sql_param = ( $object_id, );
+
+	$sql_query .= ' ORDER BY NAME'; # TODO we need to exlude playlist directories from sorting
 
 	if (defined($starting_index) && defined($requested_count))
 	{
