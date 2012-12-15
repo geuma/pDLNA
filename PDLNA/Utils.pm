@@ -57,10 +57,10 @@ sub add_leading_char
 
 sub convert_bytes
 {
-	my $bytes = shift;
+	my $bytes = shift || 0;
 
 	my @size = ('B', 'kB', 'MB', 'GB', 'TB');
-	my $ctr;
+	my $ctr = 0;
 	for ($ctr = 0; $bytes > 1024; $ctr++)
 	{
 		$bytes /= 1024;

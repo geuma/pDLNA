@@ -25,13 +25,13 @@ use Devel::Size qw(size total_size);
 use Proc::ProcessTable;
 
 use PDLNA::Config;
+use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Daemon;
 use PDLNA::Utils;
 
 sub show
 {
-	my $content = shift;
 	my $device_list = shift;
 	my $params = shift;
 
@@ -216,27 +216,23 @@ sub show
 		$response .= '<tr><td>Filename</td><td width="110px">Size</td><td width="160px">Date</td></tr>';
 		$response .= '</thead>';
 
+		$response .= '<tfoot>';
+		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($dbh, $nav[1])).'</td><td>&nbsp;</td></tr>';
+		$response .= '</tfoot>';
 
+		$response .= '<tbody>';
+		my @files = ();
+		PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $nav[1], undef, undef, \@files);
+		foreach my $id (@files)
+		{
+			$response .= '<tr>';
+			$response .= '<td title="'.$id->{NAME}.'">'.PDLNA::Utils::string_shortener($id->{NAME}, 30).'</td>';
+			$response .= '<td>'.PDLNA::Utils::convert_bytes($id->{SIZE}).'</td>';
+			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, $id->{DATE}).'</td>';
+			$response .= '</tr>';
+		}
+		$response .= '</tbody>';
 
-
-
-
-
-
-#		my $object = $content->get_object_by_id($nav[1]);
-#		$response .= '<tfoot>';
-#		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes($object->{'SIZE'}).'</td><td>&nbsp;</td></tr>';
-#		$response .= '</tfoot>';
-#		$response .= '<tbody>';
-#		foreach my $id (sort keys %{$object->items()})
-#		{
-#			$response .= '<tr>';
-#			$response .= '<td title="'.${$object->items()}{$id}->name().'">'.PDLNA::Utils::string_shortener(${$object->items()}{$id}->name(), 30).'</td>';
-#			$response .= '<td>'.PDLNA::Utils::convert_bytes(${$object->items()}{$id}->size()).'</td>';
-#			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, ${$object->items()}{$id}->date()).'</td>';
-#			$response .= '</tr>';
-#		}
-#		$response .= '</tbody>';
 		$response .= '</table>';
 	}
 	elsif ($nav[0] eq 'device')
@@ -344,24 +340,14 @@ sub build_directory_tree
 
 	my $response = '';
 
-#	my $object = $content->get_object_by_id($start_id);
 	my @results = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID, NAME FROM DIRECTORIES WHERE ROOT = 1',
-			'parameters' => [],
-		},
-		\@results,
-	);
+	PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $start_id, undef, undef, \@results);
 
 	$response .= '<ul>';
 	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.'amount'.')</a></li>';
-
-#		my $tmpid = substr($end_id, 0, length($id));
-#		$response .= build_directory_tree ($dbh, $start_id, $end_id);
+		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID}).')</a></li>';
+		$response .= build_directory_tree($dbh, $result->{ID});
 	}
 	$response .= '</ul>';
 

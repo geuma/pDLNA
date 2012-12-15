@@ -40,14 +40,6 @@ use PDLNA::HTTPXML;
 use PDLNA::WebUI;
 use PDLNA::Log;
 
-our $content = undef;
-
-sub initialize_content
-{
-	$content = PDLNA::ContentLibrary->new();
-	$content->index_directories();
-}
-
 sub start_webserver
 {
 	my $device_list = shift;
@@ -77,18 +69,6 @@ sub start_webserver
 
 			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port, $device_list);
 			$thread->detach();
-		}
-
-		# handling rescan of media database (if expired and no devices in DeviceList database)
-		if ($CONFIG{'RESCAN_MEDIA'} && $$device_list->devices_amount() == 0)
-		{
-# TODO
-#			my $expiretime = $content->timestamp() + $CONFIG{'RESCAN_MEDIA'};
-#			if ($expiretime < time())
-#			{
-#				PDLNA::Log::log('PDLNA::ContentLibrary has expired and no SSDP devices are currently online.', 2, 'library');
-#				$content->index_directories();
-#			}
 		}
 	}
 }
@@ -292,7 +272,7 @@ sub handle_connection
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # this is just to be something different (not DLNA stuff)
 		{
-			print $FH PDLNA::WebUI::show($content, $device_list, $1);
+			print $FH PDLNA::WebUI::show($device_list, $1);
 		}
 		else
 		{
@@ -450,17 +430,17 @@ sub ctrl_content_directory_1
 				# get the subdirectories for the object_id requested
 				#
 				my @dire_elements = ();
-				PDLNA::Database::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
+				PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
 
 				#
 				# get the full amount of subdirectories for the object_id requested
 				#
-				my $amount_directories = PDLNA::Database::get_amount_subdirectories_by_id($dbh, $object_id);
+				my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($dbh, $object_id);
 
 				#
 				# get the full amount of files in the directory requested
 				#
-				my $amount_files = PDLNA::Database::get_amount_subfiles_by_id($dbh, $object_id);
+				my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
 
 				$starting_index -= $amount_directories;
 
@@ -468,7 +448,7 @@ sub ctrl_content_directory_1
 				# get the files for the directory requested
 				#
 				my @file_elements = ();
-				PDLNA::Database::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
+				PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
 
 				#
 				# build the http response
@@ -551,51 +531,51 @@ sub ctrl_content_directory_1
 		$response .= '</s:Envelope>';
 	}
 	# OLD CODE
-	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
-	{
-		my $media_type = '';
-		my $sort_type = '';
-		if ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 14)
-		{
-			$media_type = 'I';
-			$sort_type = 'F';
-		}
-		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 22)
-		{
-			$media_type = 'A';
-			$sort_type = 'F';
-		}
-		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 32)
-		{
-			$media_type = 'V';
-			$sort_type = 'F';
-		}
-		PDLNA::Log::log('Getting object for '.$media_type.'_'.$sort_type.'.', 2, 'httpdir');
-
-		my $index = $xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'Index'};
-
-		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
-		my $i = 0;
-		my @groups = @{$content_type_obj->content_groups()};
-		while ($index >= $groups[$i]->content_items_amount())
-		{
-			$index -= $groups[$i]->content_items_amount();
-			$i++;
-		}
-		my $content_item_obj = $groups[$i]->content_items()->[$index];
-
-		$response = http_header({
-			'statuscode' => 200,
-		});
-
-		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-		$response .= '<s:Body>';
-		$response .= '<u:X_GetObjectIDfromIndexResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<ObjectID>'.$media_type.'_'.$sort_type.'_'.$groups[$i]->beautiful_id().'_'.$content_item_obj->beautiful_id().'</ObjectID>';
-		$response .= '</u:X_GetObjectIDfromIndexResponse>';
-		$response .= '</s:Body>';
-		$response .= '</s:Envelope>';
-	}
+#	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
+#	{
+#		my $media_type = '';
+#		my $sort_type = '';
+#		if ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 14)
+#		{
+#			$media_type = 'I';
+#			$sort_type = 'F';
+#		}
+#		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 22)
+#		{
+#			$media_type = 'A';
+#			$sort_type = 'F';
+#		}
+#		elsif ($xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'CategoryType'} == 32)
+#		{
+#			$media_type = 'V';
+#			$sort_type = 'F';
+#		}
+#		PDLNA::Log::log('Getting object for '.$media_type.'_'.$sort_type.'.', 2, 'httpdir');
+#
+#		my $index = $xml->{'s:Body'}->{'u:X_GetObjectIDfromIndex'}->{'Index'};
+#
+#		my $content_type_obj = $content->get_content_type($media_type, $sort_type);
+#		my $i = 0;
+#		my @groups = @{$content_type_obj->content_groups()};
+#		while ($index >= $groups[$i]->content_items_amount())
+#		{
+#			$index -= $groups[$i]->content_items_amount();
+#			$i++;
+#		}
+#		my $content_item_obj = $groups[$i]->content_items()->[$index];
+#
+#		$response = http_header({
+#			'statuscode' => 200,
+#		});
+#
+#		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+#		$response .= '<s:Body>';
+#		$response .= '<u:X_GetObjectIDfromIndexResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+#		$response .= '<ObjectID>'.$media_type.'_'.$sort_type.'_'.$groups[$i]->beautiful_id().'_'.$content_item_obj->beautiful_id().'</ObjectID>';
+#		$response .= '</u:X_GetObjectIDfromIndexResponse>';
+#		$response .= '</s:Body>';
+#		$response .= '</s:Envelope>';
+#	}
 	# X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>) ... so it's still a TODO
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetIndexfromRID"')
 	{
@@ -636,51 +616,52 @@ sub deliver_subtitle
 
 	if ($content_id =~ /^(\d+)\.(\w+)$/)
 	{
-		my $id = $1;
-		my $type = $2;
-		my $item = $content->get_object_by_id($id);
-		if (defined($item) && $item->is_item() && $item->type() eq 'video')
-		{
-			my %subtitle = $item->subtitle($type);
-			if (-f $subtitle{'path'})
-			{
-				my @additional_header = ();
-				if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
-				{
-					push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
-				}
-				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
-				{
-					push(@additional_header, 'transferMode.dlna.org: Background');
-				}
-
-				print $FH http_header({
-					'content_length' => $subtitle{'size'},
-					#'content_type' => $subtitle{'mimetype'}, # smi/caption
-					'content_type' => 'smi/caption',
-					'statuscode' => 200,
-					'additional_header' => \@additional_header,
-					'log' => 'httpstream',
-				});
-				sysopen(FILE, $subtitle{'path'}, O_RDONLY);
-				print $FH <FILE>;
-				close(FILE);
-			}
-			else
-			{
-				print $FH http_header({
-					'statuscode' => 404,
-					'content_type' => 'text/plain',
-				});
-			}
-		}
-		else
-		{
-			print $FH http_header({
-				'statuscode' => 501,
-				'content_type' => 'text/plain',
-			});
-		}
+# TODO
+#		my $id = $1;
+#		my $type = $2;
+#		my $item = $content->get_object_by_id($id);
+#		if (defined($item) && $item->is_item() && $item->type() eq 'video')
+#		{
+#			my %subtitle = $item->subtitle($type);
+#			if (-f $subtitle{'path'})
+#			{
+#				my @additional_header = ();
+#				if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+#				{
+#					push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
+#				}
+#				if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
+#				{
+#					push(@additional_header, 'transferMode.dlna.org: Background');
+#				}
+#
+#				print $FH http_header({
+#					'content_length' => $subtitle{'size'},
+#					#'content_type' => $subtitle{'mimetype'}, # smi/caption
+#					'content_type' => 'smi/caption',
+#					'statuscode' => 200,
+#					'additional_header' => \@additional_header,
+#					'log' => 'httpstream',
+#				});
+#				sysopen(FILE, $subtitle{'path'}, O_RDONLY);
+#				print $FH <FILE>;
+#				close(FILE);
+#			}
+#			else
+#			{
+#				print $FH http_header({
+#					'statuscode' => 404,
+#					'content_type' => 'text/plain',
+#				});
+#			}
+#		}
+#		else
+#		{
+#			print $FH http_header({
+#				'statuscode' => 501,
+#				'content_type' => 'text/plain',
+#			});
+#		}
 	}
 	else
 	{
@@ -711,7 +692,7 @@ sub stream_media
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE FROM FILES WHERE ID = ?',
+				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE,EXTERNAL FROM FILES WHERE ID = ?',
 				'parameters' => [ $id, ],
 			},
 			\@item_info,
@@ -755,10 +736,8 @@ sub stream_media
 		#
 
 		my @additional_header = ();
-#		push(@additional_header, 'Content-Type: '.$item->mime_type($model_name));
-		push(@additional_header, 'Content-Type: '.$item_info[0]->{MIME_TYPE});
-#		push(@additional_header, 'Content-Length: '.$item->size()) if $item->file();
-		push(@additional_header, 'Content-Length: '.$item_info[0]->{SIZE});
+		push(@additional_header, 'Content-Type: '.PDLNA::Media::get_mimetype_by_modelname($item_info[0]->{MIME_TYPE}, $model_name));
+		push(@additional_header, 'Content-Length: '.$item_info[0]->{SIZE}) if !$item_info[0]->{EXTERNAL};
 		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item_info[0]->{NAME}.'"'),
 		push(@additional_header, 'Accept-Ranges: bytes');
 
@@ -815,6 +794,7 @@ sub stream_media
 			{
 				if ($item_info[0]->{TYPE} eq 'video' || $item_info[0]->{TYPE} eq 'audio')
 				{
+# TODO
 #					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->duration_seconds().'000;'); # in milliseconds
 
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
@@ -871,8 +851,7 @@ sub stream_media
 					if (
 						defined($$CGI{'RANGE'}) &&
 						$$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/ &&
-						#$item->file()
-						1
+						!$item_info[0]->{EXTERNAL}
 					)
 					{
 						PDLNA::Log::log('Delivering content for: '.$item_info[0]->{FULLNAME}.' with RANGE Request.', 1, 'httpstream');
@@ -892,8 +871,7 @@ sub stream_media
 					#
 					# sending the response
 					#
-					#if ($item->file())
-					if (1) # file on disk
+					if (!$item_info[0]->{EXTERNAL}) # file on disk
 					{
 						sysopen(ITEM, $item_info[0]->{FULLNAME}, O_RDONLY);
 						sysseek(ITEM, $lowrange, 0) if $lowrange;
@@ -986,7 +964,7 @@ sub preview_media
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE FROM FILES WHERE ID = ?',
+				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE,EXTERNAL FROM FILES WHERE ID = ?',
 				'parameters' => [ $id, ],
 			},
 			\@item_info,
@@ -995,14 +973,17 @@ sub preview_media
 		#if (defined($item) && $item->is_item())
 		if (1)
 		{
+			if ($item_info[0]->{EXTERNAL})
+			{
 #			unless ($item->file() && -f $item->path())
 #			{
 #				PDLNA::Log::log('File '.$item->path().' NOT found.', 2, 'httpstream');
-#				return http_header({
-#					'statuscode' => 404,
-#					'content_type' => 'text/plain',
-#				});
+				return http_header({
+					'statuscode' => 404,
+					'content_type' => 'text/plain',
+				});
 #			}
+			}
 
 			if ($item_info[0]->{TYPE} eq 'audio')
 			{

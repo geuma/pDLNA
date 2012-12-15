@@ -35,13 +35,154 @@ sub connect
 	return $dbh;
 }
 
+sub disconnect
+{
+	my $dbh = shift;
+	$dbh->disconnect();
+}
+
+sub initialize_db
+{
+	my $dbh = PDLNA::Database::connect();
+
+	if (grep(/^"METADATA"$/, $dbh->tables()))
+	{
+		my @results = ();
+		select_db(
+			$dbh,
+			{
+				'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
+				'parameters' => [ 'VERSION', ],
+			},
+			\@results,
+		);
+
+		# check if DB was build with a different version of pDLNA
+		if ($results[0]->{VALUE} ne PDLNA::Config::print_version())
+		{
+			$dbh->do('DELETE FROM METADATA;');
+
+			insert_db(
+				$dbh,
+				{
+					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
+				},
+			);
+			insert_db(
+				$dbh,
+				{
+					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'parameters' => [ 'TIMESTAMP', time(), ],
+				},
+			);
+
+			$dbh->do('DROP TABLE FILES;');
+			$dbh->do('DROP TABLE FILEINFO;');
+			$dbh->do('DROP TABLE DIRECTORIES;');
+		}
+	}
+	else
+	{
+		$dbh->do('CREATE TABLE METADATA (
+				KEY					VARCHAR(128) PRIMARY KEY,
+				VALUE				VARCHAR(128)
+			);'
+		);
+
+		insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
+			},
+		);
+		insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'parameters' => [ 'TIMESTAMP', time(), ],
+			},
+		);
+	}
+
+	unless (grep(/^"FILES"$/, $dbh->tables()))
+	{
+		$dbh->do("CREATE TABLE FILES (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+
+				NAME				VARCHAR(2048),
+				PATH				VARCHAR(2048),
+				FULLNAME			VARCHAR(2048),
+				FILE_EXTENSION		VARCHAR(4),
+
+				DATE				BIGINT,
+				SIZE				BIGINT,
+
+				MIME_TYPE			VARCHAR(128),
+				TYPE				VARCHAR(12),
+				EXTERNAL			BOOLEAN
+			);"
+		);
+	}
+
+	unless (grep(/^"FILEINFO"$/, $dbh->tables()))
+	{
+		$dbh->do("CREATE TABLE FILEINFO (
+				ID_REF				INTEGER PRIMARY KEY,
+				VALID				BOOLEAN,
+
+				WIDTH				INTEGER,
+				HEIGHT				INTEGER,
+
+				DURATION			INTEGER,
+				BITRATE				INTEGER,
+				VBR					BOOLEAN,
+
+				CONTAINER			VARCHAR(128),
+				AUDIO_CODEC			VARCHAR(128),
+				VIDEO_CODEC			VARCHAR(128),
+
+				ARTIST				VARCHAR(128),
+				ALBUM				VARCHAR(128),
+				TITLE				VARCHAR(128),
+				GENRE				VARCHAR(128),
+				YEAR				VARCHAR(4),
+				TRACKNUM			INTEGER
+			);"
+		);
+	}
+
+	#
+	# TABLE DESCRIPTION
+	#
+	# TYPE
+	# 	0		directory
+	# 	1		playlist
+	unless (grep(/^"DIRECTORIES"$/, $dbh->tables()))
+	{
+		$dbh->do("CREATE TABLE DIRECTORIES (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+
+				NAME				VARCHAR(2048),
+				PATH				VARCHAR(2048),
+				DIRNAME				VARCHAR(2048),
+
+				ROOT				BOOLEAN,
+				TYPE				INTEGER
+			);"
+		);
+	}
+	PDLNA::Database::disconnect($dbh);
+}
+
 sub select_db
 {
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
 
-	PDLNA::Log::log($$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	#PDLNA::Log::log($$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}});
 	while (my $data = $sth->fetchrow_hashref)
@@ -55,8 +196,9 @@ sub insert_db
 	my $dbh = shift;
 	my $params = shift;
 
+	PDLNA::Log::log('INSERT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 }
 
 sub update_db
@@ -68,172 +210,14 @@ sub update_db
 	$sth->execute(@{$$params{'parameters'}});
 }
 
-sub get_subdirectories_by_id
+sub delete_db
 {
 	my $dbh = shift;
-	my $object_id = shift;
-	my $starting_index = shift;
-	my $requested_count = shift;
-	my $directory_elements = shift;
+	my $params = shift;
 
-	my $sql_query = 'SELECT ID, NAME FROM DIRECTORIES WHERE ';
-	my @sql_param = ();
-
-	if ($object_id == 0)
-	{
-		$sql_query .= 'ROOT = 1';
-	}
-	else
-	{
-		$sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
-		push(@sql_param, $object_id);
-	}
-
-	if (defined($starting_index) && defined($requested_count))
-	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
-	}
-
-	select_db(
-		$dbh,
-		{
-			'query' => $sql_query,
-			'parameters' => \@sql_param,
-		},
-		$directory_elements,
-	);
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
 }
-
-sub get_subfiles_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-	my $starting_index = shift;
-	my $requested_count = shift;
-	my $file_elements = shift;
-
-	my $sql_query = 'SELECT ID FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
-	my @sql_param = ( $object_id, );
-
-	if (defined($starting_index) && defined($requested_count))
-	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
-	}
-
-	select_db(
-		$dbh,
-		{
-			'query' => $sql_query,
-			'parameters' => \@sql_param,
-		},
-		$file_elements,
-	);
-}
-
-sub get_amount_subdirectories_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-
-	my @directory_amount = ();
-
-	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE ';
-	my @sql_param = ();
-	if ($object_id == 0)
-	{
-		$sql_query .= 'ROOT = 1';
-	}
-	else
-	{
-		$sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
-		push(@sql_param, $object_id);
-	}
-
-	select_db(
-		$dbh,
-		{
-			'query' => $sql_query,
-			'parameters' => \@sql_param,
-		},
-		\@directory_amount,
-	);
-
-	return $directory_amount[0]->{AMOUNT};
-}
-
-sub get_amount_subfiles_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-
-	my @files_amount = ();
-
-	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ?)';
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => $sql_query,
-			'parameters' => [ $object_id, ],
-		},
-		\@files_amount,
-	);
-
-	return $files_amount[0]->{AMOUNT};
-}
-
-sub get_amount_elements_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-
-	my $directory_amount = 0;
-	$directory_amount += get_amount_subdirectories_by_id($dbh, $object_id);
-	$directory_amount += get_amount_subfiles_by_id($dbh, $object_id);
-
-	return $directory_amount;
-}
-
-sub get_parent_of_directory_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-
-	my @directory_parent = ();
-	select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? )',
-			'parameters' => [ $object_id, ],
-		},
-		\@directory_parent,
-	);
-	$directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
-
-	return $directory_parent[0]->{ID};
-}
-
-sub get_parent_of_item_by_id
-{
-	my $dbh = shift;
-	my $object_id = shift;
-
-	my @item_parent = ();
-	select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE ID = ? )',
-			'parameters' => [ $object_id, ],
-		},
-		\@item_parent,
-	);
-
-	return $item_parent[0]->{ID};
-}
-
-
-
-
-
 
 1;
 

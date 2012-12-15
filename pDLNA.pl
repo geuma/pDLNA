@@ -23,7 +23,9 @@ use Getopt::Long::Descriptive;
 
 use lib ('./');
 use PDLNA::Config;
+use PDLNA::ContentLibrary;
 use PDLNA::Daemon;
+use PDLNA::Database;
 use PDLNA::DeviceList;
 use PDLNA::HTTPServer;
 use PDLNA::Log;
@@ -49,6 +51,8 @@ unless (PDLNA::Config::parse_config($opt->config, \@config_file_error))
 
 PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
 
+PDLNA::Database::initialize_db();
+
 my $device_list = PDLNA::DeviceList->new(); # initialize DeviceList object
 my $ssdp = PDLNA::SSDP->new(\$device_list); # initialize SSDP object
 
@@ -56,11 +60,13 @@ my $ssdp = PDLNA::SSDP->new(\$device_list); # initialize SSDP object
 PDLNA::Daemon::daemonize(\%SIG, \$ssdp);
 PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
 
+my $thread1 = threads->create('PDLNA::ContentLibrary::index_directories_thread');
+$thread1->detach();
+
 # starting up
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
-PDLNA::HTTPServer::initialize_content();
-my $thread1 = threads->create('PDLNA::HTTPServer::start_webserver', \$device_list); # starting the HTTP server in a thread
-$thread1->detach();
+my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver', \$device_list); # starting the HTTP server in a thread
+$thread2->detach();
 
 $ssdp->add_send_socket(); # add the socket for sending SSDP messages
 $ssdp->add_receive_socket(); # add the socket for receiving SSDP messages

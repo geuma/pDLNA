@@ -69,8 +69,8 @@ sub get_browseresponse_directory
 	my $filter = shift;
 	my $dbh = shift;
 
-	my $directory_parent_id = PDLNA::Database::get_parent_of_directory_by_id($dbh, $directory_id);
-	my $directory_elements_amount = PDLNA::Database::get_amount_elements_by_id($dbh, $directory_id);
+	my $directory_parent_id = PDLNA::ContentLibrary::get_parent_of_directory_by_id($dbh, $directory_id);
+	my $directory_elements_amount = PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $directory_id);
 
 	my @xml = ();
 	push(@xml, '&lt;container ');
@@ -102,7 +102,7 @@ sub get_browseresponse_item
 	push(@xml, '&lt;item ');
 	push(@xml, 'id=&quot;'.$item_id.'&quot; ') if grep(/^\@id$/, @{$filter});
 
-	my $item_parent_id = PDLNA::Database::get_parent_of_item_by_id($dbh, $item_id);
+	my $item_parent_id = PDLNA::ContentLibrary::get_parent_of_item_by_id($dbh, $item_id);
 
 	push(@xml, 'parentID=&quot;'.$item_parent_id.'&quot; ') if grep(/^\@parentID$/, @{$filter});
 	push(@xml, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
@@ -192,7 +192,7 @@ sub get_browseresponse_item
 	if ($item[0]->{TYPE} eq 'audio' || $item[0]->{TYPE} eq 'video')
 	{
 		push(@xml, 'bitrate=&quot;'.$iteminfo[0]->{BITRATE}.'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
-		push(@xml, 'duration=&quot;'.$iteminfo[0]->{DURATION}.'&quot; ') if grep(/^res\@duration$/, @{$filter});
+		push(@xml, 'duration=&quot;'.PDLNA::ContentLibrary::duration($iteminfo[0]->{DURATION}).'&quot; ') if grep(/^res\@duration$/, @{$filter});
 	}
 	if ($item[0]->{TYPE} eq 'image' || $item[0]->{TYPE} eq 'video')
 	{

@@ -49,9 +49,9 @@ our %CONFIG = (
 	'ALLOWED_CLIENTS' => [],
 
 	'DB_TYPE' => 'SQLITE3',
-	'DB_NAME' => '/tmp/pdlna-content.db',
+	'DB_NAME' => '/tmp/pdlna.db',
 
-	'LOG_FILE_MAX_SIZE' => 1048576, # 10 MB
+	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
 	'LOG_FILE' => 'STDERR',
 	'LOG_CATEGORY' => [],
 	'DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',

@@ -20,7 +20,16 @@ package PDLNA::Media;
 use strict;
 use warnings;
 
+use Audio::FLAC::Header;
+use Audio::Wav;
+use Audio::WMA;
+use Fcntl;
+use Image::Info qw(image_info dim image_type);
 use Movie::Info;
+use MP3::Info;
+use MP4::Info;
+use Ogg::Vorbis::Header;
+use XML::Simple;
 
 my %MIME_TYPES = (
 	'image/jpeg' => 'jpeg',
@@ -40,6 +49,15 @@ my %MIME_TYPES = (
 	'video/mp4' => 'mp4',
 	'video/mpeg' => 'mpg',
 	'video/x-flv' => 'flv',
+);
+
+my %PLAYLISTS = (
+	'audio/x-scpls' => 'pls',
+	'application/vnd.apple.mpegurl' => 'm3u',
+	'audio/x-mpegurl' => 'm3u',
+	'audio/x-ms-asx' => 'asx',
+	'video/x-ms-asf' => 'asf',
+	'application/xspf+xml' => 'xspf',
 );
 
 my %AUDIO_CODECS = (
@@ -280,48 +298,6 @@ sub container_supports_video
 	return scalar(@{$CONTAINER{$container}->{VideoCodecs}});
 }
 
-sub info
-{
-	my $data = shift;
-	my $low_resource_mode = shift;
-
-	if ($low_resource_mode)
-	{
-		my ($type, undef) = split('/', $$data{MIME_TYPE});
-		$$data{TYPE} = $type;
-		$$data{TYPE} = 'audio' if $$data{MIME_TYPE} eq 'video/x-theora+ogg'; # change the subtype to audio
-		$$data{FILE_EXTENSION} = $MIME_TYPES{$$data{MIME_TYPE}};
-	}
-	else
-	{
-		my $movie_info = Movie::Info->new();
-		unless (defined($movie_info))
-		{
-			PDLNA::Log::fatal('Unable to find MPlayer.');
-		}
-
-		my %info = $movie_info->info($$data{PATH});
-		if (defined($info{'length'}))
-		{
-			$$data{DURATION_SECONDS} = $1 if $info{'length'} =~ /^(\d+)/; # ignore milliseconds
-		}
-		$$data{BITRATE} = $info{'audio_bitrate'} || 0;
-		$$data{HZ} = $info{'audio_rate'} || 0;
-		$$data{WIDTH} = $info{'width'} || 0;
-		$$data{HEIGHT} = $info{'height'} || 0;
-
-		$$data{AUDIO_CODEC} = $info{'audio_codec'} || '';
-		$$data{VIDEO_CODEC} = $info{'codec'} || '';
-		$$data{CONTAINER} = $info{'demuxer'} || '';
-
-		$$data{MIME_TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MimeType');
-		$$data{TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MediaType');
-		$$data{FILE_EXTENSION} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'FileExtension');
-	}
-
-	return 1;
-}
-
 sub details
 {
 	my $container = shift;
@@ -363,6 +339,14 @@ sub is_supported_mimetype
 	my $mimetype = shift;
 
 	return 1 if defined($MIME_TYPES{$mimetype});
+	return 0;
+}
+
+sub is_supported_playlist
+{
+	my $mimetype = shift;
+
+	return 1 if defined($PLAYLISTS{$mimetype});
 	return 0;
 }
 
@@ -428,6 +412,195 @@ sub dlna_contentfeatures
 	}
 
 	return $contentfeature;
+}
+
+sub get_image_fileinfo
+{
+	my $path = shift;
+
+	my $info = image_info($path);
+	return dim($info);
+}
+
+sub get_mplayer_info
+{
+	my $file = shift;
+	my $info = shift;
+
+	my $movie_info = Movie::Info->new();
+	unless (defined($movie_info))
+	{
+		PDLNA::Log::fatal('Unable to find MPlayer.');
+	}
+
+	my %mplayer = $movie_info->info($file);
+	if (defined($mplayer{'length'}))
+	{
+		$$info{DURATION} = $1 if $mplayer{'length'} =~ /^(\d+)/; # ignore milliseconds
+	}
+	$$info{BITRATE} = $mplayer{'audio_bitrate'} || 0;
+	$$info{HZ} = $mplayer{'audio_rate'} || 0;
+	$$info{WIDTH} = $mplayer{'width'} || 0;
+	$$info{HEIGHT} = $mplayer{'height'} || 0;
+
+	$$info{AUDIO_CODEC} = $mplayer{'audio_codec'} || '';
+	$$info{VIDEO_CODEC} = $mplayer{'codec'} || '';
+	$$info{CONTAINER} = $mplayer{'demuxer'} || '';
+
+#	$$data{MIME_TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MimeType');
+#	$$data{TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MediaType');
+#	$$data{FILE_EXTENSION} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'FileExtension');
+
+	return 1;
+}
+
+sub get_audio_fileinfo
+{
+	my $file = shift;
+	my $audio_codec = shift;
+	my $info = shift;
+
+	if ($audio_codec eq 'mp3' || $audio_codec eq 'ffmp3float')
+	{
+		my $tag = get_mp3tag($file);
+		if (keys %{$tag})
+		{
+			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+		}
+	}
+	elsif ($audio_codec eq 'faad' || $audio_codec eq 'ffaac')
+	{
+		my $tag = get_mp4tag($file);
+		if (keys %{$tag})
+		{
+			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
+			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
+			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
+			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+		}
+	}
+	elsif ($audio_codec eq 'ffwmav2')
+	{
+		my $wma = Audio::WMA->new($file);
+		my $tag = $wma->tags();
+		if (keys %{$tag})
+		{
+			$$info{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
+			$$info{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
+			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
+			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
+			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
+			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
+		}
+	}
+	elsif ($audio_codec eq 'ffflac')
+	{
+		my $flac = Audio::FLAC::Header->new($file);
+		my $tag = $flac->tags();
+		if (keys %{$tag})
+		{
+			$$info{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
+			$$info{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
+			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
+			$$info{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
+			$$info{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
+			$$info{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
+		}
+	}
+	return 1;
+}
+
+sub get_mimetype_by_modelname
+{
+	my $mimetype = shift;
+	my $modelname = shift || '';
+
+	if ($modelname eq 'Samsung DTV DMR')
+	{
+		return 'video/x-mkv' if $mimetype eq 'video/x-matroska';
+		return 'video/x-avi' if $mimetype eq 'video/x-msvideo';
+	}
+	return $mimetype;
+}
+
+sub parse_playlist
+{
+	my $file = shift;
+	my $mime_type = shift;
+
+	my @items = ();
+	if ($mime_type eq 'audio/x-scpls')
+	{
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			push(@items, $1) if ($line =~ /^File\d+\=(.+)$/);
+		}
+	}
+	elsif ($mime_type eq 'application/vnd.apple.mpegurl' || $mime_type eq 'audio/x-mpegurl')
+	{
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			push(@items, $line) if ($line !~ /^#/);
+		}
+	}
+	elsif ($mime_type eq 'audio/x-ms-asx' || $mime_type eq 'video/x-ms-asf')
+	{
+		# TODO more beautiful way to do this
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			$line =~ s/^\s+//g;
+		}
+
+		foreach my $entry (split(/(<.+?>)/, join('', @content)))
+		{
+			push(@items, $1) if $entry =~ /^<ref\s+href=\"(.+)\"\s*\/>$/;
+		}
+	}
+	elsif ($mime_type eq 'application/xspf+xml')
+	{
+		my $xs = XML::Simple->new();
+		my $xml = $xs->XMLin($file);
+		foreach my $element (@{$xml->{trackList}->{track}})
+		{
+			if ($element->{location} =~ /^file:\/\/(.+)$/)
+			{
+				push(@items, $1);
+			}
+			elsif ($element->{location} =~ /^http:\/\//)
+			{
+				push(@items, $element->{location});
+			}
+		}
+	}
+	return @items;
 }
 
 1;
