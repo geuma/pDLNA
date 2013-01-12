@@ -205,6 +205,7 @@ sub show
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
 	$response .= '<li><a href="/webui/perf/pi">Process Info</a></li>';
+	$response .= '<li><a href="/webui/perf/cl">Content Library</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
 
@@ -289,7 +290,7 @@ sub show
 			$response .= '<p>Device not found.</p>';
 		}
 	}
-	elsif ($nav[0] eq 'perf')
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pi')
 	{
 		my $proc = Proc::ProcessTable->new();
 		my %fields = map { $_ => 1 } $proc->fields;
@@ -317,6 +318,27 @@ sub show
 				$response .= '</table>';
 			}
 		}
+	}
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'cl')
+	{
+		my @results = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES;',
+				'parameters' => [ ],
+			},
+			\@results,
+		);
+			$response .= '<table>';
+			$response .= '<thead>';
+			$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+			$response .= '</thead>';
+			$response .= '<tbody>';
+			$response .= '<tr><td>Media Items</td><td>'.$results[0]->{AMOUNT}.'</td></tr>';
+			$response .= '<tr><td>Media Size</td><td>'.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).'</td></tr>';
+			$response .= '</tbody>';
+			$response .= '</table>';
 	}
 	$response .= '</div>';
 
@@ -347,7 +369,10 @@ sub build_directory_tree
 	foreach my $result (@results)
 	{
 		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID}).')</a></li>';
-		$response .= build_directory_tree($dbh, $result->{ID});
+		if (PDLNA::ContentLibrary::is_in_same_directory_tree($dbh, $result->{ID}, $end_id))
+		{
+			$response .= build_directory_tree($dbh, $result->{ID}, $end_id);
+		}
 	}
 	$response .= '</ul>';
 

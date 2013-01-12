@@ -95,6 +95,9 @@ sub process_directory
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
 
+	$$params{'path'} =~ s/\[/\\[/g;
+	$$params{'path'} =~ s/\]/\\]/g;
+
 	my @elements = bsd_glob($$params{'path'}.'/*'); # TODO fix for Windows
 	foreach my $element (sort @elements)
 	{
@@ -408,20 +411,7 @@ sub remove_nonexistant_files
 	{
 		unless (-f "$file->{FULLNAME}")
 		{
-			PDLNA::Database::delete_db(
-				$dbh,
-				{
-					'query' => 'DELETE FROM FILES WHERE ID = ?',
-					'parameters' => [ $file->{ID}, ],
-				},
-			);
-			PDLNA::Database::delete_db(
-				$dbh,
-				{
-					'query' => 'DELETE FROM FILEINFO WHERE FILEID_REF = ?',
-					'parameters' => [ $file->{ID}, ],
-				},
-			);
+			delete_all_by_itemid($dbh, $file->{ID});
 		}
 	}
 
@@ -474,7 +464,86 @@ sub remove_nonexistant_files
 		}
 	}
 
-	# TODO delete old - not configured - directories from database
+	# delete not (any more) configured - directories from database
+	my @rootdirs = ();
+	get_subdirectories_by_id($dbh, 0, undef, undef, \@rootdirs);
+
+	my @conf_directories = ();
+	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
+	{
+		push(@conf_directories, $directory->{'path'});
+	}
+
+	foreach my $rootdir (@rootdirs)
+	{
+		unless (grep(/^$rootdir->{PATH}\/$/, @conf_directories))
+		{
+			delete_subitems_recursively($dbh, $rootdir->{ID});
+		}
+	}
+}
+
+sub delete_all_by_itemid
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	PDLNA::Database::delete_db(
+		$dbh,
+		{
+			'query' => 'DELETE FROM FILES WHERE ID = ?',
+			'parameters' => [ $object_id, ],
+		},
+	);
+	PDLNA::Database::delete_db(
+		$dbh,
+		{
+			'query' => 'DELETE FROM FILEINFO WHERE FILEID_REF = ?',
+			'parameters' => [ $object_id, ],
+		},
+	);
+	PDLNA::Database::delete_db(
+		$dbh,
+			{
+			'query' => 'DELETE FROM SUBTITLES WHERE FILEID_REF = ?',
+			'parameters' => [ $object_id, ],
+		},
+	);
+}
+
+sub delete_subitems_recursively
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @subfiles = ();
+	get_subfiles_by_id($dbh, $object_id, undef, undef, \@subfiles);
+	foreach my $file (@subfiles)
+	{
+		delete_all_by_itemid($dbh, $file->{ID});
+	}
+
+	my @subdirs = ();
+	get_subdirectories_by_id($dbh, $object_id, undef, undef, \@subdirs);
+	foreach my $directory (@subdirs)
+	{
+		delete_subitems_recursively($dbh, $directory->{ID});
+		PDLNA::Database::delete_db(
+			$dbh,
+			{
+				'query' => 'DELETE FROM DIRECTORIES WHERE ID = ?',
+				'parameters' => [ $directory->{ID}, ],
+			},
+		);
+	}
+
+	PDLNA::Database::delete_db(
+		$dbh,
+		{
+			'query' => 'DELETE FROM DIRECTORIES WHERE ID = ?',
+			'parameters' => [ $object_id, ],
+		},
+	);
 }
 
 sub get_fileinfo
@@ -591,7 +660,7 @@ sub get_subdirectories_by_id
 	my $requested_count = shift;
 	my $directory_elements = shift;
 
-	my $sql_query = 'SELECT ID, NAME FROM DIRECTORIES WHERE ';
+	my $sql_query = 'SELECT ID, NAME, PATH FROM DIRECTORIES WHERE ';
 	my @sql_param = ();
 
 	if ($object_id == 0)
@@ -766,6 +835,21 @@ sub get_parent_of_item_by_id
 	return $item_parent[0]->{ID};
 }
 
+sub is_in_same_directory_tree
+{
+	my $dbh = shift;
+	my $parent_id = shift;
+	my $child_id = shift;
+
+	while ($child_id != 0)
+	{
+		return 1 if $parent_id eq $child_id;
+		$child_id = get_parent_of_directory_by_id($dbh, $child_id);
+	}
+
+	return 0;
+}
+
 #
 # helper functions
 #
@@ -790,7 +874,6 @@ sub duration
 
 	return $string;
 }
-
 
 1;
 
