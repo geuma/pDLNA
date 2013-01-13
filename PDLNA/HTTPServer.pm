@@ -1,7 +1,7 @@
 package PDLNA::HTTPServer;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -576,7 +576,7 @@ sub ctrl_content_directory_1
 #		$response .= '</s:Body>';
 #		$response .= '</s:Envelope>';
 #	}
-	# X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>) ... so it's still a TODO
+	# TODO X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>)
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetIndexfromRID"')
 	{
 		$response = http_header({
@@ -722,7 +722,7 @@ sub stream_media
 			return;
 		}
 
-		# TODO
+		# TODO sanity check for commands
 #		if (!$item->file() && !($item->command()))
 #		{
 #			PDLNA::Log::log('Content with ID '.$id.' NOT found (command is missing).', 1, 'httpstream');
@@ -890,7 +890,7 @@ sub stream_media
 					}
 					else # transcoding / external script
 					{
-						# TODO
+						# TODO implement for commands
 						#open(ITEM, '-|', $item->command());
 						#binmode(ITEM);
 						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header

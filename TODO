@@ -1,7 +1,7 @@
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)
-- enable/disable website library (is it useful?)
-- website library: maybe we should do a webapp for remote control (ControlPoint)
+- enable/disable webui (is it useful?)
+- webui: maybe we should do a webapp for remote control (ControlPoint)
 - webui: add authentication since it reveals more and more sensitive information
 - webui: add external media to webui
 - dvd support (basic support is existing)
@@ -14,8 +14,7 @@
 - transcoding of images
 - per client transcoding profiles
 - per client directory configuration
-- improve performance of crawling directories (use multiple threads to crawl directories - we might need threads:shared Content* objects)
-- when recrawling directories - just recrawl the changed ones (sha1 sum, amount of items, size)
+- use multiple threads to crawl directories (multiple DBI objects, since DBI is not threadsafe)
 - debian package, repo, rpm packages, ...
 - random music directory
 - more playlist support: Windows Media Player Playlist

@@ -1,7 +1,7 @@
 package PDLNA::Config;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,10 +47,10 @@ our %CONFIG = (
 	'CACHE_CONTROL' => 1800,
 	'PIDFILE' => '/var/run/pdlna.pid',
 	'ALLOWED_CLIENTS' => [],
-
 	'DB_TYPE' => 'SQLITE3',
 	'DB_NAME' => '/tmp/pdlna.db',
-
+	'DB_USER' => undef,
+	'DB_PASS' => undef,
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
 	'LOG_FILE' => 'STDERR',
 	'LOG_CATEGORY' => [],
@@ -73,7 +73,7 @@ our %CONFIG = (
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.60.0',
-	'PROGRAM_DATE' => '2012-12-09',
+	'PROGRAM_DATE' => '2013-XX-XX',
 	'PROGRAM_BETA' => 1,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -226,6 +226,19 @@ sub parse_config
 	}
 
 	#
+	# DATABASE PARSING
+	#
+	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
+	unless ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	{
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
+	}
+	# TODO parsing and defining them in configuration file
+#	$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
+#	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
+#	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
+
+	#
 	# LOG FILE PARSING
 	#
 	$CONFIG{'LOG_FILE'} = $cfg->get('LogFile') if defined($cfg->get('LogFile'));
@@ -303,6 +316,7 @@ sub parse_config
 	#
 	# TODO tmp directory
 	#
+	# $CONFIG{'TMP_DIR'} - not defined in config file yet
 
 	if ($cfg->get('RescanMediaInterval'))
 	{
@@ -402,7 +416,7 @@ sub parse_config
 							}
 							elsif (substr($support, 2, 1) eq 'V')
 							{
-								# TODO
+								# TODO transcoding profiles for videos
 							}
 						}
 					}
@@ -617,8 +631,6 @@ sub parse_config
 			}
 
 			# sanity checks for video codecs
-			# TODO
-
 			if (PDLNA::Media::container_supports_video($transcode{'ContainerOut'}))
 			{
 				if (!defined($transcode{'AudioIn'}) || !defined($transcode{'AudioOut'}))

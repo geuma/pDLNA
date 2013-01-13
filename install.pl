@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -202,8 +202,6 @@ for (my $i = 0; $i < @INC; $i++)
 push(@INC, $PREFIX); # push the new LIB directory to PATH
 
 use_ok ('PDLNA::Config');
-use_ok ('PDLNA::ContentDirectory');
-use_ok ('PDLNA::ContentItem');
 use_ok ('PDLNA::ContentLibrary');
 use_ok ('PDLNA::Daemon');
 use_ok ('PDLNA::Database');

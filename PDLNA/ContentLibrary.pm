@@ -1,7 +1,7 @@
 package PDLNA::ContentLibrary;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2012 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -95,8 +95,8 @@ sub process_directory
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
 
-	$$params{'path'} =~ s/\[/\\[/g;
-	$$params{'path'} =~ s/\]/\\]/g;
+	$$params{'path'} =~ s/\[/\\[/g; # TODO fix for Windows
+	$$params{'path'} =~ s/\]/\\]/g; # TODO fix for Windows
 
 	my @elements = bsd_glob($$params{'path'}.'/*'); # TODO fix for Windows
 	foreach my $element (sort @elements)
@@ -176,6 +176,9 @@ sub process_directory
 			}
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
 			{
+				#
+				# TODO when a playlist file is reparsed - we need to take care of the order in the file itself ....
+				#
 				PDLNA::Log::log('Adding playlist '.$element.' as directory.', 2, 'library');
 
 				add_directory_to_db($dbh, $element, $$params{'rootdir'}, 1);
@@ -690,6 +693,23 @@ sub get_subdirectories_by_id
 	);
 }
 
+sub get_directory_type_by_id
+{
+	my $dbh = shift;
+	my $object_id = shift;
+
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT TYPE FROM DIRECTORIES WHERE ID = ?',
+			'parameters' => [ $object_id, ],
+		},
+	);
+
+	return $results[0]->{TYPE};
+}
+
 sub get_subfiles_by_id
 {
 	my $dbh = shift;
@@ -701,7 +721,8 @@ sub get_subfiles_by_id
 	my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
 	my @sql_param = ( $object_id, );
 
-	$sql_query .= ' ORDER BY NAME'; # TODO we need to exlude playlist directories from sorting
+	$sql_query .= ' ORDER BY NAME' if get_directory_type_by_id($dbh, $object_id) == 0; # TODO only directories will be sorted
+					# Use of uninitialized value in numeric eq (==) at /PDLNA/ContentLibrary.pm line 724.
 
 	if (defined($starting_index) && defined($requested_count))
 	{

@@ -1,5 +1,5 @@
 pDLNA CHANGELOG
-(c) 2010-2012 Stefan Heumader
+(c) 2010-2013 Stefan Heumader
 email: stefan@heumader.at
 webpage: http://www.pdlna.com
 
@@ -8,10 +8,11 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.60.0
-xx-xx-201x
+xx-xx-2013
 
 - using a database instead of the whole huge in memory object for the ContentLibrary
 - fixed issue #6 (https://github.com/geuma/pDLNA/issues/6) -aka- the default size for the logfile rotation
+- updated copyright year
 
 Version 0.53.0
 15-08-2012
