@@ -420,6 +420,8 @@ sub ctrl_content_directory_1
 
 		if ($object_id =~ /^\d+$/)
 		{
+			# TODO - fix the directory listings, in some cases it does deliver some silly responses
+
 			PDLNA::Log::log('Adding DirectoryListing request for: '.$object_id.' to history.', 3, 'httpdir');
 			$device->add_dirlist_request($object_id);
 

@@ -176,17 +176,14 @@ sub process_directory
 			}
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
 			{
-				#
-				# TODO when a playlist file is reparsed - we need to take care of the order in the file itself ....
-				#
 				PDLNA::Log::log('Adding playlist '.$element.' as directory.', 2, 'library');
 
 				add_directory_to_db($dbh, $element, $$params{'rootdir'}, 1);
 
 				my @items = PDLNA::Media::parse_playlist($element, $mime_type);
-				foreach my $item (@items)
+				for (my $i = 0; $i < @items; $i++)
 				{
-					if ($item =~ /^(http|mms):\/\// && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
+					if ($items[$i]=~ /^(http|mms):\/\// && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
 					{
 						# TODO streaming urls
 #						add_file_to_db(
@@ -198,29 +195,31 @@ sub process_directory
 #								'element_basename' => $item,
 #								'element_dirname' => $element, # set the directory to the playlist file itself
 #								'external' => 1,
+#								'sequence' => $i,
 #							},
 #						);
 					}
 					else
 					{
-						unless (PDLNA::Utils::is_path_absolute($item))
+						unless (PDLNA::Utils::is_path_absolute($items[$i]))
 						{
-							$item = dirname($element).'/'.$item; # TODO fix for WINDOWS
+							$items[$i] = dirname($element).'/'.$items[$i] # TODO fix for WINDOWS
 						}
 
-						if (-f $item)
+						if (-f $items[$i])
 						{
-							my $mime_type = mimetype($item);
+							my $mime_type = mimetype($items[$i]);
 							my $media_type = PDLNA::Media::return_type_by_mimetype($mime_type);
 							add_file_to_db(
 								$dbh,
 								{
-									'element' => $item,
+									'element' => $items[$i],
 									'media_type' => $media_type,
 									'mime_type' => $mime_type,
-									'element_basename' => basename($item),
+									'element_basename' => basename($items[$i]),
 									'element_dirname' => $element, # set the directory to the playlist file itself
 									'external' => 0,
+									'sequence' => $i,
 								},
 							);
 						}
@@ -323,12 +322,14 @@ sub add_file_to_db
 	my @fileinfo = stat($$params{'element'});
 	my $file_extension = $1 if $$params{'element'} =~ /(\w{3,4})$/;
 
+	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
+
 	# check if file is in db
 	my @results = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE, PATH FROM FILES WHERE FULLNAME = ? AND PATH = ?',
+			'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE, PATH, SEQUENCE FROM FILES WHERE FULLNAME = ? AND PATH = ?',
 			'parameters' => [ $$params{'element'}, $$params{'element_dirname'}, ],
 		},
 		\@results,
@@ -339,15 +340,16 @@ sub add_file_to_db
 		if (
 				$results[0]->{SIZE} != $fileinfo[7] ||
 				$results[0]->{DATE} != $fileinfo[9] ||
-				$results[0]->{MIME_TYPE} ne $$params{'mime_type'}
+				$results[0]->{MIME_TYPE} ne $$params{'mime_type'} ||
+				$results[0]->{SEQUENCE} != $$params{'sequence'}
 			)
 		{
 			# update the datbase entry (something changed)
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?;',
-					'parameters' => [ $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $results[0]->{ID} ],
+					'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ?, SEQUENCE = ? WHERE ID = ?;',
+					'parameters' => [ $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'sequence'}, $results[0]->{ID} ],
 				},
 			);
 
@@ -367,8 +369,8 @@ sub add_file_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL) VALUES (?,?,?,?,?,?,?,?,?)',
-				'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, ],
+				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL, SEQUENCE) VALUES (?,?,?,?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, $$params{'sequence'}, ],
 			},
 		);
 
@@ -721,8 +723,7 @@ sub get_subfiles_by_id
 	my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
 	my @sql_param = ( $object_id, );
 
-	$sql_query .= ' ORDER BY NAME' if get_directory_type_by_id($dbh, $object_id) == 0; # TODO only directories will be sorted
-					# Use of uninitialized value in numeric eq (==) at /PDLNA/ContentLibrary.pm line 724.
+	$sql_query .= ' ORDER BY SEQUENCE, NAME';
 
 	if (defined($starting_index) && defined($requested_count))
 	{

@@ -121,7 +121,9 @@ sub initialize_db
 
 				MIME_TYPE			VARCHAR(128),
 				TYPE				VARCHAR(12),
-				EXTERNAL			BOOLEAN
+				EXTERNAL			BOOLEAN,
+
+				SEQUENCE			BIGINT
 			);"
 		);
 	}
