@@ -325,20 +325,35 @@ sub show
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES;',
+				'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES',
 				'parameters' => [ ],
 			},
 			\@results,
 		);
-			$response .= '<table>';
-			$response .= '<thead>';
-			$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
-			$response .= '</thead>';
-			$response .= '<tbody>';
-			$response .= '<tr><td>Media Items</td><td>'.$results[0]->{AMOUNT}.'</td></tr>';
-			$response .= '<tr><td>Media Size</td><td>'.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).'</td></tr>';
-			$response .= '</tbody>';
-			$response .= '</table>';
+
+		my @results2 = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT TYPE, COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES GROUP BY TYPE',
+				'parameters' => [ ],
+			},
+			\@results2,
+		);
+
+		$response .= '<table>';
+		$response .= '<thead>';
+		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+		$response .= '</thead>';
+		$response .= '<tbody>';
+		$response .= '<tr><td>Media Items</td><td>'.$results[0]->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).')</td></tr>';
+		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
+		foreach my $result (@results2)
+		{
+			$response .= '<tr><td>'.ucfirst($result->{TYPE}).' Items</td><td>'.$result->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($result->{SIZE}).')</td></tr>';
+		}
+		$response .= '</tbody>';
+		$response .= '</table>';
 	}
 	$response .= '</div>';
 
@@ -359,6 +374,7 @@ sub build_directory_tree
 	my $dbh = shift;
 	my $start_id = shift;
 	my $end_id = shift;
+	$end_id = 0 if $end_id !~ /^(\d+)$/;
 
 	my $response = '';
 

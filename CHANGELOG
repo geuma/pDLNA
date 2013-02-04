@@ -13,6 +13,7 @@ xx-xx-2013
 - using a database instead of the whole huge in memory object for the ContentLibrary
 - fixed issue #6 (https://github.com/geuma/pDLNA/issues/6) -aka- the default size for the logfile rotation
 - updated copyright year
+- added even more information to the WebUI
 
 Version 0.53.0
 15-08-2012
