@@ -185,19 +185,18 @@ sub process_directory
 				{
 					if ($items[$i]=~ /^(http|mms):\/\// && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
 					{
-						# TODO streaming urls
-#						add_file_to_db(
-#							$dbh,
-#							{
-#								'element' => $item, # this is the command which should be executed
-#								'media_type' => $media_type, # need to determine
-#								'mime_type' => $mime_type, # need to determine
-#								'element_basename' => $item,
-#								'element_dirname' => $element, # set the directory to the playlist file itself
-#								'external' => 1,
-#								'sequence' => $i,
-#							},
-#						);
+						add_file_to_db(
+							$dbh,
+							{
+								'element' => $items[$i],
+								'media_type' => '', # need to determine
+								'mime_type' => '', # need to determine
+								'element_basename' => $items[$i],
+								'element_dirname' => $element, # set the directory to the playlist file itself
+								'external' => 1,
+								'sequence' => $i,
+							},
+						);
 					}
 					else
 					{
@@ -223,6 +222,25 @@ sub process_directory
 								},
 							);
 						}
+					}
+				}
+
+				# delete not (any more) configured - media files from playlists
+				my @results = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT ID, NAME, FULLNAME FROM FILES WHERE PATH = ?',
+						'parameters' => [ $element, ],
+					},
+					\@results,
+				);
+
+				foreach my $result (@results)
+				{
+					unless (grep(/^$result->{NAME}$/, @items) || grep(/^$result->{FULLNAME}$/, @items))
+					{
+						delete_all_by_itemid($dbh, $result->{ID});
 					}
 				}
 			}
@@ -319,8 +337,15 @@ sub add_file_to_db
 	my $dbh = shift;
 	my $params = shift;
 
-	my @fileinfo = stat($$params{'element'});
-	my $file_extension = $1 if $$params{'element'} =~ /(\w{3,4})$/;
+	my @fileinfo = ();
+	$fileinfo[9] = 0;
+	$fileinfo[7] = 0;
+	my $file_extension = '';
+	if ($$params{'external'} == 0)
+	{
+		@fileinfo = stat($$params{'element'});
+		$file_extension = $1 if $$params{'element'} =~ /(\w{3,4})$/;
+	}
 
 	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
 
@@ -406,7 +431,7 @@ sub remove_nonexistant_files
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, FULLNAME FROM FILES',
+			'query' => 'SELECT ID, FULLNAME FROM FILES WHERE EXTERNAL = 0',
 			'parameters' => [ ],
 		},
 		\@files,
@@ -573,11 +598,25 @@ sub get_fileinfo
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT FULLNAME, TYPE FROM FILES WHERE ID = ?',
+				'query' => 'SELECT FULLNAME, TYPE, EXTERNAL FROM FILES WHERE ID = ?',
 				'parameters' => [ $id->{FILEID_REF}, ],
 			},
 			\@file,
 		);
+
+		if ($file[0]->{EXTERNAL})
+		{
+			my %info = ();
+			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE FILES SET FILE_EXTENSION = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?',
+					'parameters' => [ $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE}, $id->{FILEID_REF}, ],
+				},
+			);
+			$file[0]->{TYPE} = $info{TYPE};
+		}
 
 		#
 		# FILL METADATA OF IMAGES
@@ -879,7 +918,7 @@ sub is_in_same_directory_tree
 # TODO make it more beautiful
 sub duration
 {
-	my $duration_seconds = shift;
+	my $duration_seconds = shift || 0;
 
 	my $seconds = $duration_seconds;
 	my $minutes = 0;

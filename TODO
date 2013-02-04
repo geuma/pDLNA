@@ -5,7 +5,7 @@
 - webui: add authentication since it reveals more and more sensitive information
 - webui: add external media to webui
 - dvd support (basic support is existing)
-- seeking support (seeking works in most cases, why not in all? which ones?)
+- seeking support (seeking works in most cases, why not in all? which ones (large files) ?
 - more subtitle support (text/x-subviewer)
 - transcode subtitle files
 - implement specificViews (samsung feature)

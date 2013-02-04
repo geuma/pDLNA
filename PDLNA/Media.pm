@@ -446,6 +446,7 @@ sub get_mplayer_info
 	}
 
 	my %mplayer = $movie_info->info($file);
+	$$info{DURATION} = 0;
 	if (defined($mplayer{'length'}))
 	{
 		$$info{DURATION} = $1 if $mplayer{'length'} =~ /^(\d+)/; # ignore milliseconds
@@ -459,9 +460,9 @@ sub get_mplayer_info
 	$$info{VIDEO_CODEC} = $mplayer{'codec'} || '';
 	$$info{CONTAINER} = $mplayer{'demuxer'} || '';
 
-#	$$data{MIME_TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MimeType');
-#	$$data{TYPE} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'MediaType');
-#	$$data{FILE_EXTENSION} = details($$data{CONTAINER}, $$data{VIDEO_CODEC}, $$data{AUDIO_CODEC}, 'FileExtension');
+	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
+	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
+	$$info{FILE_EXTENSION} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'FileExtension');
 
 	return 1;
 }

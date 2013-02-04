@@ -724,17 +724,7 @@ sub stream_media
 			return;
 		}
 
-		# TODO sanity check for commands
-#		if (!$item->file() && !($item->command()))
-#		{
-#			PDLNA::Log::log('Content with ID '.$id.' NOT found (command is missing).', 1, 'httpstream');
-#			print $FH http_header({
-#				'statuscode' => 404,
-#				'content_type' => 'text/plain',
-#				'log' => 'httpstream',
-#			});
-#			return;
-#		}
+		# TODO sanity check for commands (is command existing of filesystem)
 
 		#
 		# for streaming relevant code starts here
@@ -750,7 +740,7 @@ sub stream_media
 		if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
 		{
 			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
-			{
+		{
 				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item_info[0]->{TYPE}, $item_info[0]->{MIME_TYPE}));
 			}
 			else
@@ -769,13 +759,22 @@ sub stream_media
 			{
 				if ($item_info[0]->{TYPE} eq 'video')
 				{
-#					if (my %subtitle = $item->subtitle('srt'))
-#					{
-#						if (defined($subtitle{'path'}) && -f $subtitle{'path'})
-#						{
-#							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$id.'.srt');
-#						}
-#					}
+					my @subtitles = ();
+					PDLNA::Database::select_db(
+						$dbh,
+						{
+							'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+							'parameters' => [ $id, ],
+						},
+						\@subtitles,
+					);
+					foreach my $subtitle (@subtitles)
+					{
+						if ($subtitle->{TYPE} eq 'srt' && -f $subtitle->{FULLNAME})
+						{
+							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.srt');
+						}
+					}
 				}
 
 				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
@@ -890,11 +889,20 @@ sub stream_media
 						sysopen(ITEM, $item_info[0]->{FULLNAME}, O_RDONLY);
 						sysseek(ITEM, $lowrange, 0) if $lowrange;
 					}
-					else # transcoding / external script
+					else # external script # TODO this is just for streams, not for scripts
 					{
-						# TODO implement for commands
-						#open(ITEM, '-|', $item->command());
-						#binmode(ITEM);
+						my $command = '';
+						if ($item_info[0]->{FULLNAME} =~ /^(http|mms):\/\//) # if it is a supported stream
+						{
+							$command = $CONFIG{'MPLAYER_BIN'}.' '.$item_info[0]->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
+						}
+						else # if it is a script
+						{
+							$command = $item_info[0]->{FULLNAME};
+						}
+
+						open(ITEM, '-|', $command);
+						binmode(ITEM);
 						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
 					}
 					print $FH http_header({
