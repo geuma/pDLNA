@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# (c) by https://github.com/jjYBdx4IL/VDR-Streamer
 
 # re-mux -- otherwise Pana TV DLNA complains about unsupported file when starting
 # in the middle of a stream
