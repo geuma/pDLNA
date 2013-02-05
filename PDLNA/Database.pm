@@ -123,6 +123,7 @@ sub initialize_db
 				TYPE				VARCHAR(12),
 				EXTERNAL			BOOLEAN,
 
+				ROOT				BOOLEAN,
 				SEQUENCE			BIGINT
 			);"
 		);

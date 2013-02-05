@@ -335,7 +335,7 @@ sub details
 	{
 		PDLNA::Log::log('MPlayer was unable to determine MediaInformation.', 1, 'library');
 	}
-	return 0;
+	return undef;
 }
 
 sub is_supported_mimetype
@@ -359,6 +359,14 @@ sub is_supported_subtitle
 	my $mimetype = shift;
 
 	return 1 if defined($SUBTITLES{$mimetype});
+	return 0;
+}
+
+sub is_supported_stream
+{
+	my $url = shift || '';
+
+	return 1 if $url =~ /^(http|mms):\/\//;
 	return 0;
 }
 

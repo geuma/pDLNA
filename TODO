@@ -1,9 +1,9 @@
+- add more DB support (MySQL, ...)
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)
 - enable/disable webui (is it useful?)
 - webui: maybe we should do a webapp for remote control (ControlPoint)
 - webui: add authentication since it reveals more and more sensitive information
-- webui: add external media to webui
 - dvd support (basic support is existing)
 - seeking support (seeking works in most cases, why not in all? which ones (large files) ?
 - more subtitle support (text/x-subviewer)

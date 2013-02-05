@@ -14,6 +14,7 @@ xx-xx-2013
 - fixed issue #6 (https://github.com/geuma/pDLNA/issues/6) -aka- the default size for the logfile rotation
 - updated copyright year
 - added even more information to the WebUI
+- external media items are shown in WebUI too
 
 Version 0.53.0
 15-08-2012

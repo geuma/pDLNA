@@ -55,6 +55,27 @@ sub index_directories_thread
 				},
 			);
 		}
+
+		my $i = 0;
+		foreach my $external (@{$CONFIG{'EXTERNALS'}})
+		{
+			add_file_to_db(
+				$dbh,
+				{
+					'element' => $external->{'command'} || $external->{'streamurl'},
+					'media_type' => $external->{'type'},
+					'mime_type' => '', # need to determine
+					'element_basename' => $external->{'name'},
+					'element_dirname' => '', # set the directory to nothing - no parent
+					'external' => 1,
+					'sequence' => $i,
+					'root' => 1,
+				},
+			);
+			$i++;
+		}
+		# TODO check for old external entries in DB which aren't (any more) configured
+
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
@@ -146,6 +167,7 @@ sub process_directory
 							'element_basename' => $element_basename,
 							'element_dirname' => dirname($element),
 							'external' => 0,
+							'root' => 0,
 						},
 					);
 
@@ -183,7 +205,7 @@ sub process_directory
 				my @items = PDLNA::Media::parse_playlist($element, $mime_type);
 				for (my $i = 0; $i < @items; $i++)
 				{
-					if ($items[$i]=~ /^(http|mms):\/\// && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
+					if (PDLNA::Media::is_supported_stream($items[$i]) && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
 					{
 						add_file_to_db(
 							$dbh,
@@ -195,6 +217,7 @@ sub process_directory
 								'element_dirname' => $element, # set the directory to the playlist file itself
 								'external' => 1,
 								'sequence' => $i,
+								'root' => 0,
 							},
 						);
 					}
@@ -219,6 +242,7 @@ sub process_directory
 									'element_dirname' => $element, # set the directory to the playlist file itself
 									'external' => 0,
 									'sequence' => $i,
+									'root' => 0,
 								},
 							);
 						}
@@ -394,8 +418,8 @@ sub add_file_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL, SEQUENCE) VALUES (?,?,?,?,?,?,?,?,?,?)',
-				'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, $$params{'sequence'}, ],
+				'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL, ROOT, SEQUENCE) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, $$params{'root'}, $$params{'sequence'}, ],
 			},
 		);
 
@@ -511,6 +535,8 @@ sub remove_nonexistant_files
 			delete_subitems_recursively($dbh, $rootdir->{ID});
 		}
 	}
+
+	# TODO delete old external files, if LOW_RESOURCE_MODE has been enabled
 }
 
 sub delete_all_by_itemid
@@ -608,14 +634,33 @@ sub get_fileinfo
 		{
 			my %info = ();
 			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
-			PDLNA::Database::update_db(
-				$dbh,
-				{
-					'query' => 'UPDATE FILES SET FILE_EXTENSION = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?',
-					'parameters' => [ $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE}, $id->{FILEID_REF}, ],
-				},
-			);
-			$file[0]->{TYPE} = $info{TYPE};
+			if (defined($info{MIME_TYPE}))
+			{
+				PDLNA::Database::update_db(
+					$dbh,
+					{
+						'query' => 'UPDATE FILES SET FILE_EXTENSION = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?',
+						'parameters' => [ $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE}, $id->{FILEID_REF}, ],
+					},
+				);
+				$file[0]->{TYPE} = $info{TYPE};
+				$file[0]->{MIME_TYPE} = $info{MIME_TYPE};
+			}
+			else
+			{
+				PDLNA::Database::update_db(
+					$dbh,
+					{
+						'query' => 'UPDATE FILES SET FILE_EXTENSION = ? WHERE ID = ?',
+						'parameters' => [ 'unkn', $id->{FILEID_REF}, ],
+					},
+				);
+			}
+		}
+
+		unless (defined($file[0]->{MIME_TYPE}))
+		{
+			next;
 		}
 
 		#
@@ -759,8 +804,18 @@ sub get_subfiles_by_id
 	my $requested_count = shift;
 	my $file_elements = shift;
 
-	my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
-	my @sql_param = ( $object_id, );
+	my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE ';
+	my @sql_param = ();
+
+	if ($object_id == 0)
+	{
+		$sql_query .= 'ROOT = 1';
+	}
+	else
+	{
+		$sql_query .= 'PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+		push(@sql_param, $object_id);
+	}
 
 	$sql_query .= ' ORDER BY SEQUENCE, NAME';
 
@@ -892,6 +947,7 @@ sub get_parent_of_item_by_id
 		},
 		\@item_parent,
 	);
+	$item_parent[0]->{ID} = 0 if !defined($item_parent[0]->{ID});
 
 	return $item_parent[0]->{ID};
 }

@@ -892,7 +892,7 @@ sub stream_media
 					else # external script # TODO this is just for streams, not for scripts
 					{
 						my $command = '';
-						if ($item_info[0]->{FULLNAME} =~ /^(http|mms):\/\//) # if it is a supported stream
+						if (PDLNA::Media::is_supported_stream($item_info[0]->{FULLNAME})) # if it is a supported stream
 						{
 							$command = $CONFIG{'MPLAYER_BIN'}.' '.$item_info[0]->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
 						}

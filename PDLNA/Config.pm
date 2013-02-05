@@ -553,11 +553,16 @@ sub parse_config
 
 			my %external = (
 				'name' => $external_block->[1],
+				'type' => '',
 			);
 
 			if (defined($block->get('StreamingURL')))
 			{
 				$external{'streamurl'} = $block->get('StreamingURL');
+				unless (PDLNA::Media::is_supported_stream($external{'streamurl'}))
+				{
+					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Not a valid streaming URL.');
+				}
 			}
 			elsif (defined($block->get('Executable')))
 			{
@@ -567,7 +572,16 @@ sub parse_config
 				}
 				else
 				{
-    	        	push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
+					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
+				}
+
+				if (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
+				{
+					$external{'type'} = $block->get('MediaType');
+				}
+				else
+				{
+					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Invalid MediaType.');
 				}
 			}
 			else
