@@ -29,6 +29,8 @@ use Config qw();
 use Config::ApacheFormat;
 use Digest::MD5;
 use Digest::SHA1;
+use File::Basename;
+use File::MimeInfo;
 use IO::Socket;
 use IO::Interface qw(if_addr);
 use Net::Address::Ethernet qw(get_addresses);
@@ -233,8 +235,26 @@ sub parse_config
 	{
 		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
 	}
-	# TODO parsing and defining them in configuration file
-#	$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
+
+	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	{
+		$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
+		if (-f $CONFIG{'DB_NAME'})
+		{
+			unless (mimetype($CONFIG{'DB_NAME'}) eq 'application/octet-stream') # TODO better check if it is a valid database
+			{
+				push(@{$errormsg}, 'Invalid DatabaseName: Database '.$CONFIG{'DB_NAME'}.' is already existing but not a valid database.');
+			}
+		}
+		else
+		{
+			unless (-d dirname($CONFIG{'DB_NAME'}))
+			{
+				push(@{$errormsg}, 'Invalid DatabaseName: Directory '.dirname($CONFIG{'DB_NAME'}).' for database is not existing.');
+			}
+		}
+	}
+	# TODO parsing and defining them in configuration file - for MySQL and so on
 #	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
 #	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
 
