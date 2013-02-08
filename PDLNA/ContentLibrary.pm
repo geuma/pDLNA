@@ -74,8 +74,6 @@ sub index_directories_thread
 			);
 			$i++;
 		}
-		# TODO check for old external entries in DB which aren't (any more) configured
-
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
@@ -531,6 +529,24 @@ sub remove_nonexistant_files
 		unless (grep(/^$rootdir->{PATH}\/$/, @conf_directories))
 		{
 			delete_subitems_recursively($dbh, $rootdir->{ID});
+		}
+	}
+
+	# delete not (any more) configured - external from database
+	my @externals = ();
+	get_subfiles_by_id($dbh, 0, undef, undef, \@externals);
+
+	my @conf_externals = ();
+	foreach my $external (@{$CONFIG{'EXTERNALS'}})
+	{
+		push(@conf_externals, $external->{'name'});
+	}
+
+	foreach my $external (@externals)
+	{
+		unless (grep(/^$external->{NAME}$/, @conf_externals))
+		{
+			delete_all_by_itemid($dbh, $external->{ID});
 		}
 	}
 
