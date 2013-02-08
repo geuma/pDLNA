@@ -116,10 +116,8 @@ sub process_directory
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
 
-	$$params{'path'} =~ s/\[/\\[/g; # TODO fix for Windows
-	$$params{'path'} =~ s/\]/\\]/g; # TODO fix for Windows
-
-	my @elements = bsd_glob($$params{'path'}.'/*'); # TODO fix for Windows
+	PDLNA::Utils::escape_brackets($$params{'path'});
+	my @elements = bsd_glob(PDLNA::Utils::create_filesystem_path([ $$params{'path'}, '*', ]));
 	foreach my $element (sort @elements)
 	{
 		my $element_basename = basename($element);
@@ -225,7 +223,7 @@ sub process_directory
 					{
 						unless (PDLNA::Utils::is_path_absolute($items[$i]))
 						{
-							$items[$i] = dirname($element).'/'.$items[$i] # TODO fix for WINDOWS
+							$items[$i] = PDLNA::Utils::create_filesystem_path([ dirname($element), $items[$i], ]);
 						}
 
 						if (-f $items[$i])
@@ -624,7 +622,7 @@ sub get_fileinfo
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT FULLNAME, TYPE, EXTERNAL FROM FILES WHERE ID = ?',
+				'query' => 'SELECT FULLNAME, TYPE, MIME_TYPE, EXTERNAL FROM FILES WHERE ID = ?',
 				'parameters' => [ $id->{FILEID_REF}, ],
 			},
 			\@file,

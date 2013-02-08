@@ -109,12 +109,32 @@ sub fetch_http
 	return undef;
 }
 
+# TODO windows part
 sub is_path_absolute
 {
 	my $path = shift;
 
-	return 1 if $path =~ /^\//; # TODO fix for WINDOWS
+	return 1 if $path =~ /^\//;
 	return 0;
+}
+
+# TODO windows part
+sub create_filesystem_path
+{
+	my $items = shift;
+
+	return join('/', @{$items});
+}
+
+# TODO windows part (if needed)
+sub escape_brackets
+{
+	my $string = shift;
+
+	$string =~ s/\[/\\[/g;
+	$string =~ s/\]/\\[/g;
+
+	return $string;
 }
 
 1;
