@@ -768,7 +768,16 @@ sub stream_media
 			return;
 		}
 
-		# TODO sanity check for commands (is command existing on filesystem)
+		if ($item[0]->{EXTERNAL} && !PDLNA::Media::is_supported_stream($item[0]->{FULLNAME}) && -x $item[0]->{FULLNAME})
+		{
+			PDLNA::Log::log('Content with ID '.$id.' is a SCRIPT but NOT executable: '.$item[0]->{FULLNAME}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+			return;
+		}
 
 		#
 		# for streaming relevant code starts here
