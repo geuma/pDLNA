@@ -768,7 +768,7 @@ sub stream_media
 			return;
 		}
 
-		if ($item[0]->{EXTERNAL} && !PDLNA::Media::is_supported_stream($item[0]->{FULLNAME}) && -x $item[0]->{FULLNAME})
+		if ($item[0]->{EXTERNAL} && !PDLNA::Media::is_supported_stream($item[0]->{FULLNAME}) && !-x $item[0]->{FULLNAME})
 		{
 			PDLNA::Log::log('Content with ID '.$id.' is a SCRIPT but NOT executable: '.$item[0]->{FULLNAME}.'.', 1, 'httpstream');
 			print $FH http_header({
