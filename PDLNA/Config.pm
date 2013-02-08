@@ -203,6 +203,15 @@ sub parse_config
 	}
 
 	#
+	# TMP DIRECTORY
+	#
+	$CONFIG{'TMP_DIR'} = $cfg->get('TempDir') if defined($cfg->get('TempDir'));
+	unless (-d $CONFIG{'TMP_DIR'})
+	{
+		push(@{$errormsg}, 'Invalid TempDir: Directory '.$CONFIG{'TMP_DIR'}.' for temporary files is not existing.');
+	}
+
+	#
 	# ALLOWED CLIENTS PARSING
 	#
 	if (defined($cfg->get('AllowedClients')))
@@ -332,11 +341,6 @@ sub parse_config
 	# CHECK FOR UPDATES
 	#
 	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
-
-	#
-	# TODO tmp directory
-	#
-	# $CONFIG{'TMP_DIR'} - not defined in config file yet
 
 	if ($cfg->get('RescanMediaInterval'))
 	{
