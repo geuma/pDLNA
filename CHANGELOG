@@ -15,6 +15,7 @@ xx-xx-2013
 - updated copyright year
 - added even more information to the WebUI
 - external media items are shown in WebUI too
+- transcoding is now avaiable to be configured per client seperately
 
 Version 0.53.0
 15-08-2012

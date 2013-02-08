@@ -698,6 +698,28 @@ sub parse_config
 
 			$transcode{'Name'} = $transcode_block->[1];
 
+			my @clients = ();
+			if (defined($block->get('ClientIPs')) && length($block->get('ClientIPs')) > 1)
+			{
+				foreach my $ip_subnet (split(/\s*,\s*/, $block->get('ClientIPs')))
+				{
+					# We still need to use Net::IP as it validates that the ip/subnet is valid
+					if (Net::IP->new($ip_subnet))
+					{
+						push(@clients, Net::Netmask->new($ip_subnet));
+					}
+					else
+					{
+						push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.Net::IP::Error().'.');
+					}
+				}
+			}
+			else
+			{
+				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure ClientIPs.');
+			}
+			$transcode{'ClientIPs'} = \@clients;
+
 			push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
 		}
 	}

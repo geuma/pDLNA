@@ -24,6 +24,7 @@ use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::Database;
+use PDLNA::Transcode;
 
 sub get_browseresponse_header
 {
@@ -97,6 +98,8 @@ sub get_browseresponse_item
 	my $item_id = shift;
 	my $filter = shift;
 	my $dbh = shift;
+	my $client_ip = shift;
+	my $user_agent = shift;
 
 	my @xml = ();
 	push(@xml, '&lt;item ');
@@ -111,7 +114,7 @@ sub get_browseresponse_item
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT NAME, TYPE, DATE, SIZE, MIME_TYPE, FILE_EXTENSION FROM FILES WHERE ID = ?;',
+			'query' => 'SELECT NAME, FULLNAME, TYPE, DATE, SIZE, MIME_TYPE, FILE_EXTENSION, EXTERNAL FROM FILES WHERE ID = ?;',
 			'parameters' => [ $item_id, ],
 		},
 		\@item,
@@ -128,11 +131,42 @@ sub get_browseresponse_item
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM FROM FILEINFO WHERE FILEID_REF = ?;',
+			'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM, CONTAINER, AUDIO_CODEC, VIDEO_CODEC FROM FILEINFO WHERE FILEID_REF = ?;',
 			'parameters' => [ $item_id, ],
 		},
 		\@iteminfo,
 	);
+
+	#
+	# check if we need to transcode the content
+	#
+	my %media_data = (
+		'fullname' => $item[0]->{FULLNAME},
+		'external' => $item[0]->{EXTERNAL},
+		'media_type' => $item[0]->{TYPE},
+		'container' => $iteminfo[0]->{CONTAINER},
+		'audio_codec' => $iteminfo[0]->{AUDIO_CODEC},
+		'video_codec' => $iteminfo[0]->{VIDEO_CODEC},
+	);
+	my $transcode = 0;
+	if ($transcode = PDLNA::Transcode::shall_we_transcode(
+			\%media_data,
+			{
+				'ip' => $client_ip,
+				'user_agent' => $user_agent,
+			},
+		))
+	{
+		$item[0]->{MIME_TYPE} = $media_data{'mime_type'};
+		$iteminfo[0]->{CONTAINER} = $media_data{'container'};
+		$iteminfo[0]->{AUDIO_CODEC} = $media_data{'audio_codec'};
+		$iteminfo[0]->{VIDEO_CODEC} = $media_data{'video_codec'};
+		$iteminfo[0]->{BITRATE} = 0;
+		$iteminfo[0]->{VBR} = 0;
+	}
+	#
+	# end of checking for transcoding
+	#
 
 	if ($item[0]->{TYPE} eq 'audio')
 	{
@@ -198,7 +232,10 @@ sub get_browseresponse_item
 	{
 		push(@xml, 'resolution=&quot;'.$iteminfo[0]->{WIDTH}.'x'.$iteminfo[0]->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
-	push(@xml, 'size=&quot;'.$item[0]->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
+	if ($transcode == 0 || $item[0]->{EXTERNAL} == 0) # just add the size attribute if file is local and not transcoded
+	{
+		push(@xml, 'size=&quot;'.$item[0]->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
+	}
 	push(@xml, 'protocolInfo=&quot;http-get:*:'.$item[0]->{MIME_TYPE}.':'.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}).'&quot; ');
 	push(@xml, '&gt;');
 	push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item[0]->{FILE_EXTENSION});

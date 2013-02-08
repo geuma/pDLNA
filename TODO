@@ -12,7 +12,7 @@
 - more external scripts (online picture services like picasa and so on, youtube, ...)
 - transcoding (more audio codecs and video transcoding)
 - transcoding of images
-- per client transcoding profiles
+- per client transcoding profiles (currently only per ip address)
 - per client directory configuration
 - use multiple threads to crawl directories (multiple DBI objects, since DBI is not threadsafe)
 - debian package, repo, rpm packages, ...
