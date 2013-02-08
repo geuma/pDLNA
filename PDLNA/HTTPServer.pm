@@ -419,12 +419,10 @@ sub ctrl_content_directory_1
 		PDLNA::Log::log('BrowseFlag: '.$browse_flag.'.', 3, 'httpdir');
 		PDLNA::Log::log('Filter: '.join(', ', @browsefilters).'.', 3, 'httpdir');
 
-		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount
+		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount (in our case 10)
 
 		if ($object_id =~ /^\d+$/)
 		{
-			# TODO - fix the directory listings, in some cases it does deliver some silly responses
-
 			PDLNA::Log::log('Adding DirectoryListing request for: '.$object_id.' to history.', 3, 'httpdir');
 			$device->add_dirlist_request($object_id);
 
@@ -442,18 +440,22 @@ sub ctrl_content_directory_1
 				#
 				my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($dbh, $object_id);
 
-				#
-				# get the full amount of files in the directory requested
-				#
-				my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
-
-				$starting_index -= $amount_directories;
+				$requested_count = $requested_count - scalar(@dire_elements); # amount of @dire_elements is already in answer
+				if ($starting_index >= $amount_directories)
+				{
+					$starting_index = $starting_index - $amount_directories;
+				}
 
 				#
 				# get the files for the directory requested
 				#
 				my @file_elements = ();
 				PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
+
+				#
+				# get the full amount of files in the directory requested
+				#
+				my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
 
 				#
 				# build the http response
