@@ -534,7 +534,24 @@ sub remove_nonexistant_files
 		}
 	}
 
-	# TODO delete old external files, if LOW_RESOURCE_MODE has been enabled
+	# delete external media items from database, if LOW_RESOURCE_MODE has been enabled
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
+	{
+		my @externalfiles = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT ID FROM FILES WHERE EXTERNAL = 1',
+				'parameters' => [ ],
+			},
+			\@externalfiles,
+		);
+
+		foreach my $externalfile (@externalfiles)
+		{
+			delete_all_by_itemid($dbh, $externalfile->{ID});
+		}
+	}
 }
 
 sub delete_all_by_itemid
