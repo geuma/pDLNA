@@ -204,8 +204,8 @@ sub show
 	$response .= '</ul>';
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
-	$response .= '<li><a href="/webui/perf/pi">Process Info</a></li>';
-	$response .= '<li><a href="/webui/perf/cl">Content Library</a></li>';
+	$response .= '<li><a href="/webui/perf/pi">Process Information</a></li>';
+	$response .= '<li><a href="/webui/perf/cl">Media Library Information</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
 
