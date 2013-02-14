@@ -7,6 +7,10 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.6x.x
+xx-xx-2013
+- fixed issue #8 (https://github.com/geuma/pDLNA/issues/8) -aka- database preparation problem
+
 Version 0.60.0
 13-02-2013
 

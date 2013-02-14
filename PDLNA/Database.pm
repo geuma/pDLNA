@@ -30,7 +30,7 @@ sub connect
 	my $dbh = undef;
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$dbh = DBI->connect("dbi:SQLite:dbname=".$CONFIG{'DB_NAME'},"","") || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','') || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
 	}
 	return $dbh;
 }
@@ -45,7 +45,17 @@ sub initialize_db
 {
 	my $dbh = PDLNA::Database::connect();
 
-	if (grep(/^"METADATA"$/, $dbh->tables()))
+	my @tables = ();
+	select_db_array(
+		$dbh,
+		{
+			'query' => 'SELECT name FROM sqlite_master WHERE type = ?',
+			'parameters' => [ 'table', ],
+		},
+		\@tables,
+	);
+
+	if (grep(/^METADATA$/, @tables))
 	{
 		my @results = ();
 		select_db(
@@ -106,7 +116,7 @@ sub initialize_db
 		);
 	}
 
-	unless (grep(/^"FILES"$/, $dbh->tables()))
+	unless (grep(/^FILES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILES (
 				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,7 +139,7 @@ sub initialize_db
 		);
 	}
 
-	unless (grep(/^"FILEINFO"$/, $dbh->tables()))
+	unless (grep(/^FILEINFO$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILEINFO (
 				FILEID_REF			INTEGER PRIMARY KEY,
@@ -162,7 +172,7 @@ sub initialize_db
 	# TYPE
 	# 	0		directory
 	# 	1		playlist
-	unless (grep(/^"DIRECTORIES"$/, $dbh->tables()))
+	unless (grep(/^DIRECTORIES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DIRECTORIES (
 				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,7 +187,7 @@ sub initialize_db
 		);
 	}
 
-	unless (grep(/^"SUBTITLES"$/, $dbh->tables()))
+	unless (grep(/^SUBTITLES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE SUBTITLES (
 				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -195,6 +205,21 @@ sub initialize_db
 	}
 
 	PDLNA::Database::disconnect($dbh);
+}
+
+sub select_db_array
+{
+	my $dbh = shift;
+	my $params = shift;
+	my $result = shift;
+
+	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+	while (my $data = $sth->fetchrow_array())
+	{
+		push(@{$result}, $data);
+	}
 }
 
 sub select_db
