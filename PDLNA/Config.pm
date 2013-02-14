@@ -74,8 +74,8 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.60.0',
-	'PROGRAM_DATE' => '2013-02-13',
+	'PROGRAM_VERSION' => '0.60.1',
+	'PROGRAM_DATE' => '2013-02-14',
 	'PROGRAM_BETA' => 0,
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
