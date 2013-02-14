@@ -90,6 +90,8 @@ sub initialize_db
 			$dbh->do('DROP TABLE FILES;');
 			$dbh->do('DROP TABLE FILEINFO;');
 			$dbh->do('DROP TABLE DIRECTORIES;');
+			$dbh->do('DROP TABLE SUBTITLES;');
+			@tables = ();
 		}
 	}
 	else
