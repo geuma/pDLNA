@@ -215,6 +215,64 @@ sub start_listening_thread
 	$thread->detach();
 }
 
+sub parse_ssdp_message
+{
+	my $input_data = shift;
+	my $output_data = shift;
+
+	my @lines = split('\n', $input_data);
+	for (my $i = 0; $i < @lines; $i++)
+	{
+		chomp($lines[$i]);
+		$lines[$i] =~ s/\r//g;
+		splice(@lines, $i, 1) if length($lines[$i]) == 0;
+	}
+
+	PDLNA::Log::log('Parsed SSDP message data: '.join(', ', @lines), 3, 'discovery');
+
+	if ($lines[0] =~ /(NOTIFY|M-SEARCH)/i)
+	{
+		$$output_data{'TYPE'} = uc($1);
+		splice(@lines, 0, 1);
+	}
+	else
+	{
+		return 0;
+	}
+
+	foreach my $line (@lines)
+	{
+		if ($line =~ /^([\w\-]+):\s*(.*)$/i)
+		{
+			$$output_data{uc($1)} = $2;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	# some final sanitations
+	if (defined($$output_data{'USN'}))
+	{
+		my ($a, undef) = split('::', $$output_data{'USN'});
+		$$output_data{'USN'} = $a;
+		$$output_data{'USN'} =~ s/^uuid://;
+	}
+
+	if (defined($$output_data{'CACHE-CONTROL'}))
+	{
+		$$output_data{'CACHE-CONTROL'} = $1 if $$output_data{'CACHE-CONTROL'} =~ /^max-age\s*=\s*(\d+)/i;
+		my $time = time();
+		$$output_data{'CACHE-CONTROL'} += $time;
+	}
+
+	$$output_data{'MX'} = 3 if !defined($$output_data{'MX'});
+	# end of final sanitations
+
+	return 1;
+}
+
 sub receive_messages
 {
 	my $self = shift;
@@ -243,121 +301,58 @@ sub receive_messages
 		}
 		else
 		{
-			PDLNA::Log::log('Received SSDP message from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
+			PDLNA::Log::log('Ignoring SSDP message from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
 			next;
 		}
 
-		if ($data =~ /NOTIFY/)
+		my %message = ();
+		unless(parse_ssdp_message($data, \%message))
 		{
-			my $time = time();
-			my $uuid = undef;
-			my $desc_location = undef;
-			my $server_banner = undef;
-			my $nts_type = undef;
-			my $nt_type = undef;
+			PDLNA::Log::log('Error while parsing SSDP message from client IP '.$peer_ip_addr.'. Ignoring message.', 1, 'discovery');
+			next;
+		}
 
-			my @lines = split('\n', $data);
-			foreach my $line (@lines)
+		if ($message{'TYPE'} eq 'NOTIFY')
+		{
+			# we will not add the running pDLNA installation to our SSDP database
+			if ($peer_ip_addr eq $CONFIG{'LOCAL_IPADDR'} && $message{'USN'} eq $CONFIG{'UUID'})
 			{
-				# chomp the lines and also eliminate those \r's
-				chomp($line);
-				$line =~ s/\r//g;
-
-				if ($line =~ /^NTS:\s*ssdp:(\w+)/i)
-				{
-					$nts_type = $1;
-				}
-				elsif ($line =~ /^CACHE-CONTROL:\s*max-age\s*=\s*(\d+)/i)
-				{
-					$time += $1;
-				}
-				elsif ($line =~ /^LOCATION:\s*(.*)/i)
-				{
-					$desc_location = $1;
-				}
-				elsif ($line =~ /^SERVER:\s*(.*)/i)
-				{
-					$server_banner = $1;
-				}
-				elsif ($line =~ /^USN:\s*(.*)/i)
-				{
-					my ($a, $b) = split('::', $1);
-					$uuid = $a;
-					$uuid =~ s/^uuid://;
-				}
-				elsif ($line =~ /^NT:\s*(.*)/i)
-				{
-					$nt_type = $1;
-				}
+				PDLNA::Log::log('Ignored SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
+				next;
 			}
 
-			if ($nts_type eq 'alive' && defined($nt_type))
+			if ($message{'NTS'} eq 'ssdp:alive' && defined($message{'NT'}))
 			{
-				# we will not add the running pDLNA installation to our SSDP database
-				if ($peer_ip_addr ne $CONFIG{'LOCAL_IPADDR'} && $uuid ne $CONFIG{'UUID'})
-				{
-					PDLNA::Log::log('Adding UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' to database.', 2, 'discovery');
-
-					${$self->{DEVICE_LIST}}->add({
-						'ip' => $peer_ip_addr,
-						'udn' => $uuid,
-						'ssdp_banner' => $server_banner,
-						'device_description_location' => $desc_location,
-						'nt' => $nt_type,
-						'nt_time_of_expire' => $time,
-					});
-				}
-				else
-				{
-					PDLNA::Log::log('Ignored SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
-				}
+				PDLNA::Log::log('Adding UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' to database.', 2, 'discovery');
+				${$self->{DEVICE_LIST}}->add({
+					'ip' => $peer_ip_addr,
+					'udn' => $message{'USN'},
+					'ssdp_banner' => $message{'SERVER'},
+					'device_description_location' => $message{'LOCATION'},
+					'nt' => $message{'NT'},
+					'nt_time_of_expire' => $message{'CACHE-CONTROL'},
+				});
 			}
-			elsif ($nts_type eq 'byebye' && defined($nt_type))
+			elsif ($message{'NTS'} eq 'ssdp:byebye' && defined($message{'NT'}))
 			{
-				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' from database.', 2, 'discovery');
+				PDLNA::Log::log('Deleting UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' from database.', 2, 'discovery');
 				${$self->{DEVICE_LIST}}->del(
 					{
 						'ip' => $peer_ip_addr,
-						'udn' => $uuid,
-						'nt' => $nt_type,
+						'udn' => $message{'USN'},
+						'nt' => $message{'NT'},
 					},
 				);
 			}
 			PDLNA::Log::log(${$self->{DEVICE_LIST}}->print_object(), 3, 'discovery');
 		}
-		elsif ($data =~ /M-SEARCH/i) # we are matching case insensitive, because some clients don't write it capitalized
+		elsif ($message{'TYPE'} eq 'M-SEARCH')
 		{
-			my @lines = split('\n', $data);
-
-			my $man = undef;
-			my $st = undef;
-			my $mx = 3; # default MX is 3 seconds
-
-			foreach my $line (@lines)
+			if (defined($message{'MAN'}) && $message{'MAN'} eq '"ssdp:discover"')
 			{
-				# chomp the lines and also eliminate those \r's
-				chomp($line);
-				$line =~ s/\r//g;
-
-				if ($line =~ /^MAN:\s*(.+)$/i)
-				{
-					$man = $1;
-				}
-				elsif ($line =~ /^ST:\s*(.+)$/i)
-				{
-					$st = $1;
-				}
-				elsif ($line =~ /^MX:\s*(\d+)$/i)
-				{
-					$mx = $1;
-				}
-			}
-
-			if (defined($man) && $man eq '"ssdp:discover"')
-			{
-				PDLNA::Log::log('Received a SSDP M-SEARCH message by '.$peer_ip_addr.':'.$peer_src_port.' for a '.$st.' with an mx of '.$mx.'.', 1, 'discovery');
+				PDLNA::Log::log('Received a SSDP M-SEARCH message by '.$peer_ip_addr.':'.$peer_src_port.' for a '.$message{'ST'}.' with an mx of '.$message{'MX'}.'.', 1, 'discovery');
 				# TODO start function in a thread - currently this is a blocking implementation
-				$self->send_announce($peer_ip_addr, $peer_src_port, $st, $mx);
+				$self->send_announce($peer_ip_addr, $peer_src_port, $message{'ST'}, $message{'MX'});
 			}
 		}
 	}
