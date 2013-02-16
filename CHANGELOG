@@ -7,6 +7,11 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.61.0
+xx-xx-2013
+
+- fixed issue #7 (https://github.com/geuma/pDLNA/issues/7) -aka- Uninitialized value in SSDP.pm
+
 Version 0.60.1
 14-02-2013
 - fixed issue #8 (https://github.com/geuma/pDLNA/issues/8) -aka- database preparation problem

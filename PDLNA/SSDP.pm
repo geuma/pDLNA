@@ -291,7 +291,7 @@ sub receive_messages
 				}
 			}
 
-			if ($nts_type eq 'alive')
+			if ($nts_type eq 'alive' && defined($nt_type))
 			{
 				# we will not add the running pDLNA installation to our SSDP database
 				if ($peer_ip_addr ne $CONFIG{'LOCAL_IPADDR'} && $uuid ne $CONFIG{'UUID'})
@@ -312,7 +312,7 @@ sub receive_messages
 					PDLNA::Log::log('Ignored SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
 				}
 			}
-			elsif ($nts_type eq 'byebye')
+			elsif ($nts_type eq 'byebye' && defined($nt_type))
 			{
 				PDLNA::Log::log('Deleting UPnP device '.$uuid.' ('.$peer_ip_addr.') for '.$nt_type.' from database.', 2, 'discovery');
 				${$self->{DEVICE_LIST}}->del(
