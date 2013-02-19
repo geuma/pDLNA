@@ -26,7 +26,6 @@ use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Daemon;
 use PDLNA::Database;
-use PDLNA::DeviceList;
 use PDLNA::HTTPServer;
 use PDLNA::Log;
 use PDLNA::SSDP;
@@ -53,19 +52,19 @@ PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_versio
 
 PDLNA::Database::initialize_db();
 
-my $device_list = PDLNA::DeviceList->new(); # initialize DeviceList object
-my $ssdp = PDLNA::SSDP->new(\$device_list); # initialize SSDP object
+my $ssdp = PDLNA::SSDP->new(); # initialize SSDP object
 
 # forking
 PDLNA::Daemon::daemonize(\%SIG, \$ssdp);
 PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
 
+# starting thread to periodically index the configured media directories
 my $thread1 = threads->create('PDLNA::ContentLibrary::index_directories_thread');
 $thread1->detach();
 
 # starting up
 PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
-my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver', \$device_list); # starting the HTTP server in a thread
+my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
 $thread2->detach();
 
 $ssdp->add_send_socket(); # add the socket for sending SSDP messages
@@ -77,8 +76,8 @@ $ssdp->start_sending_periodic_alive_messages_thread(); # start to send out perio
 
 if ($CONFIG{'CHECK_UPDATES'})
 {
-	my $thread2 = threads->create('PDLNA::Status::check_update_periodic');
-	$thread2->detach();
+	my $thread3 = threads->create('PDLNA::Status::check_update_periodic');
+	$thread3->detach();
 }
 
 while(1)

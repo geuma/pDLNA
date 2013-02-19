@@ -12,6 +12,7 @@ xx-xx-2013
 
 - fixed issue #7 (https://github.com/geuma/pDLNA/issues/7) -aka- Uninitialized value in SSDP.pm
 - reworked/improved the code for parsing received SSDP messages
+- PDLNA::DeviceList object has been moved to database (feature/issue #11 (https://github.com/geuma/pDLNA/issues/11))
 
 Version 0.60.1
 14-02-2013

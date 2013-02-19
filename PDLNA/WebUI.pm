@@ -32,7 +32,6 @@ use PDLNA::Utils;
 
 sub show
 {
-	my $device_list = shift;
 	my $params = shift;
 
 	my $dbh = PDLNA::Database::connect();
@@ -186,22 +185,47 @@ sub show
 
 	$response .= '<div id="sidebar">';
 	$response .= '<h5>Configured media</h5>';
-
-	$response .= build_directory_tree($dbh, 0, $nav[1]);
-	$response .= '<h5>Connected devices</h5>';
-	my %ssdp_devices = $$device_list->devices();
-	$response .= '<ul>';
-	foreach my $device (sort keys %ssdp_devices)
+	if ($nav[0] eq 'content')
 	{
-		$response .= '<li><a href="/webui/device/'.$device.'">'.$device.'</a></li>';
-		$response .= '<ul>';
-		foreach my $udn (keys %{$ssdp_devices{$device}->udn()})
+		$response .= build_directory_tree($dbh, 0, $nav[1]);
+	}
+	else
+	{
+		$response .= build_directory_tree($dbh, 0, 0);
+	}
+
+	$response .= '<h5>Connected devices</h5>';
+	my @devices_ip = ();
+	PDLNA::Database::select_db(
+		$dbh,
 		{
-			$response .= '<li><a href="/webui/device/'.$device.'/'.$udn.'">'.$udn.'</a></li>';
+			'query' => 'SELECT ID, IP FROM DEVICE_IP',
+			'parameters' => [ ],
+		},
+		\@devices_ip,
+	);
+	$response .= '<ul>';
+	foreach my $device_ip (@devices_ip)
+	{
+		$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'">'.$device_ip->{IP}.'</a></li>';
+		my @devices_udn = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
+				'parameters' => [ $device_ip->{ID}, ],
+			},
+			\@devices_udn,
+		);
+		$response .= '<ul>';
+		foreach my $device_udn (@devices_udn)
+		{
+			$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'/'.$device_udn->{ID}.'">'.$device_udn->{UDN}.'</a></li>';
 		}
 		$response .= '</ul>';
 	}
 	$response .= '</ul>';
+
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
 	$response .= '<li><a href="/webui/perf/pi">Process Information</a></li>';
@@ -238,21 +262,61 @@ sub show
 	}
 	elsif ($nav[0] eq 'device')
 	{
-		if (defined($ssdp_devices{$nav[1]}))
+		if (defined($nav[1]) && !defined($nav[2]))
 		{
-			if (defined($nav[2]) && defined($ssdp_devices{$nav[1]}{UDN}{$nav[2]}))
+			my @device_ip = ();
+			PDLNA::Database::select_db(
+				$dbh,
+				{
+					'query' => 'SELECT IP, USER_AGENT, LAST_SEEN FROM DEVICE_IP WHERE ID = ?',
+					'parameters' => [ $nav[1], ],
+				},
+				\@device_ip,
+			);
+
+			if (defined($device_ip[0]->{IP}))
 			{
 				$response .= '<table>';
 				$response .= '<thead>';
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>UDN</td><td>'.$nav[2].'</td></tr>';
-				$response .= '<tr><td>SSDP Banner</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->ssdp_banner().'</td></tr>';
-				$response .= '<tr><td>Friendly Name</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->friendly_name.'</td></tr>';
-				$response .= '<tr><td>Model Name</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->model_name().'</td></tr>';
-				$response .= '<tr><td>Device Type</td><td>'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_type().'</td></tr>';
-				$response .= '<tr><td>Device Description URL</td><td><a href="'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_description_url().'" target="_blank">'.$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->device_description_url().'</a></td></tr>';
+				$response .= '<tr><td>IP</td><td>'.$device_ip[0]->{IP}.'</td></tr>';
+				$response .= '<tr><td>HTTP UserAgent</td><td>'.$device_ip[0]->{USER_AGENT}.'</td></tr>' if defined($device_ip[0]->{USER_AGENT});
+				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{LAST_SEEN}).'</td></tr>';
+				$response .= '</tbody>';
+				$response .= '</table>';
+			}
+			else
+			{
+				$response .= '<p>No information available.</p>';
+			}
+		}
+		elsif (defined($nav[1]) && defined($nav[2]))
+		{
+			my @device_udn = ();
+			PDLNA::Database::select_db(
+				$dbh,
+				{
+					'query' => 'SELECT UDN, SSDP_BANNER, FRIENDLY_NAME, MODEL_NAME, TYPE, DESC_URL FROM DEVICE_UDN WHERE ID = ?',
+					'parameters' => [ $nav[2], ],
+				},
+				\@device_udn,
+			);
+
+			if (defined($device_udn[0]->{UDN}))
+			{
+				$response .= '<table>';
+				$response .= '<thead>';
+				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+				$response .= '</thead>';
+				$response .= '<tbody>';
+				$response .= '<tr><td>UDN</td><td>'.$device_udn[0]->{UDN}.'</td></tr>';
+				$response .= '<tr><td>SSDP Banner</td><td>'.$device_udn[0]->{SSDP_BANNER}.'</td></tr>' if defined($device_udn[0]->{SSDP_BANNER});
+				$response .= '<tr><td>Friendly Name</td><td>'.$device_udn[0]->{FRIENDLY_NAME}.'</td></tr>' if defined($device_udn[0]->{FRIENDLY_NAME});
+				$response .= '<tr><td>Model Name</td><td>'.$device_udn[0]->{MODEL_NAME}.'</td></tr>' if defined($device_udn[0]->{MODEL_NAME});
+				$response .= '<tr><td>Device Type</td><td>'.$device_udn[0]->{TYPE}.'</td></tr>' if defined($device_udn[0]->{TYPE});
+				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{DESC_URL}.'" target="_blank">'.$device_udn[0]->{DESC_URL}.'</a></td></tr>' if defined($device_udn[0]->{DESC_URL});
 				$response .= '</tbody>';
 				$response .= '</table>';
 
@@ -263,31 +327,26 @@ sub show
 				$response .= '<tr><td>NTS</td><td width="160px">expires at</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				my %nts = %{$ssdp_devices{$nav[1]}{UDN}{$nav[2]}->nts()};
-				foreach my $key (keys %nts)
+				my @device_nts = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT TYPE, EXPIRE FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+						'parameters' => [ $nav[2], ],
+					},
+					\@device_nts,
+				);
+				foreach my $nts (@device_nts)
 				{
-					$response .= '<tr><td>'.$key.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts{$key}).'</td></tr>';
+					$response .= '<tr><td>'.$nts->{TYPE}.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts->{EXPIRE}).'</td></tr>';
 				}
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}
 			else
 			{
-				$response .= '<table>';
-				$response .= '<thead>';
-				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
-				$response .= '</thead>';
-				$response .= '<tbody>';
-				$response .= '<tr><td>IP</td><td>'.$nav[1].'</td></tr>';
-				$response .= '<tr><td>HTTP UserAgent</td><td>'.$ssdp_devices{$nav[1]}->http_useragent().'</td></tr>';
-				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $ssdp_devices{$nav[1]}->last_seen_timestamp()).'</td></tr>';
-				$response .= '</tbody>';
-				$response .= '</table>';
+				$response .= '<p>No information available.</p>';
 			}
-		}
-		else
-		{
-			$response .= '<p>Device not found.</p>';
 		}
 	}
 	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pi')
@@ -313,7 +372,6 @@ sub show
 				$response .= '<tr><td>Current Virtual Memory Size</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
 				$response .= '<tr><td>Current Memory Utilization in RAM</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
 				$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
-				$response .= '<tr><td>Memory Utilization of DeviceList</td><td>'.PDLNA::Utils::convert_bytes(total_size($device_list)).'</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}

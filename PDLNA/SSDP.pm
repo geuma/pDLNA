@@ -27,15 +27,15 @@ use IO::Socket::Multicast;
 use Net::Netmask;
 
 use PDLNA::Config;
+use PDLNA::Database;
+use PDLNA::Devices;
 use PDLNA::Log;
-use PDLNA::DeviceList;
 
 sub new
 {
 	my $class = shift;
 
 	my $self = ();
-	$self->{DEVICE_LIST} = shift;
 	$self->{NTS} = [
 		$CONFIG{'UUID'},
 		'upnp:rootdevice',
@@ -140,7 +140,7 @@ sub send_announce
 	my $self = shift;
 
 	my $destination_ip = shift; # client ip address
-	my $destination_port = shift; # client original source port, which gets the destination port for the response so the discover
+	my $destination_port = shift; # client original source port, which gets the destination port for the response of the discover
 	my $stparam = shift; # type of service
 	my $mx = shift; # sleep timer
 
@@ -196,7 +196,7 @@ sub send_periodic_alive_messages
 	while(1)
 	{
 		$self->send_alive(2);
-		${$self->{DEVICE_LIST}}->delete_expired();
+		PDLNA::Devices::delete_expired_devices();
 		sleeper($CONFIG{'CACHE_CONTROL'});
 	}
 }
@@ -257,7 +257,7 @@ sub parse_ssdp_message
 	{
 		my ($a, undef) = split('::', $$output_data{'USN'});
 		$$output_data{'USN'} = $a;
-		$$output_data{'USN'} =~ s/^uuid://;
+#		$$output_data{'USN'} =~ s/^uuid://;
 	}
 
 	if (defined($$output_data{'CACHE-CONTROL'}))
@@ -277,6 +277,7 @@ sub receive_messages
 {
 	my $self = shift;
 
+	my $dbh = PDLNA::Database::connect();
 	while(1)
 	{
 		my $data = undef;
@@ -317,26 +318,30 @@ sub receive_messages
 			# we will not add the running pDLNA installation to our SSDP database
 			if ($peer_ip_addr eq $CONFIG{'LOCAL_IPADDR'} && $message{'USN'} eq $CONFIG{'UUID'})
 			{
-				PDLNA::Log::log('Ignored SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
+				PDLNA::Log::log('Ignore SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
 				next;
 			}
 
 			if ($message{'NTS'} eq 'ssdp:alive' && defined($message{'NT'}))
 			{
 				PDLNA::Log::log('Adding UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' to database.', 2, 'discovery');
-				${$self->{DEVICE_LIST}}->add({
-					'ip' => $peer_ip_addr,
-					'udn' => $message{'USN'},
-					'ssdp_banner' => $message{'SERVER'},
-					'device_description_location' => $message{'LOCATION'},
-					'nt' => $message{'NT'},
-					'nt_time_of_expire' => $message{'CACHE-CONTROL'},
-				});
+				PDLNA::Devices::add_device(
+					$dbh,
+					{
+						'ip' => $peer_ip_addr,
+						'udn' => $message{'USN'},
+						'ssdp_banner' => $message{'SERVER'},
+						'device_description_location' => $message{'LOCATION'},
+						'nt' => $message{'NT'},
+						'nt_time_of_expire' => $message{'CACHE-CONTROL'},
+					},
+				);
 			}
 			elsif ($message{'NTS'} eq 'ssdp:byebye' && defined($message{'NT'}))
 			{
 				PDLNA::Log::log('Deleting UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' from database.', 2, 'discovery');
-				${$self->{DEVICE_LIST}}->del(
+				PDLNA::Devices::delete_device(
+					$dbh,
 					{
 						'ip' => $peer_ip_addr,
 						'udn' => $message{'USN'},
@@ -344,7 +349,6 @@ sub receive_messages
 					},
 				);
 			}
-			PDLNA::Log::log(${$self->{DEVICE_LIST}}->print_object(), 3, 'discovery');
 		}
 		elsif ($message{'TYPE'} eq 'M-SEARCH')
 		{

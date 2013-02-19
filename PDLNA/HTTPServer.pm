@@ -36,6 +36,7 @@ no bytes;
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
+use PDLNA::Devices;
 use PDLNA::HTTPXML;
 use PDLNA::Log;
 use PDLNA::Transcode;
@@ -43,8 +44,6 @@ use PDLNA::WebUI;
 
 sub start_webserver
 {
-	my $device_list = shift;
-
 	PDLNA::Log::log('Starting HTTP Server listening on '.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'.', 0, 'default');
 
 	# got inspired by: http://www.adp-gmbh.ch/perl/webserver/
@@ -68,7 +67,7 @@ sub start_webserver
 			my ($peer_src_port, $peer_addr) = sockaddr_in($remote);
 			my $peer_ip_addr = inet_ntoa($peer_addr);
 
-			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port, $device_list);
+			my $thread = threads->create(\&handle_connection, $FH, $peer_ip_addr, $peer_src_port);
 			$thread->detach();
 		}
 	}
@@ -79,7 +78,6 @@ sub handle_connection
 	my $FH = shift;
 	my $peer_ip_addr = shift;
 	my $peer_src_port = shift;
-	my $device_list = shift;
 
 	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
 
@@ -162,16 +160,18 @@ sub handle_connection
 	# handling different HTTP requests
 	if ($client_allowed)
 	{
-		# adding device and/or request to PDLNA::DeviceList
-		$$device_list->add({
-			'ip' => $peer_ip_addr,
-			'http_useragent' => $CGI{'USER-AGENT'},
-		});
-		my %ssdp_devices = $$device_list->devices();
-		my $model_name = $ssdp_devices{$peer_ip_addr}->model_name_by_device_type('urn:schemas-upnp-org:device:MediaRenderer:1');
-
+		# adding device and/or request to Devices tables
+		my $dbh = PDLNA::Database::connect();
+		PDLNA::Devices::add_device(
+			$dbh,
+			{
+				'ip' => $peer_ip_addr,
+				'http_useragent' => $CGI{'USER-AGENT'},
+			},
+		);
+		my $model_name = PDLNA::Devices::get_modelname_by_devicetype($dbh, $peer_ip_addr, 'urn:schemas-upnp-org:device:MediaRenderer:1');
 		PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
-		PDLNA::Log::log($$device_list->print_object(), 3, 'httpgeneric');
+		PDLNA::Database::disconnect($dbh);
 
 		PDLNA::Log::log('Received HTTP Request from allowed client IP '.$peer_ip_addr.'.', 2, 'httpgeneric');
 
@@ -245,7 +245,7 @@ sub handle_connection
 		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1') # handling Directory Listings
 		{
 			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
-			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $ssdp_devices{$peer_ip_addr}, $peer_ip_addr, $CGI{'USER-AGENT'});
+			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $peer_ip_addr, $CGI{'USER-AGENT'});
 		}
 #		elsif ($ENV{'OBJECT'} eq '/upnp/control/ConnectionManager1')
 #		{
@@ -273,7 +273,7 @@ sub handle_connection
 		}
 		elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # this is just to be something different (not DLNA stuff)
 		{
-			print $FH PDLNA::WebUI::show($device_list, $1);
+			print $FH PDLNA::WebUI::show($1);
 		}
 		else
 		{
@@ -335,7 +335,6 @@ sub ctrl_content_directory_1
 {
 	my $xml = shift;
 	my $action = shift;
-	my $device = shift;
 	my $peer_ip_addr = shift;
 	my $user_agent = shift;
 
@@ -423,9 +422,6 @@ sub ctrl_content_directory_1
 
 		if ($object_id =~ /^\d+$/)
 		{
-			PDLNA::Log::log('Adding DirectoryListing request for: '.$object_id.' to history.', 3, 'httpdir');
-			$device->add_dirlist_request($object_id);
-
 			PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
 			if ($browse_flag eq 'BrowseDirectChildren' || $browse_flag eq 'BrowseMetadata')
 			{

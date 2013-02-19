@@ -87,10 +87,14 @@ sub initialize_db
 				},
 			);
 
-			$dbh->do('DROP TABLE FILES;');
-			$dbh->do('DROP TABLE FILEINFO;');
-			$dbh->do('DROP TABLE DIRECTORIES;');
-			$dbh->do('DROP TABLE SUBTITLES;');
+			$dbh->do('DROP TABLE FILES;') if grep(/^FILES$/, @tables);
+			$dbh->do('DROP TABLE FILEINFO;') if grep(/^FILEINFO$/, @tables);
+			$dbh->do('DROP TABLE DIRECTORIES;') if grep(/^DIRECTORIES$/, @tables);
+			$dbh->do('DROP TABLE SUBTITLES;') if grep(/^SUBTITLES$/, @tables);
+			$dbh->do('DROP TABLE DEVICE_IP;') if grep(/^DEVICE_IP$/, @tables);
+			$dbh->do('DROP TABLE DEVICE_UDN;') if grep(/^DEVICE_UDN$/, @tables);
+			$dbh->do('DROP TABLE DEVICE_NTS;') if grep(/^DEVICE_NTS$/, @tables);
+			$dbh->do('DROP TABLE DEVICE_SERVICE;') if grep(/^DEVICE_SERVICE$/, @tables);
 			@tables = ();
 		}
 	}
@@ -202,6 +206,64 @@ sub initialize_db
 
 				DATE				BIGINT,
 				SIZE				BIGINT
+			);"
+		);
+	}
+
+	unless (grep(/^DEVICE_IP$/, @tables))
+	{
+		$dbh->do("CREATE TABLE DEVICE_IP (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+
+				IP					VARCHAR(15),
+				USER_AGENT			VARCHAR(128),
+				LAST_SEEN			BIGINT
+			);"
+		);
+	}
+
+	unless (grep(/^DEVICE_UDN$/, @tables))
+	{
+		$dbh->do("CREATE TABLE DEVICE_UDN (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF		INTEGER,
+
+				UDN					VARCHAR(64),
+				SSDP_BANNER			VARCHAR(256),
+				DESC_URL			VARCHAR(512),
+				RELA_URL			VARCHAR(512),
+				BASE_URL			VARCHAR(512),
+
+				TYPE				VARCHAR(256),
+				MODEL_NAME			VARCHAR(256),
+				FRIENDLY_NAME		VARCHAR(256)
+			);"
+		);
+	}
+
+	unless (grep(/^DEVICE_NTS$/, @tables))
+	{
+		$dbh->do("CREATE TABLE DEVICE_NTS (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF		INTEGER,
+
+				TYPE				VARCHAR(128),
+				EXPIRE				BIGINT
+			);"
+		);
+	}
+
+	unless (grep(/^DEVICE_SERVICE$/, @tables))
+	{
+		$dbh->do("CREATE TABLE DEVICE_SERVICE (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF		INTEGER,
+
+				SERVICE_ID			VARCHAR(256),
+				TYPE				VARCHAR(256),
+				CONTROL_URL			VARCHAR(512),
+				EVENT_URL			VARCHAR(512),
+				SCPD_URL			VARCHAR(512)
 			);"
 		);
 	}
