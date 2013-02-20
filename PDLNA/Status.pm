@@ -36,7 +36,7 @@ sub check_update_periodic
 	}
 }
 
-sub check_update
+sub do_http_request
 {
 	my $ua = LWP::UserAgent->new();
 	$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
@@ -62,10 +62,17 @@ sub check_update
 			NoAttr => 1,
 		),
 	);
+	return $response;
+}
+
+sub check_update
+{
+	my $response = do_http_request();
 
 	if ($response->is_success)
 	{
-		$xml = $xml_obj->XMLin($response->decoded_content());
+		my $xml_obj = XML::Simple->new();
+		my $xml = $xml_obj->XMLin($response->decoded_content());
 		PDLNA::Log::log('Check4Updates was successful: '.$xml->{'response'}->{'result'}.' ('.$xml->{'response'}->{'resultID'}.').', 1, 'update');
 		if ($xml->{'response'}->{'resultID'} == 4)
 		{

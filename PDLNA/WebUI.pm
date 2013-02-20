@@ -22,12 +22,15 @@ use warnings;
 
 use Date::Format;
 use Devel::Size qw(size total_size);
+use LWP::UserAgent;
 use Proc::ProcessTable;
+use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Daemon;
+use PDLNA::Status;
 use PDLNA::Utils;
 
 sub show
@@ -88,30 +91,30 @@ sub show
 	$response .= '</script>';
 
 	$response .= '<style type="text/css">';
-	$response .= 'body {';
+	$response .= 'body{';
 	$response .= 'font-family: "lucida grande", verdana, sans-serif;';
 	$response .= 'font-size: 10pt;';
 	$response .= 'color: #3d80df;';
 	$response .= '}';
-	$response .= '#container {';
+	$response .= '#container{';
 	$response .= 'width: 960px;';
 	$response .= 'margin-left: auto;';
 	$response .= 'margin-right: auto;';
 	$response .= 'border: 1px solid #3d80df;';
 	$response .= 'margin-top: 50px;';
 	$response .= '}';
-	$response .= '#content {';
+	$response .= '#content{';
 	$response .= 'float: left;';
 	$response .= 'width: 620px;';
 	$response .= 'padding-bottom: 20px;';
 	$response .= '}';
-	$response .= '#sidebar {';
+	$response .= '#sidebar{';
 	$response .= 'float: left;';
 	$response .= 'width: 340px;';
 	$response .= 'background-color: #3d80df;';
 	$response .= 'padding-bottom: 20px;';
 	$response .= '}';
-	$response .= '#footer {';
+	$response .= '#footer{';
 	$response .= 'clear:both;';
 	$response .= 'height: 40px;';
 	$response .= 'color: #fff;';
@@ -119,18 +122,21 @@ sub show
 	$response .= 'text-align: center;';
 	$response .= 'line-height: 3em;';
 	$response .= '}';
-	$response .= 'h3 {';
+	$response .= 'h3{';
 	$response .= 'font-size: 12pt;';
 	$response .= 'text-align: center;';
 	$response .= '}';
-	$response .= 'h5 {';
+	$response .= 'h5{';
 	$response .= 'color: #fff;';
 	$response .= 'font-size: 12pt;';
 	$response .= 'text-align: center;';
 	$response .= 'margin-bottom: -10px;';
 	$response .= '}';
-	$response .= 'a {';
+	$response .= 'a{';
 	$response .= 'color: #fff;';
+	$response .= '}';
+	$response .= 'div.info p a{';
+	$response .= 'color: #3d80df;';
 	$response .= '}';
 	$response .= 'table{';
 	$response .= 'width: 600px;';
@@ -172,6 +178,44 @@ sub show
 	$response .= 'li{';
 	$response .= 'display: block;';
 	$response .= 'margin-left: -15px;';
+	$response .= '}';
+	$response .= 'div.info, div.success, div.error{';
+	$response .= 'width: 600px;';
+	$response .= 'border: 1px solid;';
+	$response .= 'margin-left: auto;';
+	$response .= 'margin-right: auto;';
+	$response .= '}';
+	$response .= 'div.success{';
+	$response .= 'color: #4F8A10;';
+	$response .= 'background-color: #DFF2BF;';
+	$response .= '}';
+	$response .= 'div.info{';
+	$response .= 'color: #00529B;';
+	$response .= 'background-color: #BDE5F8;';
+	$response .= '}';
+	$response .= 'div.error{';
+	$response .= 'color: #D8000C;';
+	$response .= 'background-color: #ffbaba;';
+	$response .= '}';
+	$response .= 'div.info p, div.success p, div.error p{';
+	$response .= 'padding-left: 20px;';
+	$response .= 'padding-right: 20px;';
+	$response .= '}';
+	$response .= 'div.element{';
+	$response .= '}';
+	$response .= 'div.element.button{';
+	$response .= 'height: 60px;';
+	$response .= 'width: 600px;';
+	$response .= 'text-align: right;';
+	$response .= '}';
+	$response .= 'div.element.button input{';
+	$response .= 'margin-top: 15px;';
+	$response .= 'background-color: #3d80df;';
+	$response .= 'color: #ffffff;';
+	$response .= 'font-weight: bold;';
+	$response .= 'height: 28px;';
+	$response .= 'text-align: center;';
+	$response .= 'width: 165px;';
 	$response .= '}';
 	$response .= '</style>';
 
@@ -230,6 +274,7 @@ sub show
 	$response .= '<ul>';
 	$response .= '<li><a href="/webui/perf/pi">Process Information</a></li>';
 	$response .= '<li><a href="/webui/perf/cl">Media Library Information</a></li>';
+	$response .= '<li><a href="/webui/perf/pdlna">pDLNA Information</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
 
@@ -412,6 +457,54 @@ sub show
 		}
 		$response .= '</tbody>';
 		$response .= '</table>';
+	}
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pdlna')
+	{
+		$response .= '<table>';
+		$response .= '<thead>';
+		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+		$response .= '</thead>';
+		$response .= '<tbody>';
+		$response .= '<tr><td>pDLNA Version</td><td>'.PDLNA::Config::print_version().'</td></tr>';
+		$response .= '<tr><td>pDLNA Release Date</td><td>'.$CONFIG{'PROGRAM_DATE'}.'</td></tr>';
+		$response .= '</tbody>';
+		$response .= '</table>';
+
+		$response .= '<form action="/webui/perf/pdlna/check4update" method="post">';
+		$response .= '<div class="element button">';
+		$response .= '<input type="submit" class="submit" value="Check4Updates" />';
+		$response .= '</div>';
+		$response .= '</form>';
+
+		if (defined($nav[2]) && $nav[2] eq 'check4update')
+		{
+			my $http_response = PDLNA::Status::do_http_request();
+			if ($http_response->is_success)
+			{
+				my $xml_obj = XML::Simple->new();
+				my $xml = $xml_obj->XMLin($http_response->decoded_content());
+
+				if ($xml->{'response'}->{'resultID'} == 1 || $xml->{'response'}->{'resultID'} == 2)
+				{
+					$response .= '<div class="error"><p>Check4Updates was not successful: Invalid Request.</p></div>';
+				}
+				elsif ($xml->{'response'}->{'resultID'} == 3)
+				{
+					$response .= '<div class="info"><p>You are running the latest version of '.$CONFIG{'PROGRAM_NAME'}.'.</p></div>';
+				}
+				elsif ($xml->{'response'}->{'resultID'} == 4)
+				{
+					$response .= '<div class="info">';
+					$response .= '<p>A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: <strong>'.$xml->{'response'}->{'NewVersion'}.'</strong>.</p>';
+					$response .= '<p>Check the <a href="http://www.pdlna.com/cgi-bin/index.pl?menu=changelog&release='.$xml->{'response'}->{'NewVersion'}.'">Changelog</a> section on the project website for detailed information.</p>';
+					$response .= '</div>';
+				}
+			}
+			else
+			{
+				$response .= '<div class="error"><p>Check4Updates was not successful: HTTP Status Code '.$http_response->status_line().'.</p></div>';
+			}
+		}
 	}
 	$response .= '</div>';
 
