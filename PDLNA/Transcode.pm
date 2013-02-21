@@ -37,13 +37,13 @@ my %AUDIO_CODECS = (
 
 # this represents the beatuiful codec names and their container names
 my %AUDIO_CONTAINERS = (
-#	'aac' => 'aac',
+	'aac' => 'lavfpref',
 	'ac3' => 'lavf',
 	'flac' => 'audio',
 	'mp3' => 'audio',
 	'vorbis' => 'ogg',
-#	'wav' => 'audio',
-#	'wmav2' => 'asf',
+	'wav' => 'audio',
+	'wmav2' => 'asf',
 );
 
 # this represents the beatuiful codec names and their ffmpeg decoder formats
@@ -59,13 +59,13 @@ my %FFMPEG_DECODE_FORMATS = (
 
 # this represents the beatuiful codec names and their ffmpeg encoder formats
 my %FFMPEG_ENCODE_FORMATS = (
-#	'aac' => 'aac',
+	'aac' => 'm4v',
 	'ac3' => 'ac3',
 	'flac' => 'flac',
 	'mp3' => 'mp3',
 	'vorbis' => 'ogg',
-#	'wav' => 'wav',
-#	'wmav2' => 'asf',
+	'wav' => 'wav',
+	'wmav2' => 'asf',
 );
 
 # this represents the beautiful codec names and their ffmpeg decode codecs
@@ -75,19 +75,29 @@ my %FFMPEG_AUDIO_DECODE_CODECS = (
 	'flac' => 'flac',
 	'mp3' => 'mp3',
 	'vorbis' => 'vorbis',
-	'wav' => 'wavpack',
+	'wav' => 'pcm_s16le',
 	'wmav2' => 'wmav2',
 );
 
 # this represents the beautiful codec names and their ffmpeg encode codecs
 my %FFMPEG_AUDIO_ENCODE_CODECS = (
-#	'aac' => 'aac',
+	'aac' => 'libfaac',
 	'ac3' => 'ac3',
 	'flac' => 'flac',
 	'mp3' => 'libmp3lame',
 	'vorbis' => 'libvorbis',
-#	'wav' => 'pcm_s16le',
-#	'wmav2' => 'wmav2', # produces noise
+	'wav' => 'pcm_s16le',
+	'wmav2' => 'wmav2',
+);
+
+my %FFMPEG_AUDIO_ENCODE_PARAMS = (
+	'aac' => [],
+	'ac3' => [],
+	'flac' => [],
+	'mp3' => [],
+	'vorbis' => [],
+	'wav' => [],
+	'wmav2' => [ '-ab 32k', ],
 );
 
 sub is_supported_audio_decode_codec
@@ -187,7 +197,11 @@ sub get_transcode_command
 	my $audio_codec = shift;
 
 	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'"';
-	$command .= ' -acodec '.$FFMPEG_AUDIO_ENCODE_CODECS{$audio_codec};
+	$command .= ' -acodec '.$FFMPEG_AUDIO_ENCODE_CODECS{$audio_codec}.' ';
+	if (scalar @{$FFMPEG_AUDIO_ENCODE_PARAMS{$audio_codec}} > 0)
+	{
+		$command .= join(' ', @{$FFMPEG_AUDIO_ENCODE_PARAMS{$audio_codec}});
+	}
 	$command .= ' -f '.$FFMPEG_ENCODE_FORMATS{$audio_codec};
 	$command .= ' pipe: 2>/dev/null';
 
