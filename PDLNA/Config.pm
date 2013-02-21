@@ -87,6 +87,8 @@ our %CONFIG = (
 	'AUDIO_CODECS_DECODE' => [],
 	'VIDEO_CODECS_ENCODE' => [],
 	'VIDEO_CODECS_DECODE' => [],
+	'FORMATS_ENCODE' => [],
+	'FORMATS_DECODE' => [],
 	'OS' => $Config::Config{osname},
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
@@ -413,6 +415,10 @@ sub parse_config
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
+		unless (PDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
+		{
+			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
+		}
 	}
 	else
 	{
@@ -619,10 +625,12 @@ sub parse_config
 
 					if ($type eq 'AudioCodec')
 					{
+						#
+						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
+						#
 						my $ffmpeg_codec = undef;
 						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
 						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
-
 						if (defined($ffmpeg_codec))
 						{
 							my $tmp_string = 'AUDIO_CODECS_DECODE';
@@ -634,8 +642,8 @@ sub parse_config
 							}
 							else
 							{
-								my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
-								$tmp_msg .= 'AudioCodecIn '.$block->get('AudioCodecIn').' for transcoding is NOT supported by your FFmpeg installation';
+								my $tmp_msg = $transcode_error_msg.$type.$direction.' '.$block->get($type.$direction).' ';
+								$tmp_msg .= 'for transcoding is NOT supported by your FFmpeg installation';
 								push(@{$errormsg}, $tmp_msg);
 							}
 						}
@@ -643,6 +651,37 @@ sub parse_config
 						{
 							my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
 							$tmp_msg .= ' is not a supported '.$type.' for '.$type.$direction.' yet.';
+							push(@{$errormsg}, $tmp_msg);
+						}
+
+						#
+						# CHECK IF FFMPEG SUPPORTS THE FORMATS
+						#
+						my $format = undef;
+						$format = PDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$format = PDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+
+						if (defined($format))
+						{
+							my $tmp_string = 'FORMATS_DECODE';
+							$tmp_string = 'FORMATS_ENCODE' if $direction eq 'Out';
+
+							unless (grep(/^$format$/, @{$CONFIG{$tmp_string}}))
+							{
+								my $tmp_msg = $transcode_error_msg;
+								$tmp_msg .= 'Decode' if $direction eq 'In';
+								$tmp_msg .= 'Encode' if $direction eq 'Out';
+								$tmp_msg .= 'Format '.$format.' for transcoding of ';
+								$tmp_msg .= $block->get($type.$direction).' is NOT supported by your FFmpeg installation';
+								push(@{$errormsg}, $tmp_msg);
+							}
+						}
+						else
+						{
+							my $tmp_msg = $transcode_error_msg;
+							$tmp_msg .= 'Decode' if $direction eq 'In';
+							$tmp_msg .= 'Encode' if $direction eq 'Out';
+							$tmp_msg .= 'Format of '.$type.$direction.' is not supported yet.';
 							push(@{$errormsg}, $tmp_msg);
 						}
 					}

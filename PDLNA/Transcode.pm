@@ -46,8 +46,19 @@ my %AUDIO_CONTAINERS = (
 #	'wmav2' => 'asf',
 );
 
+# this represents the beatuiful codec names and their ffmpeg decoder formats
+my %FFMPEG_DECODE_FORMATS = (
+	'aac' => 'aac',
+	'ac3' => 'ac3',
+	'flac' => 'flac',
+	'mp3' => 'mp3',
+	'vorbis' => 'ogg',
+	'wav' => 'wav',
+	'wmav2' => 'asf',
+);
+
 # this represents the beatuiful codec names and their ffmpeg encoder formats
-my %FFMPEG_AUDIO_ENCODE_FORMATS = (
+my %FFMPEG_ENCODE_FORMATS = (
 #	'aac' => 'aac',
 	'ac3' => 'ac3',
 	'flac' => 'flac',
@@ -92,6 +103,22 @@ sub is_supported_audio_encode_codec
 	my $codec = shift;
 
 	return $FFMPEG_AUDIO_ENCODE_CODECS{$codec} if defined($FFMPEG_AUDIO_ENCODE_CODECS{$codec});
+	return undef;
+}
+
+sub get_decode_format_by_audio_codec
+{
+	my $codec = shift;
+
+	return $FFMPEG_DECODE_FORMATS{$codec} if defined($FFMPEG_DECODE_FORMATS{$codec});
+	return undef;
+}
+
+sub get_encode_format_by_audio_codec
+{
+	my $codec = shift;
+
+	return $FFMPEG_ENCODE_FORMATS{$codec} if defined($FFMPEG_ENCODE_FORMATS{$codec});
 	return undef;
 }
 
@@ -161,12 +188,51 @@ sub get_transcode_command
 
 	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'"';
 	$command .= ' -acodec '.$FFMPEG_AUDIO_ENCODE_CODECS{$audio_codec};
-	$command .= ' -f '.$FFMPEG_AUDIO_ENCODE_FORMATS{$audio_codec};
+	$command .= ' -f '.$FFMPEG_ENCODE_FORMATS{$audio_codec};
 	$command .= ' pipe: 2>/dev/null';
 
 	PDLNA::Log::log('Command for Transcoding Profile: '.$command.'.', 3, 'transcoding');
 
 	return $command;
+}
+
+sub get_ffmpeg_formats
+{
+	my $ffmpeg_bin = shift;
+	my $decode = shift;
+	my $encode = shift;
+
+	open(CMD, $CONFIG{'FFMPEG_BIN'}.' -formats 2>&1 |');
+	my @output = <CMD>;
+	close(CMD);
+
+	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	{
+		return 0;
+	}
+
+	foreach my $line (@output)
+	{
+		if ($line =~ /\s+([DE\s]{2})\s([a-z0-9\_]+)\s+/)
+		{
+			my $support = $1;
+			my $codec = $2;
+
+			next if !defined($support);
+			next if !defined($codec);
+
+			if (substr($support, 0, 1) eq 'D')
+			{
+				push(@{$decode}, $codec);
+			}
+			if (substr($support, 1, 1) eq 'E')
+			{
+				push(@{$encode}, $codec);
+			}
+		}
+	}
+
+	return 1;
 }
 
 sub get_ffmpeg_codecs
