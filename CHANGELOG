@@ -18,6 +18,7 @@ xx-xx-2013
 - changed way of configuring Transcoding Profiles
 - fixed a bug regarding not-mplayer-info-data in media library database
 - transcoding audio files to aac, ac3, flac, mp3, vorbis, wav and wmav2 is now available
+- added support for wmav1 encoded audio files
 
 Version 0.60.1
 14-02-2013

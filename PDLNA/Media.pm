@@ -72,6 +72,7 @@ my %AUDIO_CODECS = (
 	'mp3' => 'mp3',
 	'ffvorbis' => 'vorbis',
 	'pcm' => 'wav',
+	'ffwmav1' => 'wmav1',
 	'ffwmav2' => 'wmav2',
 	'ffmp3float' => 'mp3',
 	'ffaac' => 'aac',
@@ -111,8 +112,13 @@ my %CONTAINER = (
 		},
 	},
 	'asf' => {
-		'AudioCodecs' => ['ffwmav2', ],
+		'AudioCodecs' => ['ffwmav2', 'ffwmav1', ],
 		'VideoCodecs' => [],
+		'ffwmav1' => {
+			'MimeType' => 'audio/x-ms-wma',
+			'FileExtension' => 'wma',
+			'MediaType' => 'audio',
+		},
 		'ffwmav2' => {
 			'MimeType' => 'audio/x-ms-wma',
 			'FileExtension' => 'wma',
