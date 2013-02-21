@@ -22,6 +22,78 @@ use warnings;
 
 use PDLNA::Config;
 use PDLNA::Media;
+use PDLNA::Log;
+
+# this represents the beatuiful codec names and their internal (in the db) possible values
+my %AUDIO_CODECS = (
+	'aac' => [ 'faad', 'ffaac', ],
+	'ac3' => [ 'a52', 'ffac3', ],
+	'flac' => [ 'ffflac', ],
+	'mp3' => [ 'mp3', 'ffmp3float', ],
+	'vorbis' => [ 'ffvorbis', ],
+	'wav' => [ 'pcm', ],
+	'wmav2' => [ 'ffwmav2', ],
+);
+
+# this represents the beatuiful codec names and their container names
+my %AUDIO_CONTAINERS = (
+#	'aac' => 'aac',
+	'ac3' => 'lavf',
+	'flac' => 'audio',
+	'mp3' => 'audio',
+	'vorbis' => 'ogg',
+#	'wav' => 'audio',
+#	'wmav2' => 'asf',
+);
+
+# this represents the beatuiful codec names and their ffmpeg encoder formats
+my %FFMPEG_AUDIO_ENCODE_FORMATS = (
+#	'aac' => 'aac',
+	'ac3' => 'ac3',
+	'flac' => 'flac',
+	'mp3' => 'mp3',
+	'vorbis' => 'ogg',
+#	'wav' => 'wav',
+#	'wmav2' => 'asf',
+);
+
+# this represents the beautiful codec names and their ffmpeg decode codecs
+my %FFMPEG_AUDIO_DECODE_CODECS = (
+	'aac' => 'aac',
+	'ac3' => 'ac3',
+	'flac' => 'flac',
+	'mp3' => 'mp3',
+	'vorbis' => 'vorbis',
+	'wav' => 'wavpack',
+	'wmav2' => 'wmav2',
+);
+
+# this represents the beautiful codec names and their ffmpeg encode codecs
+my %FFMPEG_AUDIO_ENCODE_CODECS = (
+#	'aac' => 'aac',
+	'ac3' => 'ac3',
+	'flac' => 'flac',
+	'mp3' => 'libmp3lame',
+	'vorbis' => 'libvorbis',
+#	'wav' => 'pcm_s16le',
+#	'wmav2' => 'wmav2', # produces noise
+);
+
+sub is_supported_audio_decode_codec
+{
+	my $codec = shift;
+
+	return $FFMPEG_AUDIO_DECODE_CODECS{$codec} if defined($FFMPEG_AUDIO_DECODE_CODECS{$codec});
+	return undef;
+}
+
+sub is_supported_audio_encode_codec
+{
+	my $codec = shift;
+
+	return $FFMPEG_AUDIO_ENCODE_CODECS{$codec} if defined($FFMPEG_AUDIO_ENCODE_CODECS{$codec});
+	return undef;
+}
 
 sub shall_we_transcode
 {
@@ -33,16 +105,29 @@ sub shall_we_transcode
 		return 0;
 	}
 
+	PDLNA::Log::log('Looking for a matching Transcoding Profile for Container: '.$$media_data{'container'}.', AudioCodec: '.$$media_data{'audio_codec'}.'.', 2, 'transcoding');
+
 	foreach my $profile (@{$CONFIG{'TRANSCODING_PROFILES'}})
 	{
-		next if $$media_data{'container'} ne $profile->{'ContainerIn'};
+		next if $$media_data{'media_type'} ne $profile->{'MediaType'};
 
-		if ($$media_data{'media_type'} eq 'video')
+		my $matched_profile = 0;
+		if ($$media_data{'media_type'} eq 'audio')
 		{
-			next if $$media_data{'video_codec'} ne $profile->{'VideoIn'};
+			if (grep(/^$$media_data{'audio_codec'}$/, @{$AUDIO_CODECS{$profile->{'AudioCodecIn'}}}))
+			{
+				$matched_profile = 1;
+			}
 		}
-
-		next if $$media_data{'audio_codec'} ne $profile->{'AudioIn'};
+		elsif ($$media_data{'media_type'} eq 'video')
+		{
+			next;
+		}
+		else
+		{
+			next;
+		}
+		next if $matched_profile == 0;
 
 		my $matched_ip = 0;
 		foreach my $ip (@{$$profile{'ClientIPs'}})
@@ -51,13 +136,20 @@ sub shall_we_transcode
 		}
 		next if $matched_ip == 0;
 
-		$$media_data{'command'} = get_transcode_command($media_data, $profile->{'ContainerOut'}, $profile->{'VideoOut'}, $profile->{'AudioOut'});
-		$$media_data{'container'} = $profile->{'ContainerOut'};
-		$$media_data{'audio_codec'} = $profile->{'AudioOut'};
-		$$media_data{'video_codec'} = $profile->{'VideoOut'};
-		$$media_data{'file_extension'} = PDLNA::Media::details($profile->{'ContainerOut'}, undef, $profile->{'AudioOut'}, 'FileExtension');
-		$$media_data{'mime_type'} = PDLNA::Media::details($profile->{'ContainerOut'}, undef, $profile->{'AudioOut'}, 'MimeType');
-		return 1;
+		if ($$media_data{'media_type'} eq 'audio')
+		{
+			PDLNA::Log::log('Found a matching Transcoding Profile with Name: '.$profile->{'Name'}.'.', 2, 'transcoding');
+
+			$$media_data{'audio_codec'} = $AUDIO_CODECS{$profile->{'AudioCodecOut'}}->[0];
+			$$media_data{'container'} = $AUDIO_CONTAINERS{$profile->{'AudioCodecOut'}};
+			$$media_data{'file_extension'} = PDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'FileExtension');
+			$$media_data{'mime_type'} = PDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'MimeType');
+			PDLNA::Log::log("$$media_data{'container'}, $$media_data{'audio_codec'}, $$media_data{'file_extension'}, $$media_data{'mime_type'}", 3, 'transcoding');
+
+			$$media_data{'command'} = get_transcode_command($media_data, $profile->{'AudioCodecOut'});
+
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -65,14 +157,75 @@ sub shall_we_transcode
 sub get_transcode_command
 {
 	my $media_data = shift;
-	my $container = shift;
-	my $video_codec = shift || '';
 	my $audio_codec = shift;
 
-	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'" ';
-	$command .= PDLNA::Media::details($container, $video_codec, $audio_codec, 'FFmpegParam').' pipe: 2>/dev/null';
+	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'"';
+	$command .= ' -acodec '.$FFMPEG_AUDIO_ENCODE_CODECS{$audio_codec};
+	$command .= ' -f '.$FFMPEG_AUDIO_ENCODE_FORMATS{$audio_codec};
+	$command .= ' pipe: 2>/dev/null';
+
+	PDLNA::Log::log('Command for Transcoding Profile: '.$command.'.', 3, 'transcoding');
 
 	return $command;
+}
+
+sub get_ffmpeg_codecs
+{
+	my $ffmpeg_bin = shift;
+	my $audio_decode = shift;
+	my $audio_encode = shift;
+	my $video_decode = shift;
+	my $video_encode = shift;
+
+	my $exitcode = system($CONFIG{'FFMPEG_BIN'}.' -codecs > /dev/null 2>&1'); # FIX ME for WINDOWS
+	if (defined($exitcode) && $exitcode == 0)
+	{
+		open(CMD, $CONFIG{'FFMPEG_BIN'}.' -codecs 2>&1 |');
+	}
+	else
+	{
+		open(CMD, $CONFIG{'FFMPEG_BIN'}.' -formats 2>&1 |');
+	}
+	my @output = <CMD>;
+	close(CMD);
+
+	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	{
+		return 0;
+	}
+
+	foreach my $line (@output)
+	{
+		if ($line =~ /\s+([A-Z\s]{6})\s([a-z0-9\_]+)\s+/)
+		{
+			my $support = $1;
+			my $codec = $2;
+
+			next if !defined($support);
+			next if !defined($codec);
+
+			if (substr($support, 2, 1) eq 'A') # audio codecs
+			{
+				# $codec = PDLNA::Media::audio_codec_by_beautiful_name($codec);
+				# next unless defined($codec);
+
+				if (substr($support, 0, 1) eq 'D')
+				{
+					push(@{$audio_decode}, $codec);
+				}
+				if (substr($support, 1, 1) eq 'E')
+				{
+					push(@{$audio_encode}, $codec);
+				}
+			}
+			elsif (substr($support, 2, 1) eq 'V') # video codecs
+			{
+				# TODO transcoding profiles for videos
+			}
+		}
+	}
+
+	return 1;
 }
 
 1;

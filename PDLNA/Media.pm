@@ -65,6 +65,7 @@ my %SUBTITLES = (
 );
 
 my %AUDIO_CODECS = (
+	'ffac3' => 'ac3',
 	'a52' => 'ac3',
 	'faad' => 'aac',
 	'ffflac' => 'flac',
@@ -102,7 +103,6 @@ my %CONTAINER = (
 			'MimeType' => 'audio/x-flac',
 			'FileExtension' => 'flac',
 			'MediaType' => 'audio',
-			'FFmpegParam' => '-f flac',
 		},
 		'pcm' => {
 			'MimeType' => 'audio/x-wav',
@@ -153,7 +153,7 @@ my %CONTAINER = (
 		},
 	},
 	'lavf' => {
-		'AudioCodecs' => ['a52', 'pcm'],
+		'AudioCodecs' => ['a52', 'pcm', 'ffac3', ],
 		'VideoCodecs' => [],
 		'a52' => {
 			'MimeType' => 'audio/ac3',
@@ -165,10 +165,15 @@ my %CONTAINER = (
 			'FileExtension' => 'aif',
 			'MediaType' => 'audio',
 		},
+		'ffac3' => {
+			'MimeType' => 'audio/ac3',
+			'FileExtension' => 'ac3',
+			'MediaType' => 'audio',
+		},
 	},
 	'lavfpref' => {
 		'AudioCodecs' => ['faad', 'ffaac'],
-		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f'],
+		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f', 'ffvorbis', ],
 		'ffh264' => {
 			'MimeType' => 'video/x-flv',
 			'FileExtension' => 'flv',
@@ -193,6 +198,11 @@ my %CONTAINER = (
 			'MimeType' => 'video/x-flv',
 			'FileExtension' => 'flv',
 			'MediaType' => 'video',
+		},
+		'ffvorbis' => {
+			'MimeType' => 'video/x-theora+ogg',
+			'FileExtension' => 'ogg',
+			'MediaType' => 'audio',
 		},
 	},
 	'mkv' => {
@@ -293,12 +303,16 @@ sub container_supports_audio_codec
 sub container_supports_audio
 {
 	my $container = shift;
+
+	return 0 unless defined($container);
 	return scalar(@{$CONTAINER{$container}->{AudioCodecs}});
 }
 
 sub container_supports_video
 {
 	my $container = shift;
+
+	return 0 unless defined($container);
 	return scalar(@{$CONTAINER{$container}->{VideoCodecs}});
 }
 
@@ -471,6 +485,8 @@ sub get_mplayer_info
 	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
 	$$info{FILE_EXTENSION} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'FileExtension');
+
+	PDLNA::Log::log('PDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
 
 	return 1;
 }

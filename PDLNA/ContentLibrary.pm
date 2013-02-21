@@ -385,7 +385,7 @@ sub add_file_to_db
 		if (
 				$results[0]->{SIZE} != $fileinfo[7] ||
 				$results[0]->{DATE} != $fileinfo[9] ||
-				$results[0]->{MIME_TYPE} ne $$params{'mime_type'} ||
+#				$results[0]->{MIME_TYPE} ne $$params{'mime_type'} ||
 				$results[0]->{SEQUENCE} != $$params{'sequence'}
 			)
 		{
@@ -727,6 +727,14 @@ sub get_fileinfo
 				{
 					'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, DURATION = ?, BITRATE = ?, CONTAINER = ?, AUDIO_CODEC = ?, VIDEO_CODEC = ? WHERE FILEID_REF = ?',
 					'parameters' => [ $info{WIDTH}, $info{HEIGHT}, $info{DURATION}, $info{BITRATE}, $info{CONTAINER}, $info{AUDIO_CODEC}, $info{VIDEO_CODEC}, $id->{FILEID_REF}, ],
+				},
+			);
+
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE FILES SET MIME_TYPE = ?, TYPE = ?, FILE_EXTENSION = ? WHERE ID = ?',
+					'parameters' => [ $info{MIME_TYPE}, $info{TYPE}, $info{FILE_EXTENSION}, $id->{FILEID_REF}, ],
 				},
 			);
 

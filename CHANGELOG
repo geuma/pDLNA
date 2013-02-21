@@ -14,6 +14,10 @@ xx-xx-2013
 - reworked/improved the code for parsing received SSDP messages
 - PDLNA::DeviceList object has been moved to database (feature/issue #11 (https://github.com/geuma/pDLNA/issues/11))
 - added a Check4Updates button to the WebUI (feature/issue #12 (https://github.com/geuma/pDLNA/issues/12))
+- added transcoding LogCategory for information about the Transcoding Profile selection
+- changed way of configuring Transcoding Profiles
+- fixed a bug regarding not-mplayer-info-data in media library database
+- transcoding audio files to ac3, flac, mp3 and vorbis is now available
 
 Version 0.60.1
 14-02-2013
