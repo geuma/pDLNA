@@ -242,25 +242,6 @@ sub delete_expired_devices
 		}
 	}
 
-	# delete expired DEVICE_IP entries (with NO DEVICE_UDN entries)
-	my @device_ip = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID, LAST_SEEN FROM DEVICE_IP',
-			'parameters' => [ ],
-		},
-		\@device_ip,
-	);
-	foreach my $ip (@device_ip)
-	{
-		my $expire_time = $ip->{LAST_SEEN} + $CONFIG{CACHE_CONTROL};
-		if ($expire_time < $time && _get_device_udn_amount_by_device_ip_id($dbh, $ip->{ID}) == 0)
-		{
-			_delete_device_ip_by_id($dbh, $ip->{ID});
-		}
-	}
-
 	PDLNA::Database::disconnect($dbh);
 }
 

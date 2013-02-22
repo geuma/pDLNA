@@ -10,7 +10,7 @@
 - transcode subtitle files
 - implement specificViews (samsung feature)
 - more external scripts (online picture services like picasa and so on, youtube, ...)
-- transcoding (more audio codecs and video transcoding)
+- transcoding of videos
 - transcoding of images
 - per client transcoding profiles (currently only per ip address)
 - per client directory configuration
@@ -18,5 +18,6 @@
 - debian package, repo, rpm packages, ...
 - random music directory
 - more playlist support: Windows Media Player Playlist
-- set bookmark soap action (X_SetBookmark)
+- set bookmark soap action (X_SetBookmark) - started, but tv does not send the requests ???
 - ReuseAddr parameter for both SSDP sockets (working depends on installed modules and Perl version) - How to handle it?
+- add archives to the media library ???

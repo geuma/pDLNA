@@ -594,6 +594,82 @@ sub ctrl_content_directory_1
 		$response .= '</s:Body>';
 		$response .= '</s:Envelope>';
 	}
+	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_SetBookmark"')
+	{
+		PDLNA::Log::log('Handling X_SetBookmark request.', 2, 'httpdir');
+		if (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}) && defined($xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}))
+		{
+			my @device_ip = ();
+			PDLNA::Database::select_db(
+				$dbh,
+				{
+					'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
+					'parameters' => [ $peer_ip_addr, ],
+				},
+				\@device_ip,
+			);
+
+			if (defined($device_ip[0]->{ID}))
+			{
+				my @device_bm = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT POS_SECONDS FROM DEVICE_BM WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+						'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, ],
+					},
+					\@device_bm,
+				);
+
+				if (defined($device_bm[0]->{POS_SECONDS}))
+				{
+					PDLNA::Database::update_db(
+						$dbh,
+						{
+							'query' => 'UPDATE DEVICE_BM SET POS_SECONDS = ? WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, ],
+						}
+					);
+				}
+				else
+				{
+					PDLNA::Database::insert_db(
+						$dbh,
+						{
+							'query' => 'INSERT INTO DEVICE_BM (FILE_ID_REF, DEVICE_IP_REF, POS_SECONDS) VALUES (?,?,?)',
+							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, ],
+						}
+					);
+				}
+
+				$response = http_header({
+					'statuscode' => 200,
+				});
+				$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+				$response .= '<s:Body>';
+				$response .= '<u:X_SetBookmarkResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+				$response .= '</u:X_SetBookmarkResponse>';
+				$response .= '</s:Body>';
+				$response .= '</s:Envelope>';
+			}
+			else
+			{
+				PDLNA::Log::log('Unable to find matching DEVICE_IP database entry.', 2, 'httpdir');
+				return http_header({
+					'statuscode' => 501,
+					'content_type' => 'text/plain',
+				});
+			}
+		}
+		else
+		{
+			PDLNA::Log::log('Missing ObjectID or PosSecond parameter.', 2, 'httpdir');
+			return http_header({
+				'statuscode' => 501,
+				'content_type' => 'text/plain',
+			});
+		}
+	}
 	else
 	{
 		PDLNA::Log::log('Action: '.$action.' is NOT supported yet.', 2, 'httpdir');

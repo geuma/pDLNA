@@ -92,6 +92,7 @@ sub initialize_db
 			$dbh->do('DROP TABLE DIRECTORIES;') if grep(/^DIRECTORIES$/, @tables);
 			$dbh->do('DROP TABLE SUBTITLES;') if grep(/^SUBTITLES$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_IP;') if grep(/^DEVICE_IP$/, @tables);
+			$dbh->do('DROP TABLE DEVICE_BM;') if grep(/^DEVICE_BM$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_UDN;') if grep(/^DEVICE_UDN$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_NTS;') if grep(/^DEVICE_NTS$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_SERVICE;') if grep(/^DEVICE_SERVICE$/, @tables);
@@ -222,6 +223,18 @@ sub initialize_db
 		);
 	}
 
+	unless (grep(/^DEVICE_BM$/, @tables))
+	{
+		$dbh->do("CREATE TABLE DEVICE_BM (
+				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF		INTEGER,
+
+				FILE_ID_REF			INTEGER,
+				POS_SECONDS			INTEGER
+			);"
+		);
+	}
+
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_UDN (
@@ -284,6 +297,19 @@ sub select_db_array
 	{
 		push(@{$result}, $data);
 	}
+}
+
+sub select_db_field_int
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	my $sth = $dbh->prepare($$params{'query'});
+	$sth->execute(@{$$params{'parameters'}});
+	my $result = $sth->fetchrow_array();
+
+	return $result || 0;
 }
 
 sub select_db
