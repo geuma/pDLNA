@@ -929,11 +929,12 @@ sub get_amount_subfiles_by_id
 	my @files_amount = ();
 
 	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ?)';
+	my @sql_param = ( $object_id, );
 	PDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $sql_query,
-			'parameters' => [ $object_id, ],
+			'parameters' => \@sql_param,
 		},
 		\@files_amount,
 	);

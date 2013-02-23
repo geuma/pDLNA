@@ -24,7 +24,9 @@ use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::Database;
+use PDLNA::SpecificViews;
 use PDLNA::Transcode;
+use PDLNA::Utils;
 
 sub get_browseresponse_header
 {
@@ -60,6 +62,53 @@ sub get_browseresponse_footer
 		'</s:Envelope>',
 	);
 
+	return join('', @xml);
+}
+
+sub get_browseresponse_group_specific
+{
+	my $group_id = shift;
+	my $media_type = shift;
+	my $group_type = shift;
+	my $group_name = shift;
+	my $filter = shift;
+	my $dbh = shift;
+
+	my $group_elements_amount = PDLNA::SpecificViews::get_amount_of_items($dbh, $media_type, $group_type, $group_id);
+	my $group_parent_id = $media_type.'_'.$group_type;
+
+	my @xml = ();
+	push(@xml, '&lt;container ');
+	push(@xml, 'id=&quot;'.$group_parent_id.'_'.PDLNA::Utils::add_leading_char($group_id, 4, '0').'&quot; ') if grep(/^\@id$/, @{$filter});
+	push(@xml, 'parentID=&quot;'.$group_parent_id.'&quot; ') if grep(/^\@parentID$/, @{$filter});
+	push(@xml, 'restricted=&quot;1&quot; ') if grep(/^\@restricted$/, @{$filter});
+	push(@xml, 'childCount=&quot;'.$group_elements_amount.'&quot;&gt;') if grep(/^\@childCount$/, @{$filter});
+	push(@xml, '&lt;dc:title&gt;'.$group_name.'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
+	push(@xml, '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;') if grep(/^upnp:class$/, @{$filter});
+	push(@xml, '&lt;/container&gt;');
+
+	return join('', @xml);
+}
+
+sub get_browseresponse_item_specific
+{
+	my $item_id = shift;
+	my $media_type = shift;
+	my $group_type = shift;
+	my $group_id = shift;
+	my $filter = shift;
+	my $dbh = shift;
+	my $client_ip = shift;
+	my $user_agent = shift;
+
+	my $item_parent_id = $media_type.'_'.$group_type.'_'.PDLNA::Utils::add_leading_char($group_id, 4, '0');
+
+	my @xml = ();
+	push(@xml, '&lt;item ');
+	push(@xml, 'id=&quot;'.$item_parent_id.'_'.PDLNA::Utils::add_leading_char($item_id, 4, '0').'&quot; ') if grep(/^\@id$/, @{$filter});
+	push(@xml, 'parentID=&quot;'.$item_parent_id.'&quot; ') if grep(/^\@parentID$/, @{$filter});
+
+	get_browseresponse_item_detailed($item_id, $filter, $dbh, $client_ip, $user_agent, \@xml);
 	return join('', @xml);
 }
 
@@ -104,11 +153,25 @@ sub get_browseresponse_item
 	my @xml = ();
 	push(@xml, '&lt;item ');
 	push(@xml, 'id=&quot;'.$item_id.'&quot; ') if grep(/^\@id$/, @{$filter});
-
 	my $item_parent_id = PDLNA::ContentLibrary::get_parent_of_item_by_id($dbh, $item_id);
-
 	push(@xml, 'parentID=&quot;'.$item_parent_id.'&quot; ') if grep(/^\@parentID$/, @{$filter});
-	push(@xml, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
+
+	get_browseresponse_item_detailed($item_id, $filter, $dbh, $client_ip, $user_agent, \@xml);
+	return join('', @xml);
+}
+
+
+
+sub get_browseresponse_item_detailed
+{
+	my $item_id = shift;
+	my $filter = shift;
+	my $dbh = shift;
+	my $client_ip = shift;
+	my $user_agent = shift;
+	my $xml = shift;
+
+	push(@{$xml}, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
 
 	my @item = ();
 	PDLNA::Database::select_db(
@@ -120,11 +183,11 @@ sub get_browseresponse_item
 		\@item,
 	);
 
-	push(@xml, '&lt;dc:title&gt;'.$item[0]->{NAME}.'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
+	push(@{$xml}, '&lt;dc:title&gt;'.$item[0]->{NAME}.'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
 
 	if (grep(/^upnp:class$/, @{$filter}))
 	{
-		push(@xml, '&lt;upnp:class&gt;object.item.'.$item[0]->{TYPE}.'Item&lt;/upnp:class&gt;');
+		push(@{$xml}, '&lt;upnp:class&gt;object.item.'.$item[0]->{TYPE}.'Item&lt;/upnp:class&gt;');
 	}
 
 	my @iteminfo = ();
@@ -170,11 +233,11 @@ sub get_browseresponse_item
 
 	if ($item[0]->{TYPE} eq 'audio')
 	{
-		push(@xml, '&lt;upnp:artist&gt;'.$iteminfo[0]->{ARTIST}.'&lt;/upnp:artist&gt;') if grep(/^upnp:artist$/, @{$filter});
-		push(@xml, '&lt;dc:creator&gt;'.$iteminfo[0]->{ARTIST}.'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
-		push(@xml, '&lt;upnp:album&gt;'.$iteminfo[0]->{ALBUM}.'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
-		push(@xml, '&lt;upnp:genre&gt;'.$iteminfo[0]->{GENRE}.'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
-		push(@xml, '&lt;upnp:originalTrackNumber&gt;'.$iteminfo[0]->{TRACKNUM}.'&lt;/upnp:originalTrackNumber&gt;') if grep(/^upnp:originalTrackNumber$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:artist&gt;'.$iteminfo[0]->{ARTIST}.'&lt;/upnp:artist&gt;') if grep(/^upnp:artist$/, @{$filter});
+		push(@{$xml}, '&lt;dc:creator&gt;'.$iteminfo[0]->{ARTIST}.'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:album&gt;'.$iteminfo[0]->{ALBUM}.'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:genre&gt;'.$iteminfo[0]->{GENRE}.'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:originalTrackNumber&gt;'.$iteminfo[0]->{TRACKNUM}.'&lt;/upnp:originalTrackNumber&gt;') if grep(/^upnp:originalTrackNumber$/, @{$filter});
 		# albumArtURI
 	}
 	elsif ($item[0]->{TYPE} eq 'image')
@@ -188,10 +251,10 @@ sub get_browseresponse_item
 #		&lt;sec:color&gt;0&lt;/sec:color&gt;
 	}
 
-	push(@xml, '&lt;upnp:playbackCount&gt;0&lt;/upnp:playbackCount&gt;') if grep(/^upnp:playbackCount$/, @{$filter});
-	push(@xml, '&lt;sec:preference&gt;0&lt;/sec:preference&gt;') if grep(/^sec:preference$/, @{$filter});
-	push(@xml, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item[0]->{DATE}).'&lt;/dc:date&gt;') if grep(/^dc:date$/, @{$filter});
-	push(@xml, '&lt;sec:modifiationDate&gt;'. time2str("%Y-%m-%d", $item[0]->{DATE}).'&lt;/sec:modifiationDate&gt;') if grep(/^sec:modifiationDate$/, @{$filter});
+	push(@{$xml}, '&lt;upnp:playbackCount&gt;0&lt;/upnp:playbackCount&gt;') if grep(/^upnp:playbackCount$/, @{$filter});
+	push(@{$xml}, '&lt;sec:preference&gt;0&lt;/sec:preference&gt;') if grep(/^sec:preference$/, @{$filter});
+	push(@{$xml}, '&lt;dc:date&gt;'. time2str("%Y-%m-%d", $item[0]->{DATE}).'&lt;/dc:date&gt;') if grep(/^dc:date$/, @{$filter});
+	push(@{$xml}, '&lt;sec:modifiationDate&gt;'. time2str("%Y-%m-%d", $item[0]->{DATE}).'&lt;/sec:modifiationDate&gt;') if grep(/^sec:modifiationDate$/, @{$filter});
 
 	if (grep(/^sec:dcmInfo$/, @{$filter}))
 	{
@@ -242,10 +305,10 @@ sub get_browseresponse_item
 			push(@infos, 'BM='.$bookmark);
 		}
 
-		push(@xml, '&lt;sec:dcmInfo&gt;'.join(',', @infos).'&lt;/sec:dcmInfo&gt;');
+		push(@{$xml}, '&lt;sec:dcmInfo&gt;'.join(',', @infos).'&lt;/sec:dcmInfo&gt;');
 	}
 
-	push(@xml, '&lt;res ');
+	push(@{$xml}, '&lt;res ');
 	if ($item[0]->{TYPE} eq 'video')
 	{
 #		push(@xml, 'sec:acodec=&quot;'..'&quot; ');
@@ -254,21 +317,21 @@ sub get_browseresponse_item
 	}
 	if ($item[0]->{TYPE} eq 'audio' || $item[0]->{TYPE} eq 'video')
 	{
-		push(@xml, 'bitrate=&quot;'.$iteminfo[0]->{BITRATE}.'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
-		push(@xml, 'duration=&quot;'.PDLNA::ContentLibrary::duration($iteminfo[0]->{DURATION}).'&quot; ') if grep(/^res\@duration$/, @{$filter});
+		push(@{$xml}, 'bitrate=&quot;'.$iteminfo[0]->{BITRATE}.'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
+		push(@{$xml}, 'duration=&quot;'.PDLNA::ContentLibrary::duration($iteminfo[0]->{DURATION}).'&quot; ') if grep(/^res\@duration$/, @{$filter});
 	}
 	if ($item[0]->{TYPE} eq 'image' || $item[0]->{TYPE} eq 'video')
 	{
-		push(@xml, 'resolution=&quot;'.$iteminfo[0]->{WIDTH}.'x'.$iteminfo[0]->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
+		push(@{$xml}, 'resolution=&quot;'.$iteminfo[0]->{WIDTH}.'x'.$iteminfo[0]->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
 	if ($transcode == 0 || $item[0]->{EXTERNAL} == 0) # just add the size attribute if file is local and not transcoded
 	{
-		push(@xml, 'size=&quot;'.$item[0]->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
+		push(@{$xml}, 'size=&quot;'.$item[0]->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
 	}
-	push(@xml, 'protocolInfo=&quot;http-get:*:'.$item[0]->{MIME_TYPE}.':'.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}).'&quot; ');
-	push(@xml, '&gt;');
-	push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item[0]->{FILE_EXTENSION});
-	push(@xml, '&lt;/res&gt;');
+	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item[0]->{MIME_TYPE}.':'.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}).'&quot; ');
+	push(@{$xml}, '&gt;');
+	push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item[0]->{FILE_EXTENSION});
+	push(@{$xml}, '&lt;/res&gt;');
 
 	# File preview information
 	if (
@@ -276,11 +339,11 @@ sub get_browseresponse_item
 			($item[0]->{TYPE} eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item[0]->{TYPE} eq 'video' && $CONFIG{'VIDEO_THUMBNAILS'})
 		)
 	{
-		push(@xml, '&lt;res protocolInfo=');
-		push(@xml, '&quot;http-get:*:image/jpeg:'.PDLNA::Media::dlna_contentfeatures('JPEG_TN', 'image/jpeg').'&quot; ');
-		push(@xml, '&gt;');
-		push(@xml, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item_id.'.jpg');
-		push(@xml, '&lt;/res&gt;');
+		push(@{$xml}, '&lt;res protocolInfo=');
+		push(@{$xml}, '&quot;http-get:*:image/jpeg:'.PDLNA::Media::dlna_contentfeatures('JPEG_TN', 'image/jpeg').'&quot; ');
+		push(@{$xml}, '&gt;');
+		push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item_id.'.jpg');
+		push(@{$xml}, '&lt;/res&gt;');
 	}
 
 	# subtitles
@@ -298,12 +361,10 @@ sub get_browseresponse_item
 
 		foreach my $subtitle (@subtitles)
 		{
-			push(@xml, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$subtitle->{TYPE}.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.'.$subtitle->{TYPE}.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});
+			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$subtitle->{TYPE}.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.'.$subtitle->{TYPE}.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});
 		}
 	}
-	push(@xml, '&lt;/item&gt;');
-
-	return join('', @xml);
+	push(@{$xml}, '&lt;/item&gt;');
 }
 
 sub get_serverdescription

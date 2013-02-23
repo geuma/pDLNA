@@ -39,6 +39,7 @@ use PDLNA::Database;
 use PDLNA::Devices;
 use PDLNA::HTTPXML;
 use PDLNA::Log;
+use PDLNA::SpecificViews;
 use PDLNA::Transcode;
 use PDLNA::WebUI;
 
@@ -339,15 +340,12 @@ sub ctrl_content_directory_1
 	my $user_agent = shift;
 
 	my $dbh = PDLNA::Database::connect();
+	my $response_xml = undef;
 
 	PDLNA::Log::log("Function PDLNA::HTTPServer::ctrl_content_directory_1 called", 3, 'httpdir');
 
-	my $response = undef;
-
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		my $response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
-
 		my ($object_id, $starting_index, $requested_count, $filter, $browse_flag) = 0;
 		# determine which 'Browse' element was used
 		if (defined($xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'})) # coherence seems to use this one
@@ -383,6 +381,9 @@ sub ctrl_content_directory_1
 			});
 		}
 
+		#
+		# validate BrowseFlag
+		#
 		my @browsefilters = split(',', $filter) if length($filter) > 0;
 		if ($browse_flag eq 'BrowseMetadata')
 		{
@@ -411,6 +412,14 @@ sub ctrl_content_directory_1
 				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class', 'res@bitrate', 'res@duration');
 			}
 		}
+		else
+		{
+			PDLNA::Log::log('BrowseFlag: '.$browse_flag.' is NOT supported yet.', 2, 'httpdir');
+			return http_header({
+				'statuscode' => 501,
+				'content_type' => 'text/plain',
+			});
+		}
 
 		PDLNA::Log::log('Starting to handle Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
 		PDLNA::Log::log('StartingIndex: '.$starting_index.'.', 3, 'httpdir');
@@ -420,118 +429,166 @@ sub ctrl_content_directory_1
 
 		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount (in our case 10)
 
+
 		if ($object_id =~ /^\d+$/)
 		{
 			PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
-			if ($browse_flag eq 'BrowseDirectChildren' || $browse_flag eq 'BrowseMetadata')
+
+			#
+			# get the subdirectories for the object_id requested
+			#
+			my @dire_elements = ();
+			PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
+
+			#
+			# get the full amount of subdirectories for the object_id requested
+			#
+			my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($dbh, $object_id);
+
+			$requested_count = $requested_count - scalar(@dire_elements); # amount of @dire_elements is already in answer
+			if ($starting_index >= $amount_directories)
 			{
-				#
-				# get the subdirectories for the object_id requested
-				#
-				my @dire_elements = ();
-				PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
+				$starting_index = $starting_index - $amount_directories;
+			}
 
-				#
-				# get the full amount of subdirectories for the object_id requested
-				#
-				my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($dbh, $object_id);
+			#
+			# get the files for the directory requested
+			#
+			my @file_elements = ();
+			PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
 
-				$requested_count = $requested_count - scalar(@dire_elements); # amount of @dire_elements is already in answer
-				if ($starting_index >= $amount_directories)
+			#
+			# get the full amount of files in the directory requested
+			#
+			my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
+
+			#
+			# build the http response
+			#
+			$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+
+			foreach my $directory (@dire_elements)
+			{
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
+					$directory->{ID},
+					$directory->{NAME},
+					\@browsefilters,
+					$dbh,
+				);
+			}
+
+			foreach my $file (@file_elements)
+			{
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_item($file->{ID}, \@browsefilters, $dbh, $peer_ip_addr, $user_agent);
+			}
+
+			my $elements_in_listing = scalar(@dire_elements) + scalar(@file_elements);
+			my $elements_in_directory = $amount_directories + $amount_files;
+
+			$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
+			PDLNA::Log::log('Done preparing answer for numeric Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
+		}
+		elsif ($object_id =~ /^(\w)\_(\w)\_{0,1}(\d*)\_{0,1}(\d*)/)
+		{
+			PDLNA::Log::log('Received SpecificView Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
+
+			my $media_type = $1;
+			my $group_type = $2;
+			my $group_id = $3;
+			my $item_id = $4;
+
+			unless (PDLNA::SpecificViews::supported_request($media_type, $group_type))
+			{
+				PDLNA::Log::log('SpecificView: '.$media_type.'_'.$group_type.' is NOT supported yet.', 2, 'httpdir');
+				return http_header({
+					'statuscode' => 501,
+					'content_type' => 'text/plain',
+				});
+			}
+
+			if (length($group_id) == 0)
+			{
+				my @group_elements = ();
+				PDLNA::SpecificViews::get_groups($dbh, $media_type, $group_type, $starting_index, $requested_count, \@group_elements);
+				my $amount_groups = PDLNA::SpecificViews::get_amount_of_groups($dbh, $media_type, $group_type);
+
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+				foreach my $group (@group_elements)
 				{
-					$starting_index = $starting_index - $amount_directories;
-				}
-
-				#
-				# get the files for the directory requested
-				#
-				my @file_elements = ();
-				PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
-
-				#
-				# get the full amount of files in the directory requested
-				#
-				my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
-
-				#
-				# build the http response
-				#
-				foreach my $directory (@dire_elements)
-				{
-					$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
-						$directory->{ID},
-						$directory->{NAME},
+					$response_xml .= PDLNA::HTTPXML::get_browseresponse_group_specific(
+						$group->{ID},
+						$media_type,
+						$group_type,
+						$group->{NAME},
 						\@browsefilters,
 						$dbh,
 					);
 				}
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer(scalar(@group_elements), $amount_groups);
+			}
+			elsif (length($group_id) > 0 && length($item_id) == 0)
+			{
+				$group_id = PDLNA::Utils::remove_leading_char($group_id, '0');
 
-				foreach my $file (@file_elements)
+				my @item_elements = ();
+				PDLNA::SpecificViews::get_items($dbh, $media_type, $group_type, $group_id, $starting_index, $requested_count, \@item_elements);
+				my $amount_items = PDLNA::SpecificViews::get_amount_of_items($dbh, $media_type, $group_type, $group_id);
+
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+				foreach my $item (@item_elements)
 				{
-					$response_xml .= PDLNA::HTTPXML::get_browseresponse_item($file->{ID}, \@browsefilters, $dbh, $peer_ip_addr, $user_agent);
+					$response_xml .= PDLNA::HTTPXML::get_browseresponse_item_specific(
+						$item->{ID},
+						$media_type,
+						$group_type,
+						$group_id,
+						\@browsefilters,
+						$dbh,
+						$peer_ip_addr,
+						$user_agent,
+					);
 				}
-
-				my $elements_in_listing = scalar(@dire_elements) + scalar(@file_elements);
-				my $elements_in_directory = $amount_directories + $amount_files;
-
-				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
+				$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer(scalar(@item_elements), $amount_items);
 			}
 			else
 			{
-				PDLNA::Log::log('BrowseFlag: '.$browse_flag.' is NOT supported yet.', 2, 'httpdir');
+				PDLNA::Log::log('SpecificView: Unable to understand request for ObjectID '.$object_id.'.', 2, 'httpdir');
 				return http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
 				});
 			}
 		}
-
-		$response = http_header({
-			'statuscode' => 200,
-			'log' => 'httpdir',
-			'content_length' => length($response_xml),
-			'content_type' => 'text/xml; charset=utf8',
-		});
-		$response .= $response_xml;
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSearchCapabilities"')
 	{
-		$response = http_header({
-			'statuscode' => 200,
-		});
-		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-		$response .= '<s:Body>';
-		$response .= '<u:GetSearchCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<SearchCaps></SearchCaps>';
-		$response .= '</u:GetSearchCapabilitiesResponse>';
-		$response .= '</s:Body>';
-		$response .= '</s:Envelope>';
+		$response_xml .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response_xml .= '<s:Body>';
+		$response_xml .= '<u:GetSearchCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response_xml .= '<SearchCaps></SearchCaps>';
+		$response_xml .= '</u:GetSearchCapabilitiesResponse>';
+		$response_xml .= '</s:Body>';
+		$response_xml .= '</s:Envelope>';
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSortCapabilities"')
 	{
-		$response = http_header({
-			'statuscode' => 200,
-		});
-		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-		$response .= '<s:Body>';
-		$response .= '<u:GetSortCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<SortCaps></SortCaps>';
-		$response .= '</u:GetSortCapabilitiesResponse>';
-		$response .= '</s:Body>';
-		$response .= '</s:Envelope>';
+		$response_xml .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response_xml .= '<s:Body>';
+		$response_xml .= '<u:GetSortCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response_xml .= '<SortCaps></SortCaps>';
+		$response_xml .= '</u:GetSortCapabilitiesResponse>';
+		$response_xml .= '</s:Body>';
+		$response_xml .= '</s:Envelope>';
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#GetSystemUpdateID"')
 	{
-		$response = http_header({
-			'statuscode' => 200,
-		});
-		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-		$response .= '<s:Body>';
-		$response .= '<u:GetSystemUpdateIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<Id>0</Id>';
-		$response .= '</u:GetSystemUpdateIDResponse>';
-		$response .= '</s:Body>';
-		$response .= '</s:Envelope>';
+		$response_xml .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response_xml .= '<s:Body>';
+		$response_xml .= '<u:GetSystemUpdateIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response_xml .= '<Id>0</Id>';
+		$response_xml .= '</u:GetSystemUpdateIDResponse>';
+		$response_xml .= '</s:Body>';
+		$response_xml .= '</s:Envelope>';
 	}
 	# OLD CODE
 #	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetObjectIDfromIndex"')
@@ -582,17 +639,13 @@ sub ctrl_content_directory_1
 	# TODO X_GetIndexfromRID (i think it might be the question, to which item the tv should jump ... but currently i don't understand the question (<RID></RID>)
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_GetIndexfromRID"')
 	{
-		$response = http_header({
-			'statuscode' => 200,
-		});
-
-		$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-		$response .= '<s:Body>';
-		$response .= '<u:X_GetIndexfromRIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-		$response .= '<Index>0</Index>'; # we are setting it to 0 - so take the first item in the list to be active
-		$response .= '</u:X_GetIndexfromRIDResponse>';
-		$response .= '</s:Body>';
-		$response .= '</s:Envelope>';
+		$response_xml .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+		$response_xml .= '<s:Body>';
+		$response_xml .= '<u:X_GetIndexfromRIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+		$response_xml .= '<Index>0</Index>'; # we are setting it to 0 - so take the first item in the list to be active
+		$response_xml .= '</u:X_GetIndexfromRIDResponse>';
+		$response_xml .= '</s:Body>';
+		$response_xml .= '</s:Envelope>';
 	}
 	elsif ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#X_SetBookmark"')
 	{
@@ -642,15 +695,12 @@ sub ctrl_content_directory_1
 					);
 				}
 
-				$response = http_header({
-					'statuscode' => 200,
-				});
-				$response .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
-				$response .= '<s:Body>';
-				$response .= '<u:X_SetBookmarkResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
-				$response .= '</u:X_SetBookmarkResponse>';
-				$response .= '</s:Body>';
-				$response .= '</s:Envelope>';
+				$response_xml .= '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">';
+				$response_xml .= '<s:Body>';
+				$response_xml .= '<u:X_SetBookmarkResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">';
+				$response_xml .= '</u:X_SetBookmarkResponse>';
+				$response_xml .= '</s:Body>';
+				$response_xml .= '</s:Envelope>';
 			}
 			else
 			{
@@ -679,6 +729,29 @@ sub ctrl_content_directory_1
 		});
 	}
 
+	#
+	# RETURN THE ANSWER
+	#
+	my $response = undef;
+	if (defined($response_xml))
+	{
+		$response = http_header({
+			'statuscode' => 200,
+			'log' => 'httpdir',
+			'content_length' => length($response_xml),
+			'content_type' => 'text/xml; charset=utf8',
+		});
+		$response .= $response_xml;
+		PDLNA::Log::log('Response: '.$response, 3, 'httpdir');
+	}
+	else
+	{
+		PDLNA::Log::log('No Response.', 2, 'httpdir');
+		$response = http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+		});
+	}
 	return $response;
 }
 

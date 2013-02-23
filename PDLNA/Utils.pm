@@ -55,6 +55,18 @@ sub add_leading_char
 	return $string;
 }
 
+sub remove_leading_char
+{
+	my $string = shift || '';
+	my $char = shift;
+
+	while ($string =~ /^$char/)
+	{
+		substr($string, 0, 1) = '';
+	}
+	return $string;
+}
+
 sub convert_bytes
 {
 	my $bytes = shift || 0;
