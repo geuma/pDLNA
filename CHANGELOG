@@ -20,6 +20,7 @@ xx-xx-2013
 - transcoding audio files to aac, ac3, flac, mp3, vorbis, wav and wmav2 is now available
 - added support for wmav1 encoded audio files
 - some minor changes to the directory listing code
+- fix/workaround for issue #4 (auto detection on FreeBSD) - Net::Interface might have problems to find the matching interface sometimes
 
 Version 0.60.1
 14-02-2013

@@ -235,7 +235,14 @@ sub parse_config
 	else # AllowedClients is not defined, so take the local subnet
 	{
 		my $interface = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
-		push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
+		if (defined($interface))
+		{
+			push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
+		}
+		else
+		{
+			push(@{$errormsg}, 'Unable to autodetect AllowedClient configuration parameter. Please specify it in the configuration file.');
+		}
 	}
 
 	#
