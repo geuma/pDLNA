@@ -104,7 +104,7 @@ sub add_device
 				my $xml = eval { $xs->XMLin($response) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::DeviceUDN:'.$@, 3, 'discovery');
+					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::Devices:'.$@, 3, 'discovery');
 				}
 				else
 				{
@@ -139,27 +139,30 @@ sub add_device
 			}
 		}
 
-		PDLNA::Database::insert_db(
-			$dbh,
-			{
-				'query' => 'INSERT INTO DEVICE_UDN (DEVICE_IP_REF, UDN, SSDP_BANNER, DESC_URL, RELA_URL, BASE_URL, TYPE, MODEL_NAME, FRIENDLY_NAME) VALUES (?,?,?,?,?,?,?,?,?)',
-				'parameters' => [ $device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname, ],
-			},
-		);
-		$device_udn_id = _get_device_udn_id_by_device_ip_id($dbh, $device_ip_id, $$params{'udn'});
-
-		# create the DEVICE_SERVICE entries
-		foreach my $service (keys %services)
+		if (defined($device_udn_modelname) && defined($device_udn_friendlyname))
 		{
-			if (defined($services{$service}->{'serviceId'}) && defined($services{$service}->{'controlURL'}) && defined($services{$service}->{'eventSubURL'}) && defined($services{$service}->{'SCPDURL'}))
+			PDLNA::Database::insert_db(
+				$dbh,
+				{
+					'query' => 'INSERT INTO DEVICE_UDN (DEVICE_IP_REF, UDN, SSDP_BANNER, DESC_URL, RELA_URL, BASE_URL, TYPE, MODEL_NAME, FRIENDLY_NAME) VALUES (?,?,?,?,?,?,?,?,?)',
+					'parameters' => [ $device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname, ],
+				},
+			);
+			$device_udn_id = _get_device_udn_id_by_device_ip_id($dbh, $device_ip_id, $$params{'udn'});
+
+			# create the DEVICE_SERVICE entries
+			foreach my $service (keys %services)
 			{
-				PDLNA::Database::insert_db(
-					$dbh,
-					{
-						'query' => 'INSERT INTO DEVICE_SERVICE (DEVICE_UDN_REF, SERVICE_ID, TYPE, CONTROL_URL, EVENT_URL, SCPD_URL) VALUES (?,?,?,?,?,?)',
-						'parameters' => [ $device_udn_id, $services{$service}->{'serviceId'}, $services{$service}->{'serviceType'}, $services{$service}->{'controlURL'}, $services{$service}->{'eventSubURL'}, $services{$service}->{'SCPDURL'}, ],
-					},
-				);
+				if (defined($services{$service}->{'serviceId'}) && defined($services{$service}->{'controlURL'}) && defined($services{$service}->{'eventSubURL'}) && defined($services{$service}->{'SCPDURL'}))
+				{
+					PDLNA::Database::insert_db(
+						$dbh,
+						{
+							'query' => 'INSERT INTO DEVICE_SERVICE (DEVICE_UDN_REF, SERVICE_ID, TYPE, CONTROL_URL, EVENT_URL, SCPD_URL) VALUES (?,?,?,?,?,?)',
+							'parameters' => [ $device_udn_id, $services{$service}->{'serviceId'}, $services{$service}->{'serviceType'}, $services{$service}->{'controlURL'}, $services{$service}->{'eventSubURL'}, $services{$service}->{'SCPDURL'}, ],
+						},
+					);
+				}
 			}
 		}
 	}
