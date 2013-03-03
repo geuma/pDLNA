@@ -114,7 +114,8 @@ sub process_directory
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
 
-	PDLNA::Utils::escape_brackets($$params{'path'});
+	$$params{'path'} = PDLNA::Utils::escape_brackets($$params{'path'});
+	PDLNA::Log::log('Globbing directory: '.PDLNA::Utils::create_filesystem_path([ $$params{'path'}, '*', ]).'.', 2, 'library');
 	my @elements = bsd_glob(PDLNA::Utils::create_filesystem_path([ $$params{'path'}, '*', ]));
 	foreach my $element (sort @elements)
 	{
@@ -304,6 +305,7 @@ sub add_directory_to_db
 				'parameters' => [ basename($path), $path, dirname($path), $rootdir, $type ],
 			},
 		);
+		PDLNA::Log::log('Added directory '.$path.' to ContentLibrary.', 2, 'library');
 	}
 }
 

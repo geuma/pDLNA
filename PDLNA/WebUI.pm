@@ -444,15 +444,41 @@ sub show
 			\@results2,
 		);
 
+		my @results3 = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
+				'parameters' => [ ],
+			},
+			\@results3,
+		);
+
+		my @results4 = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT value FROM METADATA WHERE key = ?',
+				'parameters' => [ 'TIMESTAMP', ],
+			},
+			\@results4,
+		);
+
 		$response .= '<table>';
 		$response .= '<thead>';
 		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 		$response .= '</thead>';
 		$response .= '<tbody>';
+		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $results4[0]->{VALUE}).'</td></tr>';
 		$response .= '<tr><td>Media Items</td><td>'.$results[0]->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).')</td></tr>';
+		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($results3[0]->{SUMDURATION}).' ('.$results3[0]->{SUMDURATION}.' seconds)</td></tr>';
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 		foreach my $result (@results2)
 		{
+			if (!defined($result->{TYPE}) || length($result->{TYPE}) == 0)
+			{
+				$result->{TYPE} = 'unknown';
+			}
 			$response .= '<tr><td>'.ucfirst($result->{TYPE}).' Items</td><td>'.$result->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($result->{SIZE}).')</td></tr>';
 		}
 		$response .= '</tbody>';

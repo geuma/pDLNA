@@ -80,6 +80,30 @@ sub convert_bytes
 	return sprintf("%.2f", $bytes).' '.$size[$ctr];
 }
 
+sub convert_duration
+{
+	my $duration_seconds = shift || 0;
+
+	my $seconds = $duration_seconds;
+	my $minutes = 0;
+	$minutes = int($seconds / 60) if $seconds > 59;
+	$seconds -= $minutes * 60 if $seconds;
+	my $hours = 0;
+	$hours = int($minutes / 60) if $minutes > 59;
+	$minutes -= $hours * 60 if $hours;
+	my $days = 0;
+	$days = int($hours / 24) if $hours > 23;
+	$hours -= $days * 24 if $days;
+
+	my $string = '';
+	$string .= $days.'d ' if $days;
+	$string .= add_leading_char($hours,2,'0').':';
+	$string .= add_leading_char($minutes,2,'0').':';
+	$string .= add_leading_char($seconds,2,'0');
+
+	return $string;
+}
+
 # well, it is not real random ... but it's adequate
 sub get_randid
 {
@@ -144,7 +168,7 @@ sub escape_brackets
 	my $string = shift;
 
 	$string =~ s/\[/\\[/g;
-	$string =~ s/\]/\\[/g;
+	$string =~ s/\]/\\]/g;
 
 	return $string;
 }

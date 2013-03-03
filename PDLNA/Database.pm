@@ -290,7 +290,7 @@ sub select_db_array
 	my $params = shift;
 	my $result = shift;
 
-	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}});
 	while (my $data = $sth->fetchrow_array())
@@ -304,7 +304,7 @@ sub select_db_field_int
 	my $dbh = shift;
 	my $params = shift;
 
-	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}});
 	my $result = $sth->fetchrow_array();
@@ -318,7 +318,7 @@ sub select_db
 	my $params = shift;
 	my $result = shift;
 
-	PDLNA::Log::log('SELECT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}});
 	while (my $data = $sth->fetchrow_hashref)
@@ -332,7 +332,7 @@ sub insert_db
 	my $dbh = shift;
 	my $params = shift;
 
-	PDLNA::Log::log('INSERT:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 }
@@ -342,7 +342,7 @@ sub update_db
 	my $dbh = shift;
 	my $params = shift;
 
-	PDLNA::Log::log('UPDATE:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
 }
@@ -352,9 +352,34 @@ sub delete_db
 	my $dbh = shift;
 	my $params = shift;
 
-	PDLNA::Log::log('DELETE:'.$$params{'query'}.' - '.join(', ', @{$$params{'parameters'}}), 1, 'database');
+	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+}
+
+#
+# HELPER FUNCTIONS
+#
+
+sub _log_query
+{
+	my $params = shift;
+
+	my $parameters = '';
+	foreach my $param (@{$$params{'parameters'}})
+	{
+		if (defined($param))
+		{
+			$parameters .= $param.', ';
+		}
+		else
+		{
+			$parameters .= 'undefined, ';
+		}
+	}
+	substr($parameters, -2) = '';
+
+	PDLNA::Log::log($$params{'query'}.' - '.$parameters, 1, 'database');
 }
 
 1;
