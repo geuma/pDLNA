@@ -732,13 +732,16 @@ sub get_fileinfo
 				},
 			);
 
-			PDLNA::Database::update_db(
-				$dbh,
-				{
-					'query' => 'UPDATE FILES SET MIME_TYPE = ?, TYPE = ?, FILE_EXTENSION = ? WHERE ID = ?',
-					'parameters' => [ $info{MIME_TYPE}, $info{TYPE}, $info{FILE_EXTENSION}, $id->{FILEID_REF}, ],
-				},
-			);
+			if (defined($info{TYPE}) && defined($info{MIME_TYPE}) && defined($info{FILE_EXTENSION}))
+			{
+				PDLNA::Database::update_db(
+					$dbh,
+					{
+						'query' => 'UPDATE FILES SET MIME_TYPE = ?, TYPE = ?, FILE_EXTENSION = ? WHERE ID = ?',
+						'parameters' => [ $info{MIME_TYPE}, $info{TYPE}, $info{FILE_EXTENSION}, $id->{FILEID_REF}, ],
+					},
+				);
+			}
 
 			if ($file[0]->{TYPE} eq 'video')
 			{

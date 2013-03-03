@@ -21,6 +21,8 @@ xx-xx-2013
 - added support for wmav1 encoded audio files
 - some minor changes to the directory listing code
 - fix/workaround for issue #4 (auto detection on FreeBSD) - Net::Interface might have problems to find the matching interface sometimes
+- added more information to WebUI
+- fixed a bug regarding escaping brackets in directory names
 
 Version 0.60.1
 14-02-2013
