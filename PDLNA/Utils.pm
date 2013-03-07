@@ -94,8 +94,12 @@ sub convert_duration
 	my $days = 0;
 	$days = int($hours / 24) if $hours > 23;
 	$hours -= $days * 24 if $days;
+	my $weeks = 0;
+	$weeks = int($days / 7) if $days > 6;
+	$days -= $weeks * 7 if $weeks;
 
 	my $string = '';
+	$string .= $weeks.'w ' if $weeks;
 	$string .= $days.'d ' if $days;
 	$string .= add_leading_char($hours,2,'0').':';
 	$string .= add_leading_char($minutes,2,'0').':';

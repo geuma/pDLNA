@@ -941,7 +941,7 @@ sub stream_media
 		{
 			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 		{
-				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}));
+				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
 			}
 			else
 			{
@@ -980,7 +980,7 @@ sub stream_media
 
 				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 				{
-					push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}));
+					push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
 				}
 			}
 			else
@@ -1013,7 +1013,7 @@ sub stream_media
 
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
-						push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}));
+						push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
 					}
 				}
 			}

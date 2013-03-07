@@ -328,7 +328,7 @@ sub get_browseresponse_item_detailed
 	{
 		push(@{$xml}, 'size=&quot;'.$item[0]->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
 	}
-	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item[0]->{MIME_TYPE}.':'.PDLNA::Media::dlna_contentfeatures($item[0]->{TYPE}, $item[0]->{MIME_TYPE}).'&quot; ');
+	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item[0]->{MIME_TYPE}.':'.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode).'&quot; ');
 	push(@{$xml}, '&gt;');
 	push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item[0]->{FILE_EXTENSION});
 	push(@{$xml}, '&lt;/res&gt;');
@@ -340,7 +340,7 @@ sub get_browseresponse_item_detailed
 		)
 	{
 		push(@{$xml}, '&lt;res protocolInfo=');
-		push(@{$xml}, '&quot;http-get:*:image/jpeg:'.PDLNA::Media::dlna_contentfeatures('JPEG_TN', 'image/jpeg').'&quot; ');
+		push(@{$xml}, '&quot;http-get:*:image/jpeg:'.PDLNA::Media::get_dlnacontentfeatures(undef, 1, 'JPEG_TN').'&quot; ');
 		push(@{$xml}, '&gt;');
 		push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/preview/'.$item_id.'.jpg');
 		push(@{$xml}, '&lt;/res&gt;');
