@@ -80,8 +80,33 @@ sub handle_connection
 	my $peer_ip_addr = shift;
 	my $peer_src_port = shift;
 
-	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
+	my $response = undef;
 
+	PDLNA::Log::log('Incoming HTTP connection from '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
+
+	# Check if the peer is one of our allowed clients
+	my $client_allowed = 0;
+	foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
+	{
+		$client_allowed++ if $block->match($peer_ip_addr);
+	}
+
+	unless ($client_allowed)
+	{
+		PDLNA::Log::log('Received HTTP request from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'httpgeneric');
+		$response = http_header({
+			'statuscode' => 403,
+			'content_type' => 'text/plain',
+		});
+
+		print $FH $response;
+		close($FH);
+		return 0;
+	}
+
+	#
+	# PARSING HTTP REQUEST
+	#
 	binmode($FH);
 
 	my %CGI = ();
@@ -90,7 +115,7 @@ sub handle_connection
 	my $post_xml = undef;
 	my $request_line = <$FH>;
 	my $first_line = '';
-	while ($request_line ne "\r\n")
+	while (defined($request_line) && $request_line ne "\r\n")
 	{
 		next unless $request_line;
 		$request_line =~ s/\r\n//g;
@@ -117,6 +142,19 @@ sub handle_connection
 		$request_line = <$FH>;
 	}
 
+	if (!defined($ENV{'METHOD'}) || !defined($ENV{'OBJECT'}))
+	{
+		PDLNA::Log::log('Error parsing HTTP request from '.$peer_ip_addr.':'.$peer_src_port.'.', 2, 'httpstream');
+		$response = http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+		});
+
+		print $FH $response;
+		close($FH);
+		return 0;
+	}
+
 	my $debug_string = '';
 	foreach my $key (keys %CGI)
 	{
@@ -124,7 +162,9 @@ sub handle_connection
 	}
 	PDLNA::Log::log($ENV{'METHOD'}.' '.$ENV{'OBJECT'}.' from '.$peer_ip_addr.':'.$peer_src_port.':'.$debug_string, 3, 'httpgeneric');
 
-	# reading POSTDATA
+	#
+	# Reading POSTDATA, PARSING XML
+	#
 	if ($ENV{'METHOD'} eq "POST")
 	{
 		if (defined($CGI{'CONTENT-LENGTH'}) && length($CGI{'CONTENT-LENGTH'}) > 0)
@@ -138,6 +178,7 @@ sub handle_connection
 			$CGI{'POSTDATA'} = <$FH>;
 		}
 		PDLNA::Log::log('POSTDATA: '.$CGI{'POSTDATA'}, 3, 'httpgeneric');
+
 		my $xmlsimple = XML::Simple->new();
 		eval { $post_xml = $xmlsimple->XMLin($CGI{'POSTDATA'}) };
 		if ($@)
@@ -150,151 +191,119 @@ sub handle_connection
 		}
 	}
 
-	PDLNA::Log::log('Handling HTTP connection for '.$peer_ip_addr.':'.$peer_src_port.'.', 3, 'httpgeneric');
-	# Check if the peer is one of our allowed clients
-	my $client_allowed = 0;
-	foreach my $block (@{$CONFIG{'ALLOWED_CLIENTS'}})
-	{
-		$client_allowed++ if $block->match($peer_ip_addr);
-	}
+	# adding device and/or request to Devices tables
+	my $dbh = PDLNA::Database::connect();
+	PDLNA::Devices::add_device(
+		$dbh,
+		{
+			'ip' => $peer_ip_addr,
+			'http_useragent' => $CGI{'USER-AGENT'},
+		},
+	);
+	my $model_name = PDLNA::Devices::get_modelname_by_devicetype($dbh, $peer_ip_addr, 'urn:schemas-upnp-org:device:MediaRenderer:1');
+	PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 2, 'httpgeneric');
+	PDLNA::Database::disconnect($dbh);
 
-	# handling different HTTP requests
-	if ($client_allowed)
+	#
+	# HANDLING DIFFERENT KIND OF REQUESTS
+	#
+	if ($ENV{'OBJECT'} eq '/ServerDesc.xml') # delivering ServerDescription XML
 	{
-		# adding device and/or request to Devices tables
-		my $dbh = PDLNA::Database::connect();
-		PDLNA::Devices::add_device(
-			$dbh,
-			{
-				'ip' => $peer_ip_addr,
-				'http_useragent' => $CGI{'USER-AGENT'},
-			},
+		my $xml = PDLNA::HTTPXML::get_serverdescription($CGI{'USER-AGENT'});
+		my @additional_header = (
+			'Content-Type: text/xml; charset=utf8',
+			'Content-Length: '.length($xml),
 		);
-		my $model_name = PDLNA::Devices::get_modelname_by_devicetype($dbh, $peer_ip_addr, 'urn:schemas-upnp-org:device:MediaRenderer:1');
-		PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 3, 'httpgeneric');
-		PDLNA::Database::disconnect($dbh);
-
-		PDLNA::Log::log('Received HTTP Request from allowed client IP '.$peer_ip_addr.'.', 2, 'httpgeneric');
-
-		if ($ENV{'OBJECT'} eq '/ServerDesc.xml') # delivering server description XML
-		{
-			PDLNA::Log::log('New HTTP Connection: Delivering server description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
-
-			my $xml = PDLNA::HTTPXML::get_serverdescription($CGI{'USER-AGENT'});
-			my @additional_header = (
-				'Content-Type: text/xml; charset=utf8',
-				'Content-Length: '.length($xml),
-			);
-			my $response = http_header({
-				'statuscode' => 200,
-				'additional_header' => \@additional_header,
-			});
-			$response .= $xml;
-
-			print $FH $response;
-		}
-		elsif ($ENV{'OBJECT'} eq '/ContentDirectory1.xml') # delivering ContentDirectory XML
-		{
-			PDLNA::Log::log('New HTTP Connection: Delivering ContentDirectory description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
-			my $xml = PDLNA::HTTPXML::get_contentdirectory();
-			my @additional_header = (
-				'Content-Type: text/xml; charset=utf8',
-				'Content-Length: '.length($xml),
-			);
-			my $response = http_header({
-				'statuscode' => 200,
-				'additional_header' => \@additional_header,
-			});
-			$response .= $xml;
-
-			print $FH $response;
-		}
-		elsif ($ENV{'OBJECT'} eq '/ConnectionManager1.xml') # delivering ConnectionManager XML
-		{
-			PDLNA::Log::log('New HTTP Connection: Delivering ConnectionManager description XML to: '.$peer_ip_addr.':'.$peer_src_port.'.', 1, 'discovery');
-			my $xml = PDLNA::HTTPXML::get_connectionmanager();
-			my @additional_header = (
-				'Content-Type: text/xml; charset=utf8',
-				'Content-Length: '.length($xml),
-			);
-			my $response = http_header({
-				'statuscode' => 200,
-				'additional_header' => \@additional_header,
-			});
-			$response .= $xml;
-
-			print $FH $response;
-		}
-		elsif ($ENV{'OBJECT'} eq '/upnp/event/ContentDirectory1' || $ENV{'OBJECT'} eq '/upnp/event/ConnectionManager1')
-		{
-			my $response_content = '';
-			$response_content = '<html><body><h1>200 OK</h1></body></html>' if $ENV{'METHOD'} eq 'UNSUBSCRIBE';
-
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' is '.$ENV{'METHOD'}.' to '.$ENV{'OBJECT'}, 1, 'discovery');
-			my @additional_header = (
-				'Content-Length: '.length($response_content),
-				'SID: '.$CONFIG{'UUID'},
-				'Timeout: Second-'.$CONFIG{'CACHE_CONTROL'},
-			);
-			my $response = http_header({
-				'statuscode' => 200,
-				'additional_header' => \@additional_header,
-			});
-			$response .= $response_content;
-			print $FH $response;
-		}
-		elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1') # handling Directory Listings
-		{
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
-			print $FH ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $peer_ip_addr, $CGI{'USER-AGENT'});
-		}
-#		elsif ($ENV{'OBJECT'} eq '/upnp/control/ConnectionManager1')
-#		{
-#			PDLNA::Log::log('HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> SoapAction: '.$ENV{'METHOD'}.' '.$CGI{'SOAPACTION'}.'.', 1, 'httpdir');
-#		}
-		elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
-		{
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name, $peer_ip_addr, $CGI{'USER-AGENT'});
-		}
-		elsif ($ENV{'OBJECT'} =~ /^\/subtitle\/(.*)$/) # handling delivering of subtitles
-		{
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			deliver_subtitle($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
-		}
-		elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media previews
-		{
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			print $FH preview_media($1);
-		}
-		elsif ($ENV{'OBJECT'} =~ /^\/icons\/(.*)$/)
-		{
-			PDLNA::Log::log('New HTTP Connection: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 1, 'httpstream');
-			print $FH logo($1);
-		}
-		elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # this is just to be something different (not DLNA stuff)
-		{
-			print $FH PDLNA::WebUI::show($1);
-		}
-		else
-		{
-			PDLNA::Log::log('Request not supported yet: '.$peer_ip_addr.':'.$peer_src_port.' -> Request: '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.'.', 2, 'httpstream');
-			print $FH http_header({
-				'statuscode' => 501,
-				'content_type' => 'text/plain',
-			});
-		}
+		$response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $xml;
 	}
-	else
+	elsif ($ENV{'OBJECT'} eq '/ContentDirectory1.xml') # delivering ContentDirectory XML
 	{
-		PDLNA::Log::log('Received HTTP Request from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
-		print $FH http_header({
-			'statuscode' => 403,
+		my $xml = PDLNA::HTTPXML::get_contentdirectory();
+		my @additional_header = (
+			'Content-Type: text/xml; charset=utf8',
+			'Content-Length: '.length($xml),
+		);
+		$response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $xml;
+	}
+	elsif ($ENV{'OBJECT'} eq '/ConnectionManager1.xml') # delivering ConnectionManager XML
+	{
+		my $xml = PDLNA::HTTPXML::get_connectionmanager();
+		my @additional_header = (
+			'Content-Type: text/xml; charset=utf8',
+			'Content-Length: '.length($xml),
+		);
+		my $response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $xml;
+	}
+	elsif ($ENV{'OBJECT'} eq '/upnp/event/ContentDirectory1' || $ENV{'OBJECT'} eq '/upnp/event/ConnectionManager1')
+	{
+		my $response_content = '';
+		$response_content = '<html><body><h1>200 OK</h1></body></html>' if $ENV{'METHOD'} eq 'UNSUBSCRIBE';
+
+		my @additional_header = (
+			'Content-Length: '.length($response_content),
+			'SID: '.$CONFIG{'UUID'},
+			'Timeout: Second-'.$CONFIG{'CACHE_CONTROL'},
+		);
+		$response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $response_content;
+	}
+	elsif ($ENV{'OBJECT'} eq '/upnp/control/ContentDirectory1') # handling Directory Listings
+	{
+		$response = ctrl_content_directory_1($post_xml, $CGI{'SOAPACTION'}, $peer_ip_addr, $CGI{'USER-AGENT'});
+	}
+#	elsif ($ENV{'OBJECT'} eq '/upnp/control/ConnectionManager1')
+#	{
+#	}
+	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
+	{
+		stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name, $peer_ip_addr, $CGI{'USER-AGENT'});
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/subtitle\/(.*)$/) # handling delivering of subtitles
+	{
+		deliver_subtitle($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media thumbnails
+	{
+		$response = preview_media($1);
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/icons\/(.*)$/) # handling pDLNA logo
+	{
+		$response = logo($1);
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # handling WebUI
+	{
+		$response = PDLNA::WebUI::show($1);
+	}
+	else # NOT supported request
+	{
+		PDLNA::Log::log('Request '.$ENV{'METHOD'}.' '.$ENV{'OBJECT'}.' from '.$peer_ip_addr.' NOT supported yet.', 2, 'httpgeneric');
+		$response = http_header({
+			'statuscode' => 501,
 			'content_type' => 'text/plain',
 		});
 	}
 
-	close($FH);
+	if (defined($response))
+	{
+		print $FH $response;
+		close($FH);
+	}
+	return 1;
 }
 
 sub http_header
