@@ -32,6 +32,7 @@ my %AUDIO_CODECS = (
 	'mp3' => [ 'mp3', 'ffmp3float', ],
 	'vorbis' => [ 'ffvorbis', ],
 	'wav' => [ 'pcm', ],
+	'wmav1' => [ 'ffwmav1', ],
 	'wmav2' => [ 'ffwmav2', ],
 );
 
@@ -43,6 +44,7 @@ my %AUDIO_CONTAINERS = (
 	'mp3' => 'audio',
 	'vorbis' => 'ogg',
 	'wav' => 'audio',
+	'wmav1' => 'asf',
 	'wmav2' => 'asf',
 );
 
@@ -54,6 +56,7 @@ my %FFMPEG_DECODE_FORMATS = (
 	'mp3' => 'mp3',
 	'vorbis' => 'ogg',
 	'wav' => 'wav',
+	'wmav1' => 'asf',
 	'wmav2' => 'asf',
 );
 
@@ -65,6 +68,7 @@ my %FFMPEG_ENCODE_FORMATS = (
 	'mp3' => 'mp3',
 	'vorbis' => 'ogg',
 	'wav' => 'wav',
+	'wmav1' => 'asf',
 	'wmav2' => 'asf',
 );
 
@@ -76,6 +80,7 @@ my %FFMPEG_AUDIO_DECODE_CODECS = (
 	'mp3' => 'mp3',
 	'vorbis' => 'vorbis',
 	'wav' => 'pcm_s16le',
+	'wmav1' => 'wmav1',
 	'wmav2' => 'wmav2',
 );
 
@@ -87,6 +92,7 @@ my %FFMPEG_AUDIO_ENCODE_CODECS = (
 	'mp3' => 'libmp3lame',
 	'vorbis' => 'libvorbis',
 	'wav' => 'pcm_s16le',
+	'wmav1' => 'wmav1',
 	'wmav2' => 'wmav2',
 );
 
@@ -97,6 +103,7 @@ my %FFMPEG_AUDIO_ENCODE_PARAMS = (
 	'mp3' => [],
 	'vorbis' => [],
 	'wav' => [],
+	'wmav1' => [ '-ab 32k', ],
 	'wmav2' => [ '-ab 32k', ],
 );
 
