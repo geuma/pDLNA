@@ -562,6 +562,47 @@ sub remove_nonexistant_files
 			delete_all_by_itemid($dbh, $externalfile->{ID});
 		}
 	}
+
+	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
+	{
+		# delete excluded directories and their items
+		foreach my $excl_directory (@{$$directory{'exclude_dirs'}})
+		{
+			my @directories = ();
+			PDLNA::Database::select_db(
+				$dbh,
+				{
+					'query' => 'SELECT ID FROM DIRECTORIES WHERE NAME = ? AND PATH LIKE ?',
+					'parameters' => [ $excl_directory, $directory->{'path'}.'%', ],
+				},
+				\@directories,
+			);
+
+			foreach my $dir (@directories)
+			{
+				delete_subitems_recursively($dbh, $dir->{ID});
+			}
+		}
+
+		# delete excluded items
+		foreach my $excl_items (@{$$directory{'exclude_items'}})
+		{
+			my @items = ();
+			PDLNA::Database::select_db(
+				$dbh,
+				{
+					'query' => 'SELECT ID FROM FILES WHERE NAME = ? AND PATH LIKE ?',
+					'parameters' => [ $excl_items, $directory->{'path'}.'%', ],
+				},
+				\@items,
+			);
+
+			foreach my $item (@items)
+			{
+				delete_all_by_itemid($dbh, $item->{ID});
+			}
+		}
+	}
 }
 
 sub delete_all_by_itemid
