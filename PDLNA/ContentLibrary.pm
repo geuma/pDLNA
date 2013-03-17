@@ -88,16 +88,8 @@ sub index_directories_thread
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
-		my @results = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES;',
-				'parameters' => [ ],
-			},
-			\@results,
-		);
-		PDLNA::Log::log('Configured media directories include '.$results[0]->{AMOUNT}.' with '.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).' of size.', 1, 'library');
+		my ($amount, $size) = get_amount_size_of_items($dbh);
+		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		remove_nonexistant_files();
 		get_fileinfo();
@@ -1010,6 +1002,31 @@ sub is_in_same_directory_tree
 	}
 
 	return 0;
+}
+
+sub get_amount_size_of_items
+{
+	my $dbh = shift;
+	my $type = shift || undef;
+
+	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES';
+	my @sql_param = ();
+	if (defined($type))
+	{
+		$sql_query .= ' WHERE TYPE = ? GROUP BY TYPE';
+		push(@sql_param, $type);
+	}
+
+	my @result = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => \@sql_param,
+		},
+		\@result,
+	);
+	return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
 #
