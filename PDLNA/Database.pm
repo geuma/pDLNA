@@ -87,6 +87,7 @@ sub initialize_db
 			$dbh->do('DROP TABLE DEVICE_UDN;') if grep(/^DEVICE_UDN$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_NTS;') if grep(/^DEVICE_NTS$/, @tables);
 			$dbh->do('DROP TABLE DEVICE_SERVICE;') if grep(/^DEVICE_SERVICE$/, @tables);
+			$dbh->do('DROP TABLE STAT_MEM;') if grep(/^STAT_MEM$/, @tables);
 			@tables = ();
 		}
 	}
@@ -268,6 +269,16 @@ sub initialize_db
 				CONTROL_URL			VARCHAR(512),
 				EVENT_URL			VARCHAR(512),
 				SCPD_URL			VARCHAR(512)
+			);"
+		);
+	}
+
+	unless (grep(/^STAT_MEM$/, @tables))
+	{
+		$dbh->do("CREATE TABLE STAT_MEM (
+				DATE				BIGINT PRIMARY KEY,
+				VMS					BIGINT,
+				RSS					BIGINT
 			);"
 		);
 	}

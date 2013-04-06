@@ -61,6 +61,7 @@ our %CONFIG = (
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
+	'ENABLE_GENERAL_STATISTICS' => 1,
 	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
@@ -350,6 +351,11 @@ sub parse_config
 	# CHECK FOR UPDATES
 	#
 	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
+
+	#
+	# ENABLE_GENERAL_STATISTICS
+	#
+	$CONFIG{'ENABLE_GENERAL_STATISTICS'} = eval_binary_value($cfg->get('EnableGeneralStatistics')) if defined($cfg->get('EnableGeneralStatistics'));
 
 	if ($cfg->get('RescanMediaInterval'))
 	{

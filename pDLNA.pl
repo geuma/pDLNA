@@ -29,6 +29,7 @@ use PDLNA::Database;
 use PDLNA::HTTPServer;
 use PDLNA::Log;
 use PDLNA::SSDP;
+use PDLNA::Statistics;
 use PDLNA::Status;
 
 #
@@ -78,6 +79,12 @@ if ($CONFIG{'CHECK_UPDATES'})
 {
 	my $thread3 = threads->create('PDLNA::Status::check_update_periodic');
 	$thread3->detach();
+}
+
+if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
+{
+	my $thread4 = threads->create('PDLNA::Statistics::write_statistics_periodic');
+	$thread4->detach();
 }
 
 while(1)

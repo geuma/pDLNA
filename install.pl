@@ -214,6 +214,7 @@ use_ok ('PDLNA::Log');
 use_ok ('PDLNA::Media');
 use_ok ('PDLNA::SpecificViews');
 use_ok ('PDLNA::SSDP');
+use_ok ('PDLNA::Statistics');
 use_ok ('PDLNA::Status');
 use_ok ('PDLNA::Transcode');
 use_ok ('PDLNA::Utils');
