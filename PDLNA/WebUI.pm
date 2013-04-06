@@ -424,63 +424,41 @@ sub show
 	}
 	elsif ($nav[0] eq 'perf' && $nav[1] eq 'cl')
 	{
-		my @results = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES',
-				'parameters' => [ ],
-			},
-			\@results,
-		);
-
-		my @results2 = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT TYPE, COUNT(*) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES GROUP BY TYPE',
-				'parameters' => [ ],
-			},
-			\@results2,
-		);
-
-		my @results3 = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
-				'parameters' => [ ],
-			},
-			\@results3,
-		);
-
-		my @results4 = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT value FROM METADATA WHERE key = ?',
-				'parameters' => [ 'TIMESTAMP', ],
-			},
-			\@results4,
-		);
-
 		$response .= '<table>';
 		$response .= '<thead>';
 		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 		$response .= '</thead>';
 		$response .= '<tbody>';
-		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $results4[0]->{VALUE}).'</td></tr>';
-		$response .= '<tr><td>Media Items</td><td>'.$results[0]->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($results[0]->{SIZE}).')</td></tr>';
-		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($results3[0]->{SUMDURATION}).' ('.$results3[0]->{SUMDURATION}.' seconds)</td></tr>';
-		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
-		foreach my $result (@results2)
-		{
-			if (!defined($result->{TYPE}) || length($result->{TYPE}) == 0)
+
+		my $timestamp = PDLNA::Database::select_db_field_int(
+			$dbh,
 			{
-				$result->{TYPE} = 'unknown';
-			}
-			$response .= '<tr><td>'.ucfirst($result->{TYPE}).' Items</td><td>'.$result->{AMOUNT}.' ('.PDLNA::Utils::convert_bytes($result->{SIZE}).')</td></tr>';
+				'query' => 'SELECT value FROM METADATA WHERE key = ?',
+				'parameters' => [ 'TIMESTAMP', ],
+			},
+		);
+		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
+
+		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
+		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
+
+		my $duration = PDLNA::Database::select_db_field_int(
+			$dbh,
+			{
+				'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
+				'parameters' => [ ],
+			},
+		);
+		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>';
+
+		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
+
+		foreach my $type ('image', 'audio', 'video')
+		{
+			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, $type);
+			$response .= '<tr><td>'.ucfirst($type).' Items</td><td>'.$type_amount.' ('.PDLNA::Utils::convert_bytes($type_size).')</td></tr>';
 		}
+
 		$response .= '</tbody>';
 		$response .= '</table>';
 	}
