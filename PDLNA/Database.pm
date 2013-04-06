@@ -45,16 +45,7 @@ sub initialize_db
 {
 	my $dbh = PDLNA::Database::connect();
 
-	my @tables = ();
-	select_db_array(
-		$dbh,
-		{
-			'query' => 'SELECT name FROM sqlite_master WHERE type = ?',
-			'parameters' => [ 'table', ],
-		},
-		\@tables,
-	);
-
+	my @tables = select_db_tables($dbh);
 	if (grep(/^METADATA$/, @tables))
 	{
 		my @results = ();
@@ -284,31 +275,51 @@ sub initialize_db
 	PDLNA::Database::disconnect($dbh);
 }
 
+sub select_db_tables
+{
+	my $dbh = shift;
+
+	my @tables = ();
+	select_db_array(
+		$dbh,
+		{
+			'query' => 'SELECT name FROM sqlite_master WHERE type = ?',
+			'parameters' => [ 'table', ],
+		},
+		\@tables,
+	);
+
+	return @tables;
+}
+
 sub select_db_array
 {
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 	while (my $data = $sth->fetchrow_array())
 	{
 		push(@{$result}, $data);
 	}
+
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
 sub select_db_field_int
 {
 	my $dbh = shift;
 	my $params = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 	my $result = $sth->fetchrow_array();
 
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 	return $result || 0;
 }
 
@@ -317,44 +328,53 @@ sub select_db
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
+	#_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}});
+	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 	while (my $data = $sth->fetchrow_hashref)
 	{
 		push(@{$result}, $data);
 	}
+
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
 sub insert_db
 {
 	my $dbh = shift;
 	my $params = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
 sub update_db
 {
 	my $dbh = shift;
 	my $params = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
 sub delete_db
 {
 	my $dbh = shift;
 	my $params = shift;
+	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+
+	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
 #
@@ -364,6 +384,8 @@ sub delete_db
 sub _log_query
 {
 	my $params = shift;
+	my $starttime = shift || 0;
+	my $endtime = shift || 0;
 
 	my $parameters = '';
 	foreach my $param (@{$$params{'parameters'}})
@@ -379,7 +401,9 @@ sub _log_query
 	}
 	substr($parameters, -2) = '';
 
-	PDLNA::Log::log($$params{'query'}.' - '.$parameters, 1, 'database');
+	my $time = $endtime - $starttime;
+
+	PDLNA::Log::log('(Query took '.$time.'ms): '. $$params{'query'}.' - '.$parameters, 1, 'database');
 }
 
 1;

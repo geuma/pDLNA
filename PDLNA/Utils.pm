@@ -22,6 +22,7 @@ use warnings;
 
 use Digest::SHA1;
 use LWP::UserAgent;
+use Time::HiRes qw(gettimeofday);
 
 use PDLNA::Config;
 use PDLNA::Log;
@@ -147,6 +148,12 @@ sub fetch_http
 		PDLNA::Log::log('Fetching URL '.$url.' was NOT successful ('.$response->status_line().').', 3, 'httpgeneric');
 	}
 	return undef;
+}
+
+sub get_timestamp_ms
+{
+	my $timestamp = int (gettimeofday() * 1000);
+	return $timestamp;
 }
 
 # TODO windows part

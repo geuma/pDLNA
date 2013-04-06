@@ -7,6 +7,14 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.62.0
+xx-xx-2013
+
+- fixed issue #13 (https://github.com/geuma/pDLNA/issues/13) -aka- uninitialized value $request_line
+- added support for transcoding all supported types of audio files to WMAv1
+- added code to remove newly added ExcludeDirs and ExcludeItems from ContentLibrary
+- added execution time to SQL query logging
+
 Version 0.61.0
 07-03-2013
 
