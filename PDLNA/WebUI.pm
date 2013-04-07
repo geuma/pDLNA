@@ -274,6 +274,11 @@ sub show
 
 		$response .= '</tbody>';
 		$response .= '</table>';
+
+		if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
+		{
+			$response .= show_graph(\@nav);
+		}
 	}
 	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pdlna')
 	{
@@ -541,6 +546,14 @@ sub parse_nav
 		$nav[1] = 0;
 	}
 
+	if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
+	{
+		$nav[2] = 'memory' if $nav[1] eq 'pi';
+		$nav[2] = 'media' if $nav[1] eq 'cl';
+
+		$nav[3] = 'day' unless defined($nav[3]);
+	}
+
 	return @nav;
 }
 
@@ -613,9 +626,6 @@ sub show_graph
 {
 	my $nav = shift;
 
-	$$nav[2] = 'memory' unless defined($$nav[2]);
-	$$nav[3] = 'day' unless defined($$nav[3]);
-
 	my $response = '';
 	$response .= '<div class="graph">';
 	$response .= '<img src="/webui/graphs/'.$$nav[2].'_'.$$nav[3].'.png" />';
@@ -645,7 +655,7 @@ sub graph
 	my $param = shift;
 	my ($type, $period) = split(/_/, $param);
 
-	if ($type !~ /^memory$/)
+	if ($type !~ /^(memory|media)$/)
 	{
 		return PDLNA::HTTPServer::http_header({
 			'statuscode' => 404,
@@ -669,10 +679,15 @@ sub graph
 	$data_options{'dateformatstring'} = '%Y-%m' if $period eq 'year';
 
 	$data_options{'title'} = 'Memory usage' if $type eq 'memory';
+	$data_options{'title'} = 'Media items' if $type eq 'media';
+
+	$data_options{'dbtable'} = 'STAT_MEM' if $type eq 'memory';
+	$data_options{'dbtable'} = 'STAT_ITEMS' if $type eq 'media';
 
 	$data_options{'title'} .= ' by current '.$period;
 
 	$data_options{'dbfields'} = [ 'AVG(VMS)', 'AVG(RSS)', ] if $type eq 'memory';
+	$data_options{'dbfields'} = [ 'AVG(AUDIO)', 'AVG(IMAGE)', 'AVG(VIDEO)', ] if $type eq 'media';
 
 	$data_options{'y_label'} = 'Bytes' if $type eq 'memory';
 
@@ -727,7 +742,7 @@ sub graph
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM STAT_MEM WHERE DATE > strftime('%s', 'now', 'start of ".$period."') GROUP BY datetime",
+			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', 'start of ".$period."') GROUP BY datetime",
 			'parameters' => [ ],
 		},
 		\@results,

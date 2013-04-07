@@ -14,7 +14,7 @@ xx-xx-2013
 - added support for transcoding all supported types of audio files to WMAv1
 - added code to remove newly added ExcludeDirs and ExcludeItems from ContentLibrary
 - added execution time to SQL query logging
-- added configuration option EnableGeneralStatistics and code to gather memory usage every minute and added graphs in WebUI for the EnableGeneralStatistics configuration parameter
+- added configuration option EnableGeneralStatistics and code to gather statistics (memory usage, media items) every minute and added graphs in WebUI for the EnableGeneralStatistics configuration parameter
 
 Version 0.61.0
 07-03-2013
