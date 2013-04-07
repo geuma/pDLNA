@@ -742,7 +742,7 @@ sub graph
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', 'start of ".$period."') GROUP BY datetime",
+			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', datetime('now', 'start of ".$period."'), 'utc') GROUP BY datetime",
 			'parameters' => [ ],
 		},
 		\@results,
