@@ -22,6 +22,7 @@ use warnings;
 
 use Date::Format;
 use Devel::Size qw(size total_size);
+use GD::Graph::area;
 use LWP::UserAgent;
 use Proc::ProcessTable;
 use XML::Simple;
@@ -35,190 +36,22 @@ use PDLNA::Utils;
 
 sub show
 {
-	my $params = shift;
+	my $get_param = shift;
 
 	my $dbh = PDLNA::Database::connect();
+	my @nav = parse_nav($get_param);
 
-	my @nav = split('/', $params);
-	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
-	{
-		$nav[0] = 'content';
-		$nav[1] = 0;
-	}
-	if ($nav[0] eq 'content' && (!defined($nav[1]) || $nav[1] !~ /^\d+$/))
-	{
-		$nav[1] = 0;
-	}
-
-	my $response ="HTTP/1.0 200 OK\r\n";
-	$response .= "Server: $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version()." Webserver\r\n";
-	$response .= "Content-Type: text/html\r\n";
-	$response .= "\r\n";
-
-	my @javascript = (
-		'stripe = function() {',
-		'var tables = document.getElementsByTagName("table");',
-		'for(var x=0;x!=tables.length;x++){',
-		'var table = tables[x];',
-		'if (! table) { return; }',
-		'var tbodies = table.getElementsByTagName("tbody");',
-		'for (var h = 0; h < tbodies.length; h++) {',
-		'var even = true;',
-		'var trs = tbodies[h].getElementsByTagName("tr");',
-		'for (var i = 0; i < trs.length; i++) {',
-		'trs[i].onmouseover=function(){',
-		'this.className += " ruled"; return false',
-		'}',
-		'trs[i].onmouseout=function(){',
-		'this.className = this.className.replace("ruled", ""); return false',
-		'}',
-		'if(even)',
-		'trs[i].className += " even";',
-		'even = !even;',
-		'}',
-		'}',
-		'}',
-		'}',
-		'window.onload = stripe;',
-	);
+	my $response = PDLNA::HTTPServer::http_header({
+		'statuscode' => 200,
+		'content_type' => 'text/html',
+	});
 
 	$response .= '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'."\n";
 	$response .= '<html>';
 	$response .= '<head>';
 	$response .= '<title>'.$CONFIG{'FRIENDLY_NAME'}.'</title>';
-	$response .= '<script type="text/javascript">';
-	$response .= join("\n", @javascript);
-	$response .= '</script>';
-
-	$response .= '<style type="text/css">';
-	$response .= 'body{';
-	$response .= 'font-family: "lucida grande", verdana, sans-serif;';
-	$response .= 'font-size: 10pt;';
-	$response .= 'color: #3d80df;';
-	$response .= '}';
-	$response .= '#container{';
-	$response .= 'width: 960px;';
-	$response .= 'margin-left: auto;';
-	$response .= 'margin-right: auto;';
-	$response .= 'border: 1px solid #3d80df;';
-	$response .= 'margin-top: 50px;';
-	$response .= '}';
-	$response .= '#content{';
-	$response .= 'float: left;';
-	$response .= 'width: 620px;';
-	$response .= 'padding-bottom: 20px;';
-	$response .= '}';
-	$response .= '#sidebar{';
-	$response .= 'float: left;';
-	$response .= 'width: 340px;';
-	$response .= 'background-color: #3d80df;';
-	$response .= 'padding-bottom: 20px;';
-	$response .= '}';
-	$response .= '#footer{';
-	$response .= 'clear:both;';
-	$response .= 'height: 40px;';
-	$response .= 'color: #fff;';
-	$response .= 'background-color: #3d80df;';
-	$response .= 'text-align: center;';
-	$response .= 'line-height: 3em;';
-	$response .= '}';
-	$response .= 'h3{';
-	$response .= 'font-size: 12pt;';
-	$response .= 'text-align: center;';
-	$response .= '}';
-	$response .= 'h5{';
-	$response .= 'color: #fff;';
-	$response .= 'font-size: 12pt;';
-	$response .= 'text-align: center;';
-	$response .= 'margin-bottom: -10px;';
-	$response .= '}';
-	$response .= 'a{';
-	$response .= 'color: #fff;';
-	$response .= '}';
-	$response .= 'div.info p a{';
-	$response .= 'color: #3d80df;';
-	$response .= '}';
-	$response .= 'table{';
-	$response .= 'width: 600px;';
-	$response .= 'border: 1px solid #7DAAEA;';
-	$response .= 'margin-left: auto;';
-	$response .= 'margin-right: auto;';
-	$response .= '}';
-	$response .= 'tr td{';
-	$response .= 'padding: 3px 8px;';
-	$response .= 'background: #fff;';
-	$response .= '}';
-	$response .= 'thead td{';
-	$response .= 'color: #fff;';
-	$response .= 'background-color: #3d80df;';
-	$response .= 'font-weight: bold;';
-	$response .= 'border-bottom: 0px solid #999;';
-	$response .= 'text-align: center;';
-	$response .= '}';
-	$response .= 'tfoot td{';
-	$response .= 'color: #fff;';
-	$response .= 'background-color: #3d80df;';
-	$response .= 'font-weight: bold;';
-	$response .= 'border-bottom: 0px solid #999;';
-	$response .= 'text-align: center;';
-	$response .= '}';
-	$response .= 'tbody td{';
-	$response .= 'border-left: 0px solid #3d80df;';
-	$response .= '}';
-	$response .= 'tbody td a{';
-	$response .= 'color: #3d80df;';
-	$response .= '}';
-	$response .= 'tbody tr.even td{';
-	$response .= 'background: #eee;';
-	$response .= '}';
-	$response .= 'tbody tr.ruled td{';
-	$response .= 'color: #000;';
-	$response .= 'background-color: #C6E3FF;';
-	$response .= '}';
-	$response .= 'li{';
-	$response .= 'display: block;';
-	$response .= 'margin-left: -15px;';
-	$response .= '}';
-	$response .= 'div.info, div.success, div.error{';
-	$response .= 'width: 600px;';
-	$response .= 'border: 1px solid;';
-	$response .= 'margin-left: auto;';
-	$response .= 'margin-right: auto;';
-	$response .= '}';
-	$response .= 'div.success{';
-	$response .= 'color: #4F8A10;';
-	$response .= 'background-color: #DFF2BF;';
-	$response .= '}';
-	$response .= 'div.info{';
-	$response .= 'color: #00529B;';
-	$response .= 'background-color: #BDE5F8;';
-	$response .= '}';
-	$response .= 'div.error{';
-	$response .= 'color: #D8000C;';
-	$response .= 'background-color: #ffbaba;';
-	$response .= '}';
-	$response .= 'div.info p, div.success p, div.error p{';
-	$response .= 'padding-left: 20px;';
-	$response .= 'padding-right: 20px;';
-	$response .= '}';
-	$response .= 'div.element{';
-	$response .= '}';
-	$response .= 'div.element.button{';
-	$response .= 'height: 60px;';
-	$response .= 'width: 600px;';
-	$response .= 'text-align: right;';
-	$response .= '}';
-	$response .= 'div.element.button input{';
-	$response .= 'margin-top: 15px;';
-	$response .= 'background-color: #3d80df;';
-	$response .= 'color: #ffffff;';
-	$response .= 'font-weight: bold;';
-	$response .= 'height: 28px;';
-	$response .= 'text-align: center;';
-	$response .= 'width: 165px;';
-	$response .= '}';
-	$response .= '</style>';
-
+	$response .= '<script type="text/javascript" src="/webui/js.js"></script>';
+	$response .= '<link href="/webui/css.css" rel="stylesheet" rev="stylesheet" type="text/css">';
 	$response .= '</head>';
 	$response .= '<body>';
 	$response .= '<div id="container">';
@@ -239,36 +72,7 @@ sub show
 	}
 
 	$response .= '<h5>Connected devices</h5>';
-	my @devices_ip = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID, IP FROM DEVICE_IP',
-			'parameters' => [ ],
-		},
-		\@devices_ip,
-	);
-	$response .= '<ul>';
-	foreach my $device_ip (@devices_ip)
-	{
-		$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'">'.$device_ip->{IP}.'</a></li>';
-		my @devices_udn = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
-				'parameters' => [ $device_ip->{ID}, ],
-			},
-			\@devices_udn,
-		);
-		$response .= '<ul>';
-		foreach my $device_udn (@devices_udn)
-		{
-			$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'/'.$device_udn->{ID}.'">'.$device_udn->{UDN}.'</a></li>';
-		}
-		$response .= '</ul>';
-	}
-	$response .= '</ul>';
+	$response .= build_connected_devices($dbh);
 
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
@@ -277,6 +81,10 @@ sub show
 	$response .= '<li><a href="/webui/perf/pdlna">pDLNA Information</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
+
+	#
+	# CONTENT ITSELF
+	#
 
 	$response .= '<div id="content">';
 	if ($nav[0] eq 'content')
@@ -414,12 +222,17 @@ sub show
 				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $process->{start}).'</td></tr>';
 				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$process->{priority}.'</td></tr>';
 				$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$process->{pctcpu}.' %</td></tr>';
-				$response .= '<tr><td>Current Virtual Memory Size</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
-				$response .= '<tr><td>Current Memory Utilization in RAM</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
+				$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
+				$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
 				$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}
+		}
+
+		if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
+		{
+			$response .= show_graph(\@nav);
 		}
 	}
 	elsif ($nav[0] eq 'perf' && $nav[1] eq 'cl')
@@ -520,8 +333,215 @@ sub show
 	$response .= '</body>';
 	$response .= '</html>';
 
-	$response .= "\r\n";
+	PDLNA::Database::disconnect($dbh);
 	return $response;
+}
+
+sub javascript
+{
+	my @javascript = (
+		'stripe = function() {',
+		'var tables = document.getElementsByTagName("table");',
+		'for(var x=0;x!=tables.length;x++){',
+		'var table = tables[x];',
+		'if (! table) { return; }',
+		'var tbodies = table.getElementsByTagName("tbody");',
+		'for (var h = 0; h < tbodies.length; h++) {',
+		'var even = true;',
+		'var trs = tbodies[h].getElementsByTagName("tr");',
+		'for (var i = 0; i < trs.length; i++) {',
+		'trs[i].onmouseover=function(){',
+		'this.className += " ruled"; return false',
+		'}',
+		'trs[i].onmouseout=function(){',
+		'this.className = this.className.replace("ruled", ""); return false',
+		'}',
+		'if(even)',
+		'trs[i].className += " even";',
+		'even = !even;',
+		'}',
+		'}',
+		'}',
+		'}',
+		'window.onload = stripe;',
+	);
+	return join("\n", @javascript);
+}
+
+sub css
+{
+	my @css = (
+		'body{',
+		'font-family: "lucida grande", verdana, sans-serif;',
+		'font-size: 10pt;',
+		'color: #3d80df;',
+		'}',
+		'#container{',
+		'width: 960px;',
+		'margin-left: auto;',
+		'margin-right: auto;',
+		'border: 1px solid #3d80df;',
+		'margin-top: 50px;',
+		'}',
+		'#content{',
+		'float: left;',
+		'width: 620px;',
+		'padding-bottom: 20px;',
+		'}',
+		'#sidebar{',
+		'float: left;',
+		'width: 340px;',
+		'background-color: #3d80df;',
+		'padding-bottom: 20px;',
+		'}',
+		'#footer{',
+		'clear:both;',
+		'height: 40px;',
+		'color: #fff;',
+		'background-color: #3d80df;',
+		'text-align: center;',
+		'line-height: 3em;',
+		'}',
+		'div.graph{',
+		'margin-top: 20px;',
+		'margin-left: 10px;',
+		'padding: 10px 10px 10px 10px;',
+		'width: 580px;',
+		'border: 1px solid #3d80df;',
+		'}',
+		'div.graphnav{',
+		'margin-top: 0px;',
+		'margin-left: 10px;',
+		'background-color: #3d80df;',
+		'padding: 0px 10px 0px 10px;',
+		'width: 580px;',
+		'height: 20px;',
+		'border: 1px solid #3d80df;',
+		'text-align: right;',
+		'}',
+		'div.graphnav p{',
+		'color: #fff;',
+		'margin-top: 1px;',
+		'}',
+		'h3{',
+		'font-size: 12pt;',
+		'text-align: center;',
+		'}',
+		'h5{',
+		'color: #fff;',
+		'font-size: 12pt;',
+		'text-align: center;',
+		'margin-bottom: -10px;',
+		'}',
+		'a{',
+		'color: #fff;',
+		'}',
+		'div.info p a{',
+		'color: #3d80df;',
+		'}',
+		'table{',
+		'width: 600px;',
+		'border: 1px solid #7DAAEA;',
+		'margin-left: auto;',
+		'margin-right: auto;',
+		'}',
+		'tr td{',
+		'padding: 3px 8px;',
+		'background: #fff;',
+		'}',
+		'thead td{',
+		'color: #fff;',
+		'background-color: #3d80df;',
+		'font-weight: bold;',
+		'border-bottom: 0px solid #999;',
+		'text-align: center;',
+		'}',
+		'tfoot td{',
+		'color: #fff;',
+		'background-color: #3d80df;',
+		'font-weight: bold;',
+		'border-bottom: 0px solid #999;',
+		'text-align: center;',
+		'}',
+		'tbody td{',
+		'border-left: 0px solid #3d80df;',
+		'}',
+		'tbody td a{',
+		'color: #3d80df;',
+		'}',
+		'tbody tr.even td{',
+		'background: #eee;',
+		'}',
+		'tbody tr.ruled td{',
+		'color: #000;',
+		'background-color: #C6E3FF;',
+		'}',
+		'li{',
+		'display: block;',
+		'margin-left: -15px;',
+		'}',
+		'div.info, div.success, div.error{',
+		'width: 600px;',
+		'border: 1px solid;',
+		'margin-left: auto;',
+		'margin-right: auto;',
+		'}',
+		'div.success{',
+		'color: #4F8A10;',
+		'background-color: #DFF2BF;',
+		'}',
+		'div.info{',
+		'color: #00529B;',
+		'background-color: #BDE5F8;',
+		'}',
+		'div.error{',
+		'color: #D8000C;',
+		'background-color: #ffbaba;',
+		'}',
+		'div.info p, div.success p, div.error p{',
+		'padding-left: 20px;',
+		'padding-right: 20px;',
+		'}',
+		'div.element{',
+		'}',
+		'div.element.button{',
+		'height: 60px;',
+		'width: 600px;',
+		'text-align: right;',
+		'}',
+		'div.element.button input{',
+		'margin-top: 15px;',
+		'background-color: #3d80df;',
+		'color: #ffffff;',
+		'font-weight: bold;',
+		'height: 28px;',
+		'text-align: center;',
+		'width: 165px;',
+		'}',
+	);
+	return join("\n", @css);
+}
+
+#
+# NAVIGATION
+#
+
+sub parse_nav
+{
+	my $param = shift;
+
+	my @nav = split('/', $param);
+	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
+	{
+		$nav[0] = 'content';
+		$nav[1] = 0;
+	}
+	if ($nav[0] eq 'content' && (!defined($nav[1]) || $nav[1] !~ /^\d+$/))
+	{
+		$nav[1] = 0;
+	}
+
+	return @nav;
 }
 
 sub build_directory_tree
@@ -546,6 +566,197 @@ sub build_directory_tree
 		}
 	}
 	$response .= '</ul>';
+
+	return $response;
+}
+
+sub build_connected_devices
+{
+	my $dbh = shift;
+	my $response = '';
+
+	my @devices_ip = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID, IP FROM DEVICE_IP',
+			'parameters' => [ ],
+		},
+		\@devices_ip,
+	);
+	$response .= '<ul>';
+	foreach my $device_ip (@devices_ip)
+	{
+		$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'">'.$device_ip->{IP}.'</a></li>';
+		my @devices_udn = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
+				'parameters' => [ $device_ip->{ID}, ],
+			},
+			\@devices_udn,
+		);
+		$response .= '<ul>';
+		foreach my $device_udn (@devices_udn)
+		{
+			$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'/'.$device_udn->{ID}.'">'.$device_udn->{UDN}.'</a></li>';
+		}
+		$response .= '</ul>';
+	}
+	$response .= '</ul>';
+
+	return $response;
+}
+
+sub show_graph
+{
+	my $nav = shift;
+
+	$$nav[2] = 'memory' unless defined($$nav[2]);
+	$$nav[3] = 'day' unless defined($$nav[3]);
+
+	my $response = '';
+	$response .= '<div class="graph">';
+	$response .= '<img src="/webui/graphs/'.$$nav[2].'_'.$$nav[3].'.png" />';
+	$response .= '</div>';
+	$response .= '<div class="graphnav">';
+	$response .= '<p>|';
+	foreach my $period ('day', 'month', 'year')
+	{
+		$response .= ' <a href="/webui/'.$$nav[0].'/'.$$nav[1].'/'.$$nav[2].'/'.$period.'">';
+		if ($period eq $$nav[3])
+		{
+			$response .= '<strong>'.$period.'</strong></a> |';
+		}
+		else
+		{
+			$response .= $period.'</a> |';
+		}
+	}
+	$response .= '</p>';
+	$response .= '</div>';
+
+	return $response;
+}
+
+sub graph
+{
+	my $param = shift;
+	my ($type, $period) = split(/_/, $param);
+
+	if ($type !~ /^memory$/)
+	{
+		return PDLNA::HTTPServer::http_header({
+			'statuscode' => 404,
+		});
+	}
+	if ($period !~ /^(day|month|year)$/)
+	{
+		return PDLNA::HTTPServer::http_header({
+			'statuscode' => 404,
+		});
+	}
+
+	#
+	# DATA DEFINITION
+	#
+
+	my %data_options = ();
+
+	$data_options{'dateformatstring'} = '%Y-%m-%d %H:00' if $period eq 'day';
+	$data_options{'dateformatstring'} = '%Y-%m-%d' if $period eq 'month';
+	$data_options{'dateformatstring'} = '%Y-%m' if $period eq 'year';
+
+	$data_options{'title'} = 'Memory usage' if $type eq 'memory';
+
+	$data_options{'title'} .= ' by current '.$period;
+
+	$data_options{'dbfields'} = [ 'AVG(VMS)', 'AVG(RSS)', ] if $type eq 'memory';
+
+	$data_options{'y_label'} = 'Bytes' if $type eq 'memory';
+
+	#
+	# GD GRAPH DEFINITION
+	#
+
+	my %options = (
+		textclr => '#3d80df',
+		labelclr => '#3d80df',
+		axislabelclr => '#3d80df',
+		fgclr => '#3d80df',
+		boxclr => '#ffffff',
+		dclrs => [
+#			'#8ab2eb',
+#			'#77a6e8',
+#			'#6399e5',
+#			'#508ce2',
+			'#3d80df',
+#			'#3673c8',
+			'#3066b2',
+#			'#2a599c',
+			'#244c85',
+#			'#1e406f',
+			'#183359',
+#			'#122642',
+			'#0c192c',
+#			'#060c16',
+		],
+		long_ticks => 1,
+		y_min_value => 0,
+		x_labels_vertical => 1,
+		title => $data_options{'title'},
+		y_label => $data_options{'y_label'},
+	);
+
+	my $graph = GD::Graph::area->new(580, 300);
+	$graph->set(%options);
+	$graph->set_legend_font(GD::gdMediumBoldFont);
+	$graph->set_title_font(GD::gdMediumBoldFont);
+	$graph->set_x_axis_font(GD::gdMediumBoldFont);
+	$graph->set_y_axis_font(GD::gdMediumBoldFont);
+	$graph->set_legend(@{$data_options{'dbfields'}});
+
+	#
+	# DATA GATHERING
+	#
+
+	my $dbh = PDLNA::Database::connect();
+
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM STAT_MEM WHERE DATE > strftime('%s', 'now', 'start of ".$period."') GROUP BY datetime",
+			'parameters' => [ ],
+		},
+		\@results,
+	);
+
+	my @data = ();
+	for (my $i = 0; $i < @results; $i++)
+	{
+		$data[0][$i] = $results[$i]->{datetime};
+		my $j = 1;
+		foreach my $field (@{$data_options{'dbfields'}})
+		{
+			$data[$j][$i] = $results[$i]->{$field};
+			$j++;
+		}
+	}
+
+	PDLNA::Database::disconnect($dbh);
+
+	#
+	# deliver the graph to the browser
+	#
+
+	my $image = $graph->plot(\@data) or die $graph->error;
+	my $response = PDLNA::HTTPServer::http_header({
+		'statuscode' => 200,
+		'content_type' => 'image/png',
+	});
+	$response .= $image->png();
 
 	return $response;
 }

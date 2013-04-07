@@ -285,9 +285,23 @@ sub handle_connection
 	{
 		$response = logo($1);
 	}
+	elsif ($ENV{'OBJECT'} =~ /^\/webui\/js.js$/) # deliver javascript code
+	{
+		$response = PDLNA::WebUI::javascript();
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/webui\/css.css$/) # deliver stylesheet
+	{
+		$response = PDLNA::WebUI::css();
+	}
+	elsif ($ENV{'OBJECT'} =~ /^\/webui\/graphs\/(.+)\.png$/) # handling delivering graphs
+	{
+		print $FH PDLNA::WebUI::graph($1);
+		close($FH);
+	}
 	elsif ($ENV{'OBJECT'} =~ /^\/webui\/(.*)$/) # handling WebUI
 	{
-		$response = PDLNA::WebUI::show($1);
+		print $FH PDLNA::WebUI::show($1);
+		close($FH);
 	}
 	else # NOT supported request
 	{

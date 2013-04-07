@@ -67,6 +67,7 @@ use_ok ('File::Basename');
 use_ok ('File::Glob');
 use_ok ('File::MimeInfo');
 use_ok ('GD');
+use_ok ('GD::Graph::area');
 use_ok ('Getopt::Long::Descriptive');
 use_ok ('Image::Info');
 use_ok ('IO::Interface');
