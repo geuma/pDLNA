@@ -28,7 +28,7 @@ use PDLNA::Log;
 
 sub check_update_periodic
 {
-	PDLNA::Log::log('Starting thread for checking periodically for a new version of pDLNA.', 1, 'update');
+	PDLNA::Log::log('Starting thread for checking periodically for a new version of pDLNA.', 1, 'default');
 	while(1)
 	{
 		check_update();
@@ -73,15 +73,15 @@ sub check_update
 	{
 		my $xml_obj = XML::Simple->new();
 		my $xml = $xml_obj->XMLin($response->decoded_content());
-		PDLNA::Log::log('Check4Updates was successful: '.$xml->{'response'}->{'result'}.' ('.$xml->{'response'}->{'resultID'}.').', 1, 'update');
+		PDLNA::Log::log('Check4Updates was successful: '.$xml->{'response'}->{'result'}.' ('.$xml->{'response'}->{'resultID'}.').', 1, 'default');
 		if ($xml->{'response'}->{'resultID'} == 4)
 		{
-			PDLNA::Log::log('pDLNA is available in version '.$xml->{'response'}->{'NewVersion'}.'. Please update your installation.', 1, 'update');
+			PDLNA::Log::log($CONFIG{'PROGRAM_NAME'}.' is available in version '.$xml->{'response'}->{'NewVersion'}.'. Please update your installation.', 1, 'default');
 		}
 	}
 	else
 	{
-		PDLNA::Log::log('Check4Updates was NOT successful: HTTP Status Code '.$response->status_line().'.', 1, 'update');
+		PDLNA::Log::log('Check4Updates was NOT successful: HTTP Status Code '.$response->status_line().'.', 1, 'default');
 	}
 }
 
