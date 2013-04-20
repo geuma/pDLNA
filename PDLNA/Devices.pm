@@ -104,7 +104,7 @@ sub add_device
 				my $xml = eval { $xs->XMLin($response) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::Devices:'.$@, 3, 'discovery');
+					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::Devices: '.$@, 3, 'discovery');
 				}
 				else
 				{
@@ -134,6 +134,26 @@ sub add_device
 							}
 							$services{$service->{'serviceId'}} = \%service_configuration;
 						}
+					}
+					else
+					{
+						my $service = $xml->{'device'}->{'serviceList'}->{'service'};
+						my %service_configuration = (
+							'serviceId' => $service->{'serviceId'},
+							'serviceType' => $service->{'serviceType'},
+						);
+						foreach my $url ('controlURL', 'eventSubURL', 'SCPDURL')
+						{
+							if ($service->{$url} =~ /^\//)
+							{
+								$service_configuration{$url} = $device_udn_base_url.$service->{$url};
+							}
+							else
+							{
+								$service_configuration{$url} = $device_udn_rela_url.'/'.$service->{$url};
+							}
+						}
+						$services{$service->{'serviceId'}} = \%service_configuration;
 					}
 				}
 			}
