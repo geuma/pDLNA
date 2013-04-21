@@ -61,6 +61,7 @@ our %CONFIG = (
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'CHECK_UPDATES' => 1,
+	'CHECK_UPDATES_NOTIFICATION' => 1,
 	'ENABLE_GENERAL_STATISTICS' => 1,
 	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
@@ -319,9 +320,9 @@ sub parse_config
 		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
 		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
 		{
-			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|transcoding)$/)
+			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|transcoding]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
@@ -351,6 +352,11 @@ sub parse_config
 	# CHECK FOR UPDATES
 	#
 	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
+
+	#
+	# CHECK_UPDATES_NOTIFICATION
+	#
+	$CONFIG{'CHECK_UPDATES_NOTIFICATION'} = eval_binary_value($cfg->get('Check4UpdatesNotification')) if defined($cfg->get('Check4UpdatesNotification'));
 
 	#
 	# ENABLE_GENERAL_STATISTICS

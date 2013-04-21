@@ -24,7 +24,9 @@ use LWP::UserAgent;
 use XML::Simple;
 
 use PDLNA::Config;
+use PDLNA::Database;
 use PDLNA::Log;
+use PDLNA::SOAPMessages;
 
 sub check_update_periodic
 {
@@ -77,6 +79,30 @@ sub check_update
 		if ($xml->{'response'}->{'resultID'} == 4)
 		{
 			PDLNA::Log::log($CONFIG{'PROGRAM_NAME'}.' is available in version '.$xml->{'response'}->{'NewVersion'}.'. Please update your installation.', 1, 'default');
+
+			if ($CONFIG{'CHECK_UPDATES_NOTIFICATION'})
+			{
+				PDLNA::Log::log('Sending notification to currently connected urn:samsung.com:serviceId:MessageBoxService services.', 1, 'default');
+
+				my $dbh = PDLNA::Database::connect();
+				my @device_services = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT TYPE, CONTROL_URL FROM DEVICE_SERVICE WHERE SERVICE_ID = ?',
+						'parameters' => [ 'urn:samsung.com:serviceId:MessageBoxService' ],
+					},
+					\@device_services,
+				);
+				PDLNA::Database::disconnect($dbh);
+
+				foreach my $service (@device_services)
+				{
+					PDLNA::Log::log('Sending sms to '.$service->{CONTROL_URL}.'.', 1, 'default');
+					my $message = 'A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: '.$xml->{'response'}->{'NewVersion'};
+					PDLNA::SOAPMessages::send_sms($service->{TYPE}, $service->{CONTROL_URL}, $message);
+				}
+			}
 		}
 	}
 	else
