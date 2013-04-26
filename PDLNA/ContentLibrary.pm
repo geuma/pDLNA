@@ -91,8 +91,10 @@ sub index_directories_thread
 		my ($amount, $size) = get_amount_size_of_items($dbh);
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
-		remove_nonexistant_files();
-		get_fileinfo();
+		remove_nonexistant_files($dbh);
+		get_fileinfo($dbh);
+
+		PDLNA::Database::disconnect($dbh);
 
 		sleep $CONFIG{'RESCAN_MEDIA'};
 	}
@@ -439,8 +441,9 @@ sub add_file_to_db
 
 sub remove_nonexistant_files
 {
+	my $dbh = shift;
+
 	PDLNA::Log::log('Started to remove non existant files.', 1, 'library');
-	my $dbh = PDLNA::Database::connect();
 	my @files = ();
 	PDLNA::Database::select_db(
 		$dbh,
@@ -670,10 +673,9 @@ sub delete_subitems_recursively
 
 sub get_fileinfo
 {
+	my $dbh = shift;
+
 	PDLNA::Log::log('Started to fetch metadata for media items.', 1, 'library');
-
-	my $dbh = PDLNA::Database::connect();
-
 	my @results = ();
 	PDLNA::Database::select_db(
 		$dbh,

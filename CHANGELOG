@@ -18,6 +18,7 @@ xx-xx-2013
 - modified Check4Updates LogCategory to default, since LogCategory update was not available at all
 - fixed a bug regarding UPnP Services, where only one service is available (PDLNA::Devices)
 - FunFeature: added configuration option Check4UpdatesNotification: a message to a connected urn:samsung.com:serviceId:MessageBoxService service will be sent if a new version of pDLNA is available (if Check4Updates is enabled)
+- some general improvements regarding database connections
 
 Version 0.61.0
 07-03-2013
