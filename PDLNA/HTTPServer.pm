@@ -797,7 +797,6 @@ sub deliver_subtitle
 		PDLNA::Log::log('Delivering subtitle: '.$id.'.'.$type.'.', 3, 'httpstream');
 
 		my $dbh = PDLNA::Database::connect();
-
 		my @subtitles = ();
 		PDLNA::Database::select_db(
 			$dbh,
@@ -807,6 +806,7 @@ sub deliver_subtitle
 			},
 			\@subtitles,
 		);
+		PDLNA::Database::disconnect($dbh);
 
 		if (defined($subtitles[0]->{FULLNAME}) && -f $subtitles[0]->{FULLNAME})
 		{
@@ -1213,7 +1213,6 @@ sub preview_media
 		my $id = $1;
 
 		my $dbh = PDLNA::Database::connect();
-
 		my @item_info = ();
 		PDLNA::Database::select_db(
 			$dbh,
@@ -1223,6 +1222,7 @@ sub preview_media
 			},
 			\@item_info,
 		);
+		PDLNA::Database::disconnect($dbh);
 
 		if (defined($item_info[0]->{FULLNAME}))
 		{
