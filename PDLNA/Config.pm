@@ -362,7 +362,14 @@ sub parse_config
 	# ENABLE_GENERAL_STATISTICS
 	#
 	$CONFIG{'ENABLE_GENERAL_STATISTICS'} = eval_binary_value($cfg->get('EnableGeneralStatistics')) if defined($cfg->get('EnableGeneralStatistics'));
+	if ($CONFIG{'OS'} eq 'freebsd' && $CONFIG{'ENABLE_GENERAL_STATISTICS'})
+	{
+		push(@{$errormsg}, 'Configuration parameter EnableGeneralStatistics is currently not available on FreeBSD.');
+	}
 
+	#
+	# RESCAN_MEDIA
+	#
 	if ($cfg->get('RescanMediaInterval'))
 	{
 		my %values = (

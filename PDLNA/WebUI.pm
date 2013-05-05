@@ -220,13 +220,17 @@ sub show
 				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with PID</td><td>'.$pid.'</td></tr>';
 				$response .= '<tr><td>Parent PID of '.$CONFIG{'PROGRAM_NAME'}.'</td><td>'.$process->{ppid}.'</td></tr>';
 				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $process->{start}).'</td></tr>';
-				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$process->{priority}.'</td></tr>';
-				$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$process->{pctcpu}.' %</td></tr>';
-				$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
-				$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
-				$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
+				if ($CONFIG{'OS'} ne 'freebsd')
+				{
+					$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$process->{priority}.'</td></tr>';
+					$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$process->{pctcpu}.' %</td></tr>';
+					$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
+					$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
+					$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
+				}
 				$response .= '</tbody>';
 				$response .= '</table>';
+				last;
 			}
 		}
 
