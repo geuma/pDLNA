@@ -59,7 +59,6 @@ use_ok ('Data::Dumper');
 use_ok ('Date::Format');
 use_ok ('DBD::SQLite');
 use_ok ('DBI');
-use_ok ('Devel::Size');
 use_ok ('Digest::MD5');
 use_ok ('Digest::SHA1');
 use_ok ('Fcntl');

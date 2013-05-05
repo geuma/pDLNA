@@ -21,7 +21,6 @@ use strict;
 use warnings;
 
 use Date::Format;
-use Devel::Size qw(size total_size);
 use GD::Graph::area;
 use LWP::UserAgent;
 use Proc::ProcessTable;
