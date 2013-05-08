@@ -410,23 +410,9 @@ sub parse_config
 	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
 	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
 	{
-		if (-x $CONFIG{'MPLAYER_BIN'})
+		if (! -x $CONFIG{'MPLAYER_BIN'})
 		{
-			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
-			my @output = <CMD>;
-			close(CMD);
-
-			if ($output[0] =~ /^MPlayer\s+(.+)\s+\(/ || $output[-1] =~ /^MPlayer\s+(.+)\s+\(/)
-			{
-			}
-			else
-			{
-				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
-			}
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
+		  push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
 		}
 	}
 
