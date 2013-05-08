@@ -131,9 +131,9 @@ sub initialize_db
 
 				MIME_TYPE			VARCHAR(128),
 				TYPE				VARCHAR(12),
-				EXTERNAL			BOOLEAN,
+				EXTERNAL			INTEGER,
 
-				ROOT				BOOLEAN,
+				ROOT				INTEGER,
 				SEQUENCE			BIGINT
 			);"
 		);
@@ -143,14 +143,14 @@ sub initialize_db
 	{
 		$dbh->do("CREATE TABLE FILEINFO (
 				FILEID_REF			INTEGER PRIMARY KEY,
-				VALID				BOOLEAN,
+				VALID				INTEGER,
 
 				WIDTH				INTEGER,
 				HEIGHT				INTEGER,
 
 				DURATION			INTEGER,
 				BITRATE				INTEGER,
-				VBR					BOOLEAN,
+				VBR				INTEGER,
 
 				CONTAINER			VARCHAR(128),
 				AUDIO_CODEC			VARCHAR(128),
@@ -181,7 +181,7 @@ sub initialize_db
 				PATH				VARCHAR(2048),
 				DIRNAME				VARCHAR(2048),
 
-				ROOT				BOOLEAN,
+				ROOT				INTEGER,
 				TYPE				INTEGER
 			);"
 		);
@@ -219,8 +219,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_BM$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF			INTEGER,
 
 				FILE_ID_REF			INTEGER,
 				POS_SECONDS			INTEGER
@@ -231,10 +231,10 @@ sub initialize_db
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF			INTEGER,
 
-				UDN					VARCHAR(64),
+				UDN				VARCHAR(64),
 				SSDP_BANNER			VARCHAR(256),
 				DESC_URL			VARCHAR(512),
 				RELA_URL			VARCHAR(512),
@@ -242,7 +242,7 @@ sub initialize_db
 
 				TYPE				VARCHAR(256),
 				MODEL_NAME			VARCHAR(256),
-				FRIENDLY_NAME		VARCHAR(256)
+				FRIENDLY_NAME			VARCHAR(256)
 			);"
 		);
 	}
@@ -250,8 +250,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_NTS$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF			INTEGER,
 
 				TYPE				VARCHAR(128),
 				EXPIRE				BIGINT
@@ -262,8 +262,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_SERVICE$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF			INTEGER,
 
 				SERVICE_ID			VARCHAR(256),
 				TYPE				VARCHAR(256),
@@ -278,8 +278,8 @@ sub initialize_db
 	{
 		$dbh->do("CREATE TABLE STAT_MEM (
 				DATE				BIGINT PRIMARY KEY,
-				VMS					BIGINT,
-				RSS					BIGINT
+				VMS				BIGINT,
+				RSS				BIGINT
 			);"
 		);
 	}
