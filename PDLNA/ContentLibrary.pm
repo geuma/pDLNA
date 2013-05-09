@@ -1099,19 +1099,6 @@ sub duration
 
 1;
 
-#	my $params = shift;
-
-#	my %self : shared = ();
-#	$self{TIMESTAMP} = time();
-#	my %directories : shared = ();
-
-#	$self->{DIRECTORIES}->{0} = PDLNA::ContentDirectory->new({
-#		'type' => 'meta',
-#		'name' => 'BaseView',
-#		'id' => 0,
-#		'parent_id' => '',
-#	});
-#
 #	if ($CONFIG{'SPECIFIC_VIEWS'})
 #	{
 #		$self->{DIRECTORIES}->{'A_A'} = PDLNA::ContentDirectory->new({
@@ -1177,53 +1164,3 @@ sub duration
 #			'parent_id' => '',
 #		});
 #	}
-#
-#	my $i = 100;
-#	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
-#	{
-#		if ($i > 999)
-#		{
-#			PDLNA::Log::log('More than 900 configured directories. Skip to load directory: '.$directory, 1, 'library');
-#			next;
-#		}
-#
-#		# BaseView
-#		$self->{DIRECTORIES}->{0}->add_directory({
-#			'path' => $directory->{'path'},
-#			'type' => $directory->{'type'},
-#			'recursion' => $directory->{'recursion'},
-#			'exclude_dirs' => $directory->{'exclude_dirs'},
-#			'exclude_items' => $directory->{'exclude_items'},
-#			'allow_playlists' => $directory->{'allow_playlists'},
-#			'id' => $i,
-#			'parent_id' => '',
-#		});
-#		$i++;
-#	}
-#
-#	foreach my $external (@{$CONFIG{'EXTERNALS'}})
-#	{
-#		if ($i > 999)
-#		{
-#			PDLNA::Log::log('More than 900 configured main entries. Skip to load external: '.$external, 1, 'library');
-#			next;
-#		}
-#
-#		# BaseView
-#		$self->{DIRECTORIES}->{0}->add_item({
-#			'name' => $external->{'name'},
-#			'filename' => $external->{'command'},
-#			'command' => $external->{'command'},
-#			'streamurl' => $external->{'streamurl'},
-#			'id' => $i,
-#			'parent_id' => '',
-#		});
-#		$i++;
-#	}
-#
-#	$self{TIMESTAMP_FINISHED} = time();
-#	$self{DIRECTORIES} = \%directories;
-#
-#	bless(\%self, $class);
-#	return \%self;
-#}
