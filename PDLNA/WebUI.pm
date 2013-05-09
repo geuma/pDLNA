@@ -255,7 +255,7 @@ sub show
 		);
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
-		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
+		my ($files_amount, $files_size) = PDLNA::Database::get_amount_size_of_items();
 		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
 
 		my $duration = PDLNA::Database::select_db_field_int(
@@ -271,7 +271,7 @@ sub show
 
 		foreach my $type ('image', 'audio', 'video')
 		{
-			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, $type);
+			my ($type_amount, $type_size) = PDLNA::Database::get_amount_size_of_items( $type);
 			$response .= '<tr><td>'.ucfirst($type).' Items</td><td>'.$type_amount.' ('.PDLNA::Utils::convert_bytes($type_size).')</td></tr>';
 		}
 

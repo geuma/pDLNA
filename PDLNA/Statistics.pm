@@ -32,12 +32,11 @@ sub write_statistics_periodic
 	PDLNA::Log::log('Starting thread for writing statistics periodically.', 1, 'default');
 	while(1)
 	{
-		my $dbh = PDLNA::Database::connect();
 
 		#
 		# MEMORY
 		#
-        my $proc = Proc::ProcessTable->new();
+                my $proc = Proc::ProcessTable->new();
 		my %fields = map { $_ => 1 } $proc->fields;
 		return undef unless exists $fields{'pid'};
 		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
@@ -45,32 +44,17 @@ sub write_statistics_periodic
 		{
 			if ($process->pid() eq $pid)
 			{
-				PDLNA::Database::insert_db(
-					$dbh,
-					{
-						'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
-						'parameters' => [ time(), $process->{size}, $process->{rss}, ],
-					},
-				);
+			  PDLNA::Database::insert_stats_mem($process->{size},$process->{rss});
 			}
 		}
 
 		#
 		# MEDIA ITEMS
 		#
-		my ($audio_amount, $audio_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'audio');
-		my ($image_amount, $image_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'image');
-		my ($video_amount, $video_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'video');
-		PDLNA::Database::insert_db(
-			$dbh,
-			{
-				'query' => 'INSERT INTO STAT_ITEMS (DATE, AUDIO, AUDIO_SIZE, IMAGE, IMAGE_SIZE, VIDEO, VIDEO_SIZE) VALUES (?,?,?,?,?,?,?)',
-				'parameters' => [ time(), $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ],
-			},
-		);
-
-		PDLNA::Database::disconnect($dbh);
-
+		my ($audio_amount, $audio_size) = PDLNA::Database::get_amount_size_of_items( 'audio');
+		my ($image_amount, $image_size) = PDLNA::Database::get_amount_size_of_items( 'image');
+		my ($video_amount, $video_size) = PDLNA::Database::get_amount_size_of_items( 'video');
+		PDLNA::Database::insert_stats_media($audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size);
 		sleep 60;
 	}
 }

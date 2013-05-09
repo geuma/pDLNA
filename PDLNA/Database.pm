@@ -432,4 +432,87 @@ sub _log_query
 	PDLNA::Log::log('(Query took '.$time.'ms): '. $$params{'query'}.' - '.$parameters, 1, 'database');
 }
 
+
+#
+# Interface for Other Modules
+#
+
+#
+# Stats
+
+sub insert_stats_mem
+{
+ my $size = shift;
+ my $rss  = shift;
+ 
+   my $dbh = PDLNA::Database::connect();
+   PDLNA::Database::insert_db(
+          $dbh,
+          { 
+             'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
+             'parameters' => [ time(), $size, $rss, ],
+          },
+   );   
+   
+  PDLNA::Database::disconnect($dbh); 
+}
+
+
+
+sub insert_stats_media
+{
+ my $audioamount = shift;
+ my $audiosize   = shift;
+ my $imageamount = shift;
+ my $imagesize   = shift;
+ my $videoamount = shift;
+ my $videosize   = shift;
+ 
+    my $dbh = PDLNA::Database::connect();
+    PDLNA::Database::insert_db(
+          $dbh, 
+          {           
+           'query' => 'INSERT INTO STAT_ITEMS (DATE, AUDIO, AUDIO_SIZE, IMAGE, IMAGE_SIZE, VIDEO, VIDEO_SIZE) VALUES (?,?,?,?,?,?,?)',
+           'parameters' => [ time(), $audioamount, $audiosize, $imageamount, $imagesize, $videoamount, $videosize, ],
+          },
+    );
+                                                                 
+    PDLNA::Database::disconnect($dbh); 
+                                                                     
+}
+
+
+#
+# Content Library
+
+sub get_amount_size_of_items
+{
+  my $type = shift || undef;
+   
+     my $dbh = PDLNA::Database::connect();              
+     
+     my $sql_query = 'SELECT COUNT(ID) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES';
+     my @sql_param = ();
+     if (defined($type))
+      {
+       $sql_query .= ' WHERE TYPE = ? GROUP BY TYPE';
+       push(@sql_param, $type);
+      }
+                                                                          
+     my @result = ();
+     PDLNA::Database::select_db(
+                               $dbh,
+                               {
+                                'query' => $sql_query,
+                                'parameters' => \@sql_param,
+                               },
+                              \@result,
+                             );
+     PDLNA::Database::disconnect($dbh);
+     return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
+}
+
+
+##
+##
 1;
