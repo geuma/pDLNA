@@ -417,10 +417,13 @@ sub parse_config
 			my @output = <CMD>;
 			close(CMD);
 
-			if ($output[0] =~ /^MPlayer\s+(.+)\s+\(/ || $output[-1] =~ /^MPlayer\s+(.+)\s+\(/)
+			my $found = 0;
+			foreach my $line (@output)
 			{
+				$found = 1 if $line =~ /^MPlayer\s+(.+)\s+\(/;
 			}
-			else
+
+			unless ($found)
 			{
 				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
 			}
