@@ -53,16 +53,23 @@ sub initialize_db
 			$dbh,
 			{
 				'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
-				'parameters' => [ 'VERSION', ],
+				'parameters' => [ 'DBVERSION', ],
 			},
 			\@results,
 		);
 
-		# check if DB was build with a different version of pDLNA
-		if ($results[0]->{VALUE} ne PDLNA::Config::print_version())
+		# check if DB was build with a different database version of pDLNA
+		if (!defined($results[0]->{VALUE}) || $results[0]->{VALUE} ne $CONFIG{'PROGRAM_DBVERSION'})
 		{
 			$dbh->do('DELETE FROM METADATA;');
 
+			insert_db(
+				$dbh,
+				{
+					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
+				},
+			);
 			insert_db(
 				$dbh,
 				{
@@ -100,6 +107,13 @@ sub initialize_db
 			);'
 		);
 
+		insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
+			},
+		);
 		insert_db(
 			$dbh,
 			{
