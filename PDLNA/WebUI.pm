@@ -23,13 +23,13 @@ use warnings;
 use Date::Format;
 use GD::Graph::area;
 use LWP::UserAgent;
-use Proc::ProcessTable;
 use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Daemon;
+use PDLNA::Statistics;
 use PDLNA::Status;
 use PDLNA::Utils;
 
@@ -203,35 +203,29 @@ sub show
 	}
 	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pi')
 	{
-		my $proc = Proc::ProcessTable->new();
-		my %fields = map { $_ => 1 } $proc->fields;
-		return undef unless exists $fields{'pid'};
 		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
-		foreach my $process (@{$proc->table()})
+		my %proc_info = PDLNA::Statistics::get_proc_information();
+		$response .= '<table>';
+		$response .= '<thead>';
+		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+		$response .= '</thead>';
+		$response .= '<tbody>';
+		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with PID</td><td>'.$pid.'</td></tr>';
+		$response .= '<tr><td>Parent PID of '.$CONFIG{'PROGRAM_NAME'}.'</td><td>'.$proc_info{'ppid'}.'</td></tr>';
+		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $proc_info{'start'}).'</td></tr>';
+		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$proc_info{'priority'}.'</td></tr>';
+		if ($CONFIG{'OS'} ne 'freebsd')
 		{
-			if ($process->pid() eq $pid)
-			{
-				$response .= '<table>';
-				$response .= '<thead>';
-				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
-				$response .= '</thead>';
-				$response .= '<tbody>';
-				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with PID</td><td>'.$pid.'</td></tr>';
-				$response .= '<tr><td>Parent PID of '.$CONFIG{'PROGRAM_NAME'}.'</td><td>'.$process->{ppid}.'</td></tr>';
-				$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $process->{start}).'</td></tr>';
-				if ($CONFIG{'OS'} ne 'freebsd')
-				{
-					$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$process->{priority}.'</td></tr>';
-					$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$process->{pctcpu}.' %</td></tr>';
-					$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($process->{size}).'</td></tr>';
-					$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($process->{rss}).'</td></tr>';
-					$response .= '<tr><td>Current Memory Utilization</td><td>'.$process->{pctmem}.' %</td></tr>';
-				}
-				$response .= '</tbody>';
-				$response .= '</table>';
-				last;
-			}
+			$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$proc_info{'pctcpu'}.' %</td></tr>';
 		}
+			$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($proc_info{'vmsize'}).'</td></tr>';
+			$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($proc_info{'rssize'}).'</td></tr>';
+		if ($CONFIG{'OS'} ne 'freebsd')
+		{
+			$response .= '<tr><td>Current Memory Utilization</td><td>'.$proc_info{'pctmem'}.' %</td></tr>';
+		}
+		$response .= '</tbody>';
+		$response .= '</table>';
 
 		if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
 		{

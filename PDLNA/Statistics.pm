@@ -27,6 +27,43 @@ use PDLNA::Daemon;
 use PDLNA::Database;
 use PDLNA::Log;
 
+sub get_proc_information
+{
+	my %statistics = (
+		'ppid' => 0,
+		'start' => 0,
+		'priority' => 0,
+		'pctcpu' => 0,
+		'vmsize' => 0,
+		'rssize' => 0,
+		'pctmem' => 0,
+	);
+
+	my $proc = Proc::ProcessTable->new();
+	my %fields = map { $_ => 1 } $proc->fields;
+	return undef unless exists $fields{'pid'};
+	my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
+	foreach my $process (@{$proc->table()})
+	{
+		if ($process->pid() eq $pid)
+		{
+			$statistics{'ppid'} = $process->{ppid} if defined($process->{ppid});
+			$statistics{'start'} = $process->{start} if defined($process->{start});
+			$statistics{'priority'} = $process->{priority} if defined($process->{priority});
+			$statistics{'pctcpu'} = $process->{pctcpu} if defined($process->{pctcpu});
+			$statistics{'vmsize'} = $process->{size} if defined($process->{size});
+			$statistics{'vmsize'} = $process->{vmsize} if defined($process->{vmsize});
+			$statistics{'rssize'} = $process->{rss} if defined($process->{rss});
+			$statistics{'rssize'} = $process->{rssize} if defined($process->{rssize});
+			$statistics{'pctmem'} = $process->{pctmem} if defined($process->{pctmem});
+
+			last;
+		}
+	}
+
+	return %statistics;
+}
+
 sub write_statistics_periodic
 {
 	PDLNA::Log::log('Starting thread for writing statistics periodically.', 1, 'default');
@@ -37,23 +74,14 @@ sub write_statistics_periodic
 		#
 		# MEMORY
 		#
-        my $proc = Proc::ProcessTable->new();
-		my %fields = map { $_ => 1 } $proc->fields;
-		return undef unless exists $fields{'pid'};
-		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
-		foreach my $process (@{$proc->table()})
-		{
-			if ($process->pid() eq $pid)
+		my %proc_info = get_proc_information();
+		PDLNA::Database::insert_db(
+			$dbh,
 			{
-				PDLNA::Database::insert_db(
-					$dbh,
-					{
-						'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
-						'parameters' => [ time(), $process->{size}, $process->{rss}, ],
-					},
-				);
-			}
-		}
+				'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
+				'parameters' => [ time(), $proc_info{'vmsize'}, $proc_info{'rssize'}, ],
+			},
+		);
 
 		#
 		# MEDIA ITEMS
