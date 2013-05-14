@@ -174,8 +174,8 @@ sub delete_device
 	return 0 if !defined($$params{'udn'});
 	return 0 if !defined($$params{'nt'});
 
-	my $device_ip_id  = PDLNA::Database::device_ip_get_id($$params{'ip'});
-	my $device_udn_id = PDLNA::Database::device_udn_get_id($device_ip_id, $$params{'udn'}) if defined($device_ip_id);
+	my $device_ip  = PDLNA::Database::device_ip_get_id($$params{'ip'});
+	my $device_udn_id = PDLNA::Database::device_udn_get_id($device_ip->{ID}, $$params{'udn'}) if defined($device_ip);
 	my $device_nts_id = PDLNA::Database::device_nts_get_id($device_udn_id, $$params{'nt'}) if defined($device_udn_id);
 
 	PDLNA::Database::device_nts_delete($device_nts_id) if defined($device_nts_id);

@@ -133,12 +133,12 @@ sub initialize_db
 	unless (grep(/^FILES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
 				FULLNAME			VARCHAR(2048),
-				FILE_EXTENSION		VARCHAR(4),
+				FILE_EXTENSION			VARCHAR(4),
 
 				DATE				BIGINT,
 				SIZE				BIGINT,
@@ -164,7 +164,7 @@ sub initialize_db
 
 				DURATION			INTEGER,
 				BITRATE				INTEGER,
-				VBR					BOOLEAN,
+				VBR				BOOLEAN,
 
 				CONTAINER			VARCHAR(128),
 				AUDIO_CODEC			VARCHAR(128),
@@ -221,9 +221,9 @@ sub initialize_db
 	unless (grep(/^DEVICE_IP$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_IP (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
 
-				IP					VARCHAR(15),
+				IP				VARCHAR(15),
 				USER_AGENT			VARCHAR(128),
 				LAST_SEEN			BIGINT
 			);"
@@ -233,8 +233,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_BM$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF			INTEGER,
 
 				FILE_ID_REF			INTEGER,
 				POS_SECONDS			INTEGER
@@ -245,10 +245,10 @@ sub initialize_db
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_IP_REF			INTEGER,
 
-				UDN					VARCHAR(64),
+				UDN				VARCHAR(64),
 				SSDP_BANNER			VARCHAR(256),
 				DESC_URL			VARCHAR(512),
 				RELA_URL			VARCHAR(512),
@@ -256,7 +256,7 @@ sub initialize_db
 
 				TYPE				VARCHAR(256),
 				MODEL_NAME			VARCHAR(256),
-				FRIENDLY_NAME		VARCHAR(256)
+				FRIENDLY_NAME			VARCHAR(256)
 			);"
 		);
 	}
@@ -264,8 +264,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_NTS$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF			INTEGER,
 
 				TYPE				VARCHAR(128),
 				EXPIRE				BIGINT
@@ -276,8 +276,8 @@ sub initialize_db
 	unless (grep(/^DEVICE_SERVICE$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF		INTEGER,
+				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
+				DEVICE_UDN_REF			INTEGER,
 
 				SERVICE_ID			VARCHAR(256),
 				TYPE				VARCHAR(256),
@@ -292,8 +292,8 @@ sub initialize_db
 	{
 		$dbh->do("CREATE TABLE STAT_MEM (
 				DATE				BIGINT PRIMARY KEY,
-				VMS					BIGINT,
-				RSS					BIGINT
+				VMS				BIGINT,
+				RSS				BIGINT
 			);"
 		);
 	}
@@ -490,6 +490,31 @@ sub insert_stats_media
 }
 
 
+sub stats_getdata
+{
+ my $dateformatstring = shift;
+ my $dbtable          = shift;
+ my $period           = shift;
+ my @dbfields         = @_;
+
+        my @results = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+              $dbh,
+               {
+                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(DATE, 'unixepoch', 'localtime')) AS datetime,
+                                     " .join(', ', @dbfields).  "
+                              FROM ".$dbtable. " 
+                              WHERE DATE > strftime('%s', 'now', 'start of ".$period."', 'utc') 
+                              GROUP BY datetime",
+                        'parameters' => [ ]
+                },
+                \@results,
+        );
+        PDLNA::Database::disconnect($dbh);
+    return @results;
+}
+
 ##
 ## FILES
 ##
@@ -527,6 +552,24 @@ sub get_amount_size_of_items
 ##
 ## DEVICE_IP
 
+sub  device_ip_select_all
+{
+        my @devices_ip = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => 'SELECT ID, IP FROM DEVICE_IP',
+                        'parameters' => [ ],
+                },
+                \@devices_ip,
+        );
+        PDLNA::Database::disconnect($dbh);
+
+    return @devices_ip;
+
+}
+
 sub device_ip_delete_by_id
  {
   my $device_ip_id = shift;
@@ -539,14 +582,13 @@ sub device_ip_delete_by_id
                  'parameters' => [ $device_ip_id, ],
                 },
         );
-    PDLNA::Database::disconnect($dbh);
+       PDLNA::Database::disconnect($dbh);
 }
-
-
 
 #
 # given a database connection and a ip address,
 # returns its id
+
 sub device_ip_get_id
 {
    my $dbh = shift;
@@ -564,14 +606,14 @@ sub device_ip_get_id
         PDLNA::Database::select_db(
                        $dbh,
                        {
-                        'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
+                        'query' => 'SELECT ID, IP, USER_AGENT, LAST_SEEN  FROM DEVICE_IP WHERE IP = ?',
                         'parameters' => [ $ip, ],
                        },
                       \@devices,
                      );
                      
         PDLNA::Database::disconnect($dbh) if $flag;
-        return $devices[0]->{ID};
+        return $devices[0];
 }
 
 
@@ -590,8 +632,8 @@ sub  device_ip_touch
         my $dbh = PDLNA::Database::connect();
         my $time = time ();
 
-        my $device_ip_id =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
-        if (!defined($device_ip_id)) 
+        my $device_ip =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+        if (!defined($device_ip)) 
          {
            PDLNA::Database::insert_db(
                         $dbh,
@@ -600,18 +642,18 @@ sub  device_ip_touch
                            'parameters' => [ $ip ],
                         },
                 );
-           $device_ip_id =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+           $device_ip =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
          }
 
         if (defined($useragent)) 
          {
           $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?, USER_AGENT = ? WHERE ID = ?';
-          $params = [ $time,$useragent,$device_ip_id ];
+          $params = [ $time,$useragent,$device_ip->{ID} ];
          }
         else
          {
           $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?  WHERE ID = ?';
-          $params = [ $time,$device_ip_id ];
+          $params = [ $time,$device_ip->{ID} ];
          }
 
          PDLNA::Database::update_db(
@@ -624,11 +666,32 @@ sub  device_ip_touch
 
          PDLNA::Database::disconnect($dbh);
          
-         return $device_ip_id;
+         return $device_ip->{ID};
 }
 
 ##
 ## DEVICE UDN
+
+sub device_udn_get_record
+{
+   my $device_ip_id = shift;
+      
+              my $dbh = PDLNA::Database::connect();
+              my @devices_udn = ();
+
+             PDLNA::Database::select_db(
+                        $dbh,
+                        {
+                         'query' => 'SELECT ID, UDN, SSDP_BANNER, FRIENDLY_NAME, MODEL_NAME, TYPE, DESC_URL FROM DEVICE_UDN WHERE ID = ?', 
+                         'parameters' => [ $device_ip_id ],
+                        },
+               \@devices_udn
+              );
+             PDLNA::Database::disconnect($dbh);
+             return $devices_udn[0];                                               
+}
+
+
 
 sub device_udn_get_id
 {
@@ -719,14 +782,8 @@ sub device_udn_delete_by_id
         );
 
         # delete the DEVICE_SERVICE entries
-        PDLNA::Database::device_service_delete_by_udn_ref($device_udn_id);
-        PDLNA::Database::delete_db(v
-                $dbh,
-                {
-                        'query' => 'DELETE FROM DEVICE_SERVICE WHERE DEVICE_UDN_REF = ?',
-                        'parameters' => [ $device_udn_id, ],
-                },
-        );
+        PDLNA::Database::device_service_delete($device_udn_id);
+        
         PDLNA::Database::disconnect($dbh) if $flag;
 
 }
@@ -757,6 +814,26 @@ sub device_udn_delete_without_nts
         }
         PDLNA::Database::disconnect($dbh);
 
+}
+
+
+sub  device_udn_select_by_ip
+{ 
+  my $device_ip_id = shift;
+
+                my @devices_udn = ();
+                my $dbh = PDLNA::Database::connect();
+                PDLNA::Database::select_db(
+                        $dbh,
+                        {
+                                'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
+                                'parameters' => [ $device_ip_id ],
+                        },
+                        \@devices_udn,
+                );
+                PDLNA::Database::disconnect($dbh);
+
+       return @devices_udn;
 }
 
 
@@ -841,6 +918,27 @@ sub  device_nts_amount
          PDLNA::Database::disconnect($dbh) if ($flag);
          return @device_nts_amount;
 
+}
+
+
+sub device_nts_get_records
+{
+ my $device_udn_ref = shift;
+
+                my $dbh = PDLNA::Database::connect();
+
+                my @device_nts = ();
+                PDLNA::Database::select_db(
+                        $dbh,
+                        {
+                         'query' => 'SELECT TYPE, EXPIRE FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+                         'parameters' => [ $device_udn_ref ],
+                        },
+                       \@device_nts,
+                );
+                PDLNA::Database::disconnect($dbh);
+
+          return @device_nts;
 }
 
 
@@ -983,6 +1081,44 @@ sub device_nts_delete_expired
 
 }
                  
+##
+## METADATA
+sub metadata_get_vaue
+{
+  my $key = shift; 
+
+                 my $dbh = PDLNA::Database::connect();
+                 my $val = PDLNA::Database::select_db_field_int(
+                     $dbh,
+                        {
+                        'query' => 'SELECT value FROM METADATA WHERE key = ?',
+                        'parameters' => [ $key, ],
+                        },
+                 );
+                 PDLNA::Database::disconnect($dbh);
+
+
+    return $val;
+}
+
+##
+## FILEINFO
+
+sub fileinfo_get_all_sumduration
+{
+                my $dbh = PDLNA::Database::connect();
+                my $duration = PDLNA::Database::select_db_field_int(
+                        $dbh,
+                        {
+                                'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
+                                'parameters' => [ ],
+                        },
+                );
+               PDLNA::Database::disconnect($dbh);
+
+  return $duration;
+}
+
 ##
 ##
 1;

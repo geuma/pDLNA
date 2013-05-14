@@ -37,7 +37,6 @@ sub show
 {
 	my $get_param = shift;
 
-	my $dbh = PDLNA::Database::connect();
 	my @nav = parse_nav($get_param);
 
 	my $response = PDLNA::HTTPServer::http_header({
@@ -63,15 +62,15 @@ sub show
 	$response .= '<h5>Configured media</h5>';
 	if ($nav[0] eq 'content')
 	{
-		$response .= build_directory_tree($dbh, 0, $nav[1]);
+		$response .= build_directory_tree( 0, $nav[1]);
 	}
 	else
 	{
-		$response .= build_directory_tree($dbh, 0, 0);
+		$response .= build_directory_tree( 0, 0);
 	}
 
 	$response .= '<h5>Connected devices</h5>';
-	$response .= build_connected_devices($dbh);
+	$response .= build_connected_devices();
 
 	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
@@ -94,12 +93,12 @@ sub show
 		$response .= '</thead>';
 
 		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($dbh, $nav[1])).'</td><td>&nbsp;</td></tr>';
+		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($nav[1])).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
 
 		$response .= '<tbody>';
 		my @files = ();
-		PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $nav[1], undef, undef, \@files);
+		PDLNA::ContentLibrary::get_subfiles_by_id( $nav[1], undef, undef, \@files);
 		foreach my $id (@files)
 		{
 			$response .= '<tr>';
@@ -116,26 +115,17 @@ sub show
 	{
 		if (defined($nav[1]) && !defined($nav[2]))
 		{
-			my @device_ip = ();
-			PDLNA::Database::select_db(
-				$dbh,
-				{
-					'query' => 'SELECT IP, USER_AGENT, LAST_SEEN FROM DEVICE_IP WHERE ID = ?',
-					'parameters' => [ $nav[1], ],
-				},
-				\@device_ip,
-			);
-
-			if (defined($device_ip[0]->{IP}))
+			my $device_ip = PDLNA::Database::device_ip_get_id($nav[1]);
+			if (defined($device_ip->{IP}))
 			{
 				$response .= '<table>';
 				$response .= '<thead>';
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>IP</td><td>'.$device_ip[0]->{IP}.'</td></tr>';
-				$response .= '<tr><td>HTTP UserAgent</td><td>'.$device_ip[0]->{USER_AGENT}.'</td></tr>' if defined($device_ip[0]->{USER_AGENT});
-				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{LAST_SEEN}).'</td></tr>';
+				$response .= '<tr><td>IP</td><td>'.$device_ip->{IP}.'</td></tr>';
+				$response .= '<tr><td>HTTP UserAgent</td><td>'.$device_ip->{USER_AGENT}.'</td></tr>' if defined($device_ip->{USER_AGENT});
+				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $device_ip->{LAST_SEEN}).'</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}
@@ -146,29 +136,20 @@ sub show
 		}
 		elsif (defined($nav[1]) && defined($nav[2]))
 		{
-			my @device_udn = ();
-			PDLNA::Database::select_db(
-				$dbh,
-				{
-					'query' => 'SELECT UDN, SSDP_BANNER, FRIENDLY_NAME, MODEL_NAME, TYPE, DESC_URL FROM DEVICE_UDN WHERE ID = ?',
-					'parameters' => [ $nav[2], ],
-				},
-				\@device_udn,
-			);
-
-			if (defined($device_udn[0]->{UDN}))
+			my $device_udn = PDLNA::Database::device_udn_get_record($nav[2]);
+			if (defined($device_udn->{UDN}))
 			{
 				$response .= '<table>';
 				$response .= '<thead>';
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>UDN</td><td>'.$device_udn[0]->{UDN}.'</td></tr>';
-				$response .= '<tr><td>SSDP Banner</td><td>'.$device_udn[0]->{SSDP_BANNER}.'</td></tr>' if defined($device_udn[0]->{SSDP_BANNER});
-				$response .= '<tr><td>Friendly Name</td><td>'.$device_udn[0]->{FRIENDLY_NAME}.'</td></tr>' if defined($device_udn[0]->{FRIENDLY_NAME});
-				$response .= '<tr><td>Model Name</td><td>'.$device_udn[0]->{MODEL_NAME}.'</td></tr>' if defined($device_udn[0]->{MODEL_NAME});
-				$response .= '<tr><td>Device Type</td><td>'.$device_udn[0]->{TYPE}.'</td></tr>' if defined($device_udn[0]->{TYPE});
-				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{DESC_URL}.'" target="_blank">'.$device_udn[0]->{DESC_URL}.'</a></td></tr>' if defined($device_udn[0]->{DESC_URL});
+				$response .= '<tr><td>UDN</td><td>'.$device_udn->{UDN}.'</td></tr>';
+				$response .= '<tr><td>SSDP Banner</td><td>'.$device_udn->{SSDP_BANNER}.'</td></tr>' if defined($device_udn->{SSDP_BANNER});
+				$response .= '<tr><td>Friendly Name</td><td>'.$device_udn->{FRIENDLY_NAME}.'</td></tr>' if defined($device_udn->{FRIENDLY_NAME});
+				$response .= '<tr><td>Model Name</td><td>'.$device_udn->{MODEL_NAME}.'</td></tr>' if defined($device_udn->{MODEL_NAME});
+				$response .= '<tr><td>Device Type</td><td>'.$device_udn->{TYPE}.'</td></tr>' if defined($device_udn->{TYPE});
+				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn->{DESC_URL}.'" target="_blank">'.$device_udn->{DESC_URL}.'</a></td></tr>' if defined($device_udn->{DESC_URL});
 				$response .= '</tbody>';
 				$response .= '</table>';
 
@@ -179,15 +160,7 @@ sub show
 				$response .= '<tr><td>NTS</td><td width="160px">expires at</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				my @device_nts = ();
-				PDLNA::Database::select_db(
-					$dbh,
-					{
-						'query' => 'SELECT TYPE, EXPIRE FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
-						'parameters' => [ $nav[2], ],
-					},
-					\@device_nts,
-				);
+				my @device_nts = PDLNA::Database::device_nts_get_records($nav[2]);
 				foreach my $nts (@device_nts)
 				{
 					$response .= '<tr><td>'.$nts->{TYPE}.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts->{EXPIRE}).'</td></tr>';
@@ -240,25 +213,13 @@ sub show
 		$response .= '</thead>';
 		$response .= '<tbody>';
 
-		my $timestamp = PDLNA::Database::select_db_field_int(
-			$dbh,
-			{
-				'query' => 'SELECT value FROM METADATA WHERE key = ?',
-				'parameters' => [ 'TIMESTAMP', ],
-			},
-		);
+                my $timestamp = PDLNA::Database::metadata_get_vaue('TIMESTAMP');
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
 		my ($files_amount, $files_size) = PDLNA::Database::get_amount_size_of_items();
 		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
 
-		my $duration = PDLNA::Database::select_db_field_int(
-			$dbh,
-			{
-				'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
-				'parameters' => [ ],
-			},
-		);
+                my $duration = PDLNA::Database::fileinfo_get_all_sumduration();
 		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>';
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
@@ -335,7 +296,6 @@ sub show
 	$response .= '</body>';
 	$response .= '</html>';
 
-	PDLNA::Database::disconnect($dbh);
 	return $response;
 }
 
@@ -556,7 +516,6 @@ sub parse_nav
 
 sub build_directory_tree
 {
-	my $dbh = shift;
 	my $start_id = shift;
 	my $end_id = shift;
 	$end_id = 0 if $end_id !~ /^(\d+)$/;
@@ -564,15 +523,15 @@ sub build_directory_tree
 	my $response = '';
 
 	my @results = ();
-	PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $start_id, undef, undef, \@results);
+	PDLNA::ContentLibrary::get_subdirectories_by_id( $start_id, undef, undef, \@results);
 
 	$response .= '<ul>';
 	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID}).')</a></li>';
-		if (PDLNA::ContentLibrary::is_in_same_directory_tree($dbh, $result->{ID}, $end_id))
+		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.PDLNA::ContentLibrary::get_amount_elements_by_id( $result->{ID}).')</a></li>';
+		if (PDLNA::ContentLibrary::is_in_same_directory_tree( $result->{ID}, $end_id))
 		{
-			$response .= build_directory_tree($dbh, $result->{ID}, $end_id);
+			$response .= build_directory_tree( $result->{ID}, $end_id);
 		}
 	}
 	$response .= '</ul>';
@@ -582,31 +541,14 @@ sub build_directory_tree
 
 sub build_connected_devices
 {
-	my $dbh = shift;
 	my $response = '';
 
-	my @devices_ip = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID, IP FROM DEVICE_IP',
-			'parameters' => [ ],
-		},
-		\@devices_ip,
-	);
+	my @devices_ip = PDLNA::Database::device_ip_select_all();
 	$response .= '<ul>';
 	foreach my $device_ip (@devices_ip)
 	{
 		$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'">'.$device_ip->{IP}.'</a></li>';
-		my @devices_udn = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
-				'parameters' => [ $device_ip->{ID}, ],
-			},
-			\@devices_udn,
-		);
+		my @devices_udn = PDLNA::Database::device_udn_select_by_ip($device_ip->{ID});
 		$response .= '<ul>';
 		foreach my $device_udn (@devices_udn)
 		{
@@ -733,17 +675,8 @@ sub graph
 	# DATA GATHERING
 	#
 
-	my $dbh = PDLNA::Database::connect();
 
-	my @results = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', 'start of ".$period."', 'utc') GROUP BY datetime",
-			'parameters' => [ ],
-		},
-		\@results,
-	);
+	my @results = PDLNA::Database::stats_getdata($data_options{'dateformatstring'},$data_options{'dbtable'},$period,@{$data_options{'dbfields'}});
 
 	my @data = ();
 	for (my $i = 0; $i < @results; $i++)
@@ -757,7 +690,6 @@ sub graph
 		}
 	}
 
-	PDLNA::Database::disconnect($dbh);
 
 	#
 	# deliver the graph to the browser
