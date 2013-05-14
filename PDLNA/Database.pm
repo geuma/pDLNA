@@ -886,7 +886,26 @@ sub device_service_delete
 
 }
 
-  
+sub device_service_get_records_by_serviceid
+{
+ my $service_id = shift;
+
+                my $dbh = PDLNA::Database::connect();
+                my @device_services = ();
+                PDLNA::Database::select_db(
+                      $dbh,
+                      {
+                       'query' => 'SELECT TYPE, CONTROL_URL FROM DEVICE_SERVICE WHERE SERVICE_ID = ?', 
+                       'parameters' => [ $service_id ],
+                      },
+                      \@device_services,
+                );
+                PDLNA::Database::disconnect($dbh);
+
+    return @device_services;
+}  
+
+
 
 ##
 ## DEVICE NTS

@@ -84,18 +84,7 @@ sub check_update
 			{
 				PDLNA::Log::log('Sending notification to currently connected urn:samsung.com:serviceId:MessageBoxService services.', 1, 'default');
 
-				my $dbh = PDLNA::Database::connect();
-				my @device_services = ();
-				PDLNA::Database::select_db(
-					$dbh,
-					{
-						'query' => 'SELECT TYPE, CONTROL_URL FROM DEVICE_SERVICE WHERE SERVICE_ID = ?',
-						'parameters' => [ 'urn:samsung.com:serviceId:MessageBoxService' ],
-					},
-					\@device_services,
-				);
-				PDLNA::Database::disconnect($dbh);
-
+				my @device_services = PDLNA::Database::device_service_get_records_by_serviceid('urn:samsung.com:serviceId:MessageBoxService');
 				foreach my $service (@device_services)
 				{
 					PDLNA::Log::log('Sending sms to '.$service->{CONTROL_URL}.'.', 1, 'default');
