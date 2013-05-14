@@ -326,7 +326,7 @@ sub receive_messages
 			{
 				PDLNA::Log::log('Adding UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' to database.', 2, 'discovery');
 				PDLNA::Devices::add_device(
-					$dbh,
+					
 					{
 						'ip' => $peer_ip_addr,
 						'udn' => $message{'USN'},
@@ -341,7 +341,7 @@ sub receive_messages
 			{
 				PDLNA::Log::log('Deleting UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' from database.', 2, 'discovery');
 				PDLNA::Devices::delete_device(
-					$dbh,
+					
 					{
 						'ip' => $peer_ip_addr,
 						'udn' => $message{'USN'},

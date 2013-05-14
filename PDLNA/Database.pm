@@ -447,8 +447,8 @@ sub _log_query
 }
 
 
-
 #
+# STATS
 # 
 sub insert_stats_proc
 {
@@ -482,7 +482,7 @@ sub insert_stats_media
    PDLNA::Database::insert_db(
                    $dbh,
                    {'query' => 'INSERT INTO STAT_ITEMS (DATE, AUDIO, AUDIO_SIZE, IMAGE, IMAGE_SIZE, VIDEO, VIDEO_SIZE) VALUES (?,?,?,?,?,?,?)', 
-                    'parameters' => [ time(), $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
+                    'parameters' => [ $time, $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
                    },
                   );
    PDLNA::Database::disconnect($dbh);
@@ -490,8 +490,8 @@ sub insert_stats_media
 }
 
 
-
 ##
+## FILES
 ##
 sub get_amount_size_of_items
 {
@@ -524,7 +524,465 @@ sub get_amount_size_of_items
         return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
-                   
+##
+## DEVICE_IP
+
+sub device_ip_delete_by_id
+ {
+  my $device_ip_id = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::delete_db(
+                $dbh,
+                {
+                 'query' => 'DELETE FROM DEVICE_IP WHERE ID = ?',
+                 'parameters' => [ $device_ip_id, ],
+                },
+        );
+    PDLNA::Database::disconnect($dbh);
+}
+
+
+
+#
+# given a database connection and a ip address,
+# returns its id
+sub device_ip_get_id
+{
+   my $dbh = shift;
+   my $ip = shift;
+        
+        my $flag = 0;
+        if (!defined $ip)              # We only pass one param 
+        {                              # when we want this function to make
+         $ip = $dbh;                   # its own database connection 
+         $dbh = PDLNA::Database::connect();
+         $flag = 1;
+        }
+        
+        my @devices = ();
+        PDLNA::Database::select_db(
+                       $dbh,
+                       {
+                        'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
+                        'parameters' => [ $ip, ],
+                       },
+                      \@devices,
+                     );
+                     
+        PDLNA::Database::disconnect($dbh) if $flag;
+        return $devices[0]->{ID};
+}
+
+
+#
+# If a new IP address is presented, it updates the last_seen and user agent 
+# if possible, if the ip is new, then a new device_ip address is created.
+sub  device_ip_touch
+{
+  my $ip = shift;
+  my $useragent = shift;
+
+  my $sql;
+  my $params;
+  my @result;
+
+        my $dbh = PDLNA::Database::connect();
+        my $time = time ();
+
+        my $device_ip_id =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+        if (!defined($device_ip_id)) 
+         {
+           PDLNA::Database::insert_db(
+                        $dbh,
+                        {
+                           'query' => 'INSERT INTO DEVICE_IP (IP) VALUES (?)',
+                           'parameters' => [ $ip ],
+                        },
+                );
+           $device_ip_id =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+         }
+
+        if (defined($useragent)) 
+         {
+          $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?, USER_AGENT = ? WHERE ID = ?';
+          $params = [ $time,$useragent,$device_ip_id ];
+         }
+        else
+         {
+          $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?  WHERE ID = ?';
+          $params = [ $time,$device_ip_id ];
+         }
+
+         PDLNA::Database::update_db(
+                     $dbh,
+                       {
+                        'query' => $sql, 
+                        'parameters' => $params
+                        },
+                );
+
+         PDLNA::Database::disconnect($dbh);
+         
+         return $device_ip_id;
+}
+
+##
+## DEVICE UDN
+
+sub device_udn_get_id
+{
+  my $device_ip_id = shift;
+  my $device_udn = shift;
+
+
+        my $dbh = PDLNA::Database::connect();
+        my @device_udn = ();
+
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                 'query' => 'SELECT ID FROM DEVICE_UDN WHERE DEVICE_IP_REF = ? AND UDN = ?',
+                 'parameters' => [ $device_ip_id, $device_udn, ],
+                },
+                \@device_udn,
+        );
+
+
+        PDLNA::Database::disconnect($dbh);
+        return $device_udn[0]->{ID};
+}
+
+
+sub device_udn_insert
+{
+  my $device_ip_id = shift;
+  my $udn          = shift;
+  my $ssdp_banner  = shift;
+  my $dev_desc_loc = shift;
+  my $dev_udn_base_url = shift;
+  my $dev_udn_rela_url = shift;
+  my $dev_udn_devicetype = shift;
+  my $dev_udn_modelname  = shift;
+  my $dev_udn_friendlyname = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::insert_db(
+                 $dbh,
+                  {
+           'query' => 'INSERT INTO DEVICE_UDN (DEVICE_IP_REF, UDN, SSDP_BANNER, DESC_URL, RELA_URL, BASE_URL, TYPE, MODEL_NAME, FRIENDLY_NAME) VALUES (?,?,?,?,?,?,?,?,?)',
+           'parameters' => [ $device_ip_id, $udn, $ssdp_banner, $dev_desc_loc, $dev_udn_base_url, $dev_udn_rela_url, $dev_udn_devicetype, $dev_udn_modelname, $dev_udn_friendlyname, ],
+                   },
+         );
+        PDLNA::Database::disconnect($dbh);
+
+}
+
+
+sub device_udn_get_modelname
+{ 
+  my $ip = shift;
+
+        my @modelnames = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                  'query' => 'SELECT ID, MODEL_NAME FROM DEVICE_UDN WHERE DEVICE_IP_REF IN (SELECT ID FROM DEVICE_IP WHERE IP = ?)',
+                  'parameters' => [ $ip, ],
+                },
+                \@modelnames,
+        );
+        PDLNA::Database::disconnect($dbh);
+        return @modelnames;
+}
+
+sub device_udn_delete_by_id
+{
+  my $dbh = shift;
+  my $device_udn_id = shift;
+
+        my $flag = 0;
+        if (!defined $device_udn_id)   # We only pass one param 
+        {                              # when we want this function to make
+         $device_udn_id = $dbh;        # its own database connection 
+         $dbh = PDLNA::Database::connect();
+         $flag = 1;
+        }
+
+        PDLNA::Database::delete_db(
+                $dbh,
+                {
+                        'query' => 'DELETE FROM DEVICE_UDN WHERE ID = ?',
+                        'parameters' => [ $device_udn_id, ],
+                },
+        );
+
+        # delete the DEVICE_SERVICE entries
+        PDLNA::Database::device_service_delete_by_udn_ref($device_udn_id);
+        PDLNA::Database::delete_db(v
+                $dbh,
+                {
+                        'query' => 'DELETE FROM DEVICE_SERVICE WHERE DEVICE_UDN_REF = ?',
+                        'parameters' => [ $device_udn_id, ],
+                },
+        );
+        PDLNA::Database::disconnect($dbh) if $flag;
+
+}
+
+
+
+
+sub device_udn_delete_without_nts
+{
+
+        my $dbh = PDLNA::Database::connect();
+        my @device_udn = ();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                 'query' => 'SELECT ID FROM DEVICE_UDN',
+                 'parameters' => [ ],
+                },
+                \@device_udn,
+        );
+        foreach my $udn (@device_udn)
+        {
+                my @device_nts_amount = PDLNA::Database::device_nts_amount($udn->{ID});
+                if ($device_nts_amount[0]->{AMOUNT} == 0)
+                {
+                       PDLNA::Database::device_udn_delete_by_id($dbh, $udn->{ID});
+                }
+        }
+        PDLNA::Database::disconnect($dbh);
+
+}
+
+
+##
+## DEVICE SERVICE
+##
+sub device_service_insert
+{
+  my $device_udn_id = shift;
+  my $serviceId     = shift;
+  my $serviceType   = shift;
+  my $controlURL    = shift;
+  my $eventSubURL   = shift;
+  my $scpdURL       = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::insert_db(
+           $dbh,
+            {
+            'query' => 'INSERT INTO DEVICE_SERVICE (DEVICE_UDN_REF, SERVICE_ID, TYPE, CONTROL_URL, EVENT_URL, SCPD_URL) VALUES (?,?,?,?,?,?)',
+            'parameters' => [ $device_udn_id, $serviceId, $serviceType, $controlURL, $eventSubURL, $scpdURL ],
+             }
+        );
+       PDLNA::Database::disconnect($dbh);
+
+}
+
+
+sub device_service_delete
+{
+   my $dbh           = shift;
+   my $device_udn_id = shift;
+      
+      
+             my $flag = 0;
+             if (!defined $device_udn_id)       # We only pass one param 
+             {                                  # when we want this function to make
+              $device_udn_id = $dbh;            # its own database connection
+              $dbh = PDLNA::Database::connect();
+              $flag = 1;
+             }
+            PDLNA::Database::delete_db(
+            $dbh, 
+               {
+                    'query' => 'DELETE FROM DEVICE_SERVICE WHERE DEVICE_UDN_REF = ?',
+                        'parameters' => [ $device_udn_id, ],
+               },
+            );
+            PDLNA::Database::disconnect($dbh) if $flag;
+
+}
+
+  
+
+##
+## DEVICE NTS
+##
+
+sub  device_nts_amount
+{
+ my $dbh           = shift;
+ my $device_udn_id = shift;
+
+
+        my $flag = 0;
+        if (!defined $device_udn_id)   # We only pass one param 
+        {                              # when we want this function to make
+         $device_udn_id = $dbh;        # its own database connection 
+         $dbh = PDLNA::Database::connect();
+         $flag = 1;
+        }
+
+         my @device_nts_amount = ();
+         PDLNA::Database::select_db(
+               $dbh,
+               {
+                'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+                'parameters' => [ $device_udn_id ],
+                },
+               \@device_nts_amount,
+         );
+         PDLNA::Database::disconnect($dbh) if ($flag);
+         return @device_nts_amount;
+
+}
+
+
+sub device_nts_device_udn_ref
+{
+  my $devicetype = shift;
+ 
+                my @device_udns = (); 
+                my $dbh = PDLNA::Database::connect();
+                PDLNA::Database::select_db(
+                        $dbh,
+                        {
+                                'query' => 'SELECT DEVICE_UDN_REF FROM DEVICE_NTS WHERE TYPE = ?',
+                                'parameters' => [ $devicetype, ],
+                        },
+                        \@device_udns,
+                );
+                PDLNA::Database::disconnect($dbh);
+
+                return @device_udns;
+}
+
+
+
+sub device_nts_get_id
+{
+   my $dbh = shift;
+   my $device_udn_id = shift;  
+   my $device_nts_type = shift;
+
+
+        my $flag = 0;
+        if (!defined $device_nts_type)        # We only pass one param 
+        {                                     # when we want this function to make
+         $device_nts_type = $device_udn_id;   # its own database connection
+         $device_udn_id   = $dbh; 
+         $dbh = PDLNA::Database::connect();
+         $flag = 1;
+        }
+
+        my @device_nts = ();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => 'SELECT ID FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ? AND TYPE = ?',
+                        'parameters' => [ $device_udn_id, $device_nts_type, ],
+                },
+                \@device_nts,
+        );
+        PDLNA::Database::disconnect($dbh) if $flag;
+
+        return $device_nts[0]->{ID};
+}
+
+
+sub device_nts_delete 
+{
+   my $dbh    = shift;
+   my $nts_id = shift;
+
+
+            my $flag = 0;
+            if (!defined $nts_id)        # We only pass one param 
+            {                                     # when we want this function to make
+             $nts_id = $dbh;   # its own database connection
+             $dbh = PDLNA::Database::connect();
+             $flag = 1;
+            }
+                                                                    
+            PDLNA::Database::delete_db(
+            $dbh,
+               {
+                'query' => 'DELETE FROM DEVICE_NTS WHERE ID = ?',
+                'parameters' => [ $nts_id ],
+               },
+            );
+            PDLNA::Database::disconnect($dbh) if $flag;
+}
+
+
+
+sub device_nts_touch
+{
+ my $device_udn_id = shift;
+ my $nt            = shift;
+ my $nt_time_of_expire = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        my $device_nts_id = PDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
+        if (defined($device_nts_id))
+        {
+                PDLNA::Database::update_db(
+                        $dbh,
+                        {
+                                'query' => 'UPDATE DEVICE_NTS SET EXPIRE = ? WHERE ID = ? AND TYPE = ?',
+                                'parameters' => [ $nt_time_of_expire, $device_nts_id, $nt ],
+                        },
+                );
+        }
+        else
+        {
+                PDLNA::Database::insert_db(
+                        $dbh,
+                        {
+                                'query' => 'INSERT INTO DEVICE_NTS (DEVICE_UDN_REF, TYPE, EXPIRE) VALUES (?,?,?)',
+                                'parameters' => [ $device_udn_id, $nt, $nt_time_of_expire ],
+                        },
+                );
+                $device_nts_id = PDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
+        }
+       PDLNA::Database::disconnect($dbh);
+        
+    return  $device_nts_id;
+     
+}
+
+
+sub device_nts_delete_expired
+{
+  my @device_nts = ();
+
+        my $time = time();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => 'SELECT ID, EXPIRE FROM DEVICE_NTS',
+                        'parameters' => [ ],
+                },
+                \@device_nts,
+        );
+        foreach my $nts (@device_nts)
+        {
+                if ($nts->{EXPIRE} < $time)
+                {
+                  PDLNA::Database::device_nts_delete($dbh,$nts->{ID});
+                }
+        }
+        PDLNA::Database::disconnect($dbh);
+
+}
+                 
 ##
 ##
 1;

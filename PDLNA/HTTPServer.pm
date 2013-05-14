@@ -194,13 +194,13 @@ sub handle_connection
 	# adding device and/or request to Devices tables
 	my $dbh = PDLNA::Database::connect();
 	PDLNA::Devices::add_device(
-		$dbh,
+		
 		{
 			'ip' => $peer_ip_addr,
 			'http_useragent' => $CGI{'USER-AGENT'},
 		},
 	);
-	my $model_name = PDLNA::Devices::get_modelname_by_devicetype($dbh, $peer_ip_addr, 'urn:schemas-upnp-org:device:MediaRenderer:1');
+	my $model_name = PDLNA::Devices::get_modelname_by_devicetype($peer_ip_addr, 'urn:schemas-upnp-org:device:MediaRenderer:1');
 	PDLNA::Log::log('ModelName for '.$peer_ip_addr.' is '.$model_name.'.', 2, 'httpgeneric');
 	PDLNA::Database::disconnect($dbh);
 
