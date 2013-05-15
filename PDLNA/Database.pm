@@ -369,10 +369,11 @@ sub select_db
 	my $params = shift;
 	my $result = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
-
+    
+    my $sth;
 	#_log_query($params);
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	eval { $sth = $dbh->prepare($$params{'query'}) };  die "Could not prepare Query: ".$$params{'query'}."\n" if ($@);
+	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " with error ==> ". $sth->errstr;
 	while (my $data = $sth->fetchrow_hashref)
 	{
 		push(@{$result}, $data);
@@ -388,7 +389,7 @@ sub insert_db
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " with error ==> ". $sth->errstr;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -518,6 +519,26 @@ sub stats_getdata
 ##
 ## FILES
 ##
+sub files_get_records_by_path
+{
+    my $element = shift;
+    
+                my $dbh = PDLNA::Database::connect();
+                my @results = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT ID, NAME, FULLNAME FROM FILES WHERE PATH = ?',
+						'parameters' => [ $element, ],
+					},
+					\@results,
+				);
+                PDLNA::Database::disconnect($dbh);
+               
+       return @results;         
+}
+
+
 sub get_amount_size_of_items
 {
   my $type = shift || undef;
@@ -548,6 +569,229 @@ sub get_amount_size_of_items
 
         return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
+
+
+sub files_get_record_by_id
+{
+ my $item_id = shift;
+ 
+         my $dbh = PDLNA::Database::connect();
+         my @result = ();
+         PDLNA::Database::select_db(
+            $dbh,
+             {
+              'query' => 'SELECT NAME, FULLNAME, PATH, TYPE, DATE, SIZE, MIME_TYPE, FILE_EXTENSION, EXTERNAL FROM FILES WHERE ID = ?;', 
+              'parameters' => [ $item_id, ],
+             },
+            \@result         
+         );
+         PDLNA::Database::disconnect($dbh);
+        
+    return $result[0];      
+}
+
+
+sub files_get_records_by_name_path
+{
+ my  $excl_items = shift;
+ my  $path       = shift;
+ 
+        my @items = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+              $dbh,
+              {
+              'query' => 'SELECT ID FROM FILES WHERE NAME = ? AND PATH LIKE ?',
+              'parameters' => [ $excl_items, $path.'%', ],
+              },
+              \@items,
+       );
+       PDLNA::Database::disconnect($dbh);
+       
+   return @items;
+                                                                                                                                                                                                                                                                                                 
+}
+
+
+sub files_get_record_by_fullname
+{
+ my $fullname = shift;
+ my $path     = shift;
+ 
+            my @results = ();
+            my $dbh = PDLNA::Database::connect(); 
+            PDLNA::Database::select_db(
+              $dbh,
+              {
+              'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE, PATH, SEQUENCE FROM FILES WHERE FULLNAME = ? AND PATH = ?', 
+              'parameters' => [ $fullname, $path, ],
+              },
+             \@results,
+            );
+            PDLNA::Database::disconnect($dbh);
+            
+     return $results[0];
+                                                                                          
+}
+
+
+sub files_get_records_by_external
+{
+ my $external = shift;
+
+        my @files = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+              $dbh,
+              {
+               'query' => 'SELECT ID, FULLNAME FROM FILES WHERE EXTERNAL = ?',
+               'parameters' => [ $external ],
+               },
+              \@files,
+        );
+        PDLNA::Database::disconnect($dbh);     
+        
+   return @files;
+}
+
+
+sub files_update
+{
+ my $date = shift;
+ my $size = shift;
+ my $mimetype = shift;
+ my $type     = shift;
+ my $sequence = shift;
+ my $file_id  = shift;
+ 
+          my $dbh = PDLNA::Database::connect();
+          PDLNA::Database::update_db(
+             $dbh,
+             {
+             'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ?, SEQUENCE = ? WHERE ID = ?;',
+             'parameters' => [ $date, $size, $mimetype, $type, $sequence, $file_id ], 
+             },
+          );
+          PDLNA::Database::disconnect($dbh);
+                     
+}
+
+
+sub files_update_2
+{
+ my $file_extension = shift;
+ my $mime_type      = shift;
+ my $type           = shift;
+ my $file_id        = shift;
+ 
+           my $dbh = PDLNA::Database::connect();
+           PDLNA::Database::update_db(
+               $dbh,
+               {
+               'query' => 'UPDATE FILES SET FILE_EXTENSION = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?',
+               'parameters' => [ $file_extension, $mime_type, $type, $file_id, ], 
+               },
+           );
+           PDLNA::Database::disconnect($dbh);
+}                                        
+
+sub files_update_mime_unknown
+{
+ my $file_id        = shift;
+    
+               my $dbh = PDLNA::Database::connect();
+               PDLNA::Database::update_db(
+                   $dbh,
+                    {
+                    'query' => 'UPDATE FILES SET FILE_EXTENSION = ? WHERE ID = ?',
+                    'parameters' => [ 'unkn' , $file_id, ],
+                    },
+               );
+              PDLNA::Database::disconnect($dbh);
+}
+                                                                                                                           
+
+sub files_set_invalid
+{
+ my $file_id = shift;
+ 
+            # set FILEINFO entry to INVALID data
+            my $dbh = PDLNA::Database::connect();
+            PDLNA::Database::update_db(
+              $dbh,
+              {
+               'query' => 'UPDATE FILEINFO SET VALID = 0 WHERE FILEID_REF = ?;',
+               'parameters' => [ $file_id, ],
+              },
+            );
+           PDLNA::Database::disconnect($dbh);
+                                                                                                                                                                                                                                                                    
+}
+
+
+
+sub files_set_valid
+{
+ my $file_id = shift;
+  
+              # set FILEINFO entry to VALID data
+               my $dbh = PDLNA::Database::connect();
+               PDLNA::Database::update_db(
+                    $dbh,
+                    {
+                    'query' => 'UPDATE FILEINFO SET VALID = 1 WHERE FILEID_REF = ?;',
+                    'parameters' => [ $file_id, ],
+                    },
+               );
+               PDLNA::Database::disconnect($dbh);
+               
+}   
+
+sub files_insert
+{
+ my $element_basename = shift;
+ my $element_dirname  = shift;
+ my $element          = shift;
+ my $file_extension   = shift;
+ my $date             = shift;
+ my $size             = shift;
+ my $mime_type        = shift;
+ my $type             = shift;
+ my $external         = shift;
+ my $root             = shift;
+ my $sequence         = shift;
+     
+           # insert file to db
+           my $dbh = PDLNA::Database::connect();
+           PDLNA::Database::insert_db(
+                     $dbh,
+                     {
+                     'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL, ROOT, SEQUENCE) VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
+                     'parameters' => [ $element_basename, $element_dirname, $element, $file_extension, $date, $size,  $mime_type, $type, $external, $root, $sequence, ],
+                     },
+           );
+           PDLNA::Database::disconnect($dbh);                                                                                                                                                                             
+}
+
+
+sub files_delete
+{
+ my $file_id = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::delete_db(
+            $dbh,
+            {
+             'query' => 'DELETE FROM FILES WHERE ID = ?',
+             'parameters' => [ $file_id, ],
+            },
+        );
+        PDLNA::Database::disconnect($dbh);
+                                                                                                                 
+}
+
+
+
 
 ##
 ## DEVICE_IP
@@ -1102,7 +1346,7 @@ sub device_nts_delete_expired
                  
 ##
 ## METADATA
-sub metadata_get_vaue
+sub metadata_get_value
 {
   my $key = shift; 
 
@@ -1118,6 +1362,22 @@ sub metadata_get_vaue
 
 
     return $val;
+}
+
+sub metadata_update_value
+{
+     my $value = shift;
+     my $key   = shift;
+     
+            my $dbh = PDLNA::Database::connect();
+    		PDLNA::Database::update_db(
+			$dbh,
+			{
+				'query' => "UPDATE METADATA SET VALUE = ? WHERE KEY = ?",
+				'parameters' => [ $value,$key ],
+			},
+            );
+            PDLNA::Database::disconnect($dbh);
 }
 
 ##
@@ -1138,6 +1398,697 @@ sub fileinfo_get_all_sumduration
   return $duration;
 }
 
+
+sub fileinfo_get_by_valid
+{
+ my $valid = shift;
+ 
+        my @results = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+             'query' => 'SELECT FILEID_REF FROM FILEINFO WHERE VALID = ?',
+             'parameters' => [ $valid ],
+             },
+             \@results,
+        );
+        PDLNA::Database::disconnect($dbh);
+   
+ return @results;
+
+}                                                                                                                                
+
+
+sub fileinfo_get_by_id
+{
+ my $item_id = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        my @iteminfo = ();
+        PDLNA::Database::select_db(
+                 $dbh,
+                 {
+                 'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM, CONTAINER, AUDIO_CODEC, VIDEO_CODEC FROM FILEINFO WHERE FILEID_REF = ?;', 
+                 'parameters' => [ $item_id, ],
+                  },
+                 \@iteminfo,
+        );
+        PDLNA::Database::disconnect($dbh);
+         
+  return $iteminfo[0]; 
+}
+
+sub fileinfo_insert_empty
+{
+  my $file_id = shift;
+  
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::insert_db(
+              $dbh,
+              {
+              'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+              'parameters' => [ $file_id, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ]
+              },
+        );
+        PDLNA::Database::disconnect($dbh);
+                                                                                                                                                                                 
+}
+
+
+sub fileinfo_delete
+{
+   my $file_id = shift;
+     
+             my $dbh = PDLNA::Database::connect();
+             PDLNA::Database::delete_db(
+                  $dbh,
+                  {
+                  'query' => 'DELETE FROM FILEINFO WHERE FILEID_REF = ?',
+                  'parameters' => [ $file_id, ],
+                  },
+             );
+             PDLNA::Database::disconnect($dbh);
+                                                                                                                
+}
+
+
+sub fileinfo_update_dimensions
+{
+ my $width   = shift;
+ my $height  = shift;
+ my $file_id = shift;
+ 
+         my $dbh = PDLNA::Database::connect();
+         PDLNA::Database::update_db(
+               $dbh,
+               {
+               'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, VALID = 1 WHERE FILEID_REF = ?', 
+               'parameters' => [ $width, $height, $file_id, ],
+               },
+         );
+         PDLNA::Database::disconnect($dbh);
+            
+}
+
+
+sub fileinfo_update
+{
+ my $width     = shift;
+ my $height    = shift;
+ my $duration  = shift;
+ my $bitrate   = shift;
+ my $container = shift;
+ my $audio_codec = shift;
+ my $video_codec = shift;
+ my $file_id     = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::update_db(
+           $dbh,
+           {
+           'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, DURATION = ?, BITRATE = ?,  CONTAINER = ?, AUDIO_CODEC = ?, VIDEO_CODEC = ? WHERE FILEID_REF = ?',
+           'parameters' => [ $width, $height, $duration, $bitrate, $container, $audio_codec, $video_codec, $file_id, ],
+            },
+        );
+        PDLNA::Database::disconnect($dbh);
+                                                                                                                                                                                                                                   
+}
+
+
+sub fileinfo_update_details_audio
+{
+ my $artist     = shift;
+ my $album      = shift;
+ my $title      = shift;
+ my $genre      = shift;
+ my $year       = shift;
+ my $tracknum   = shift;
+ my $file_id    = shift;
+ 
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::update_db(
+           $dbh,
+           {
+           'query' => 'UPDATE FILEINFO SET ARTIST = ?, ALBUM = ?, TITLE = ?, GENRE = ?, YEAR = ?, TRACKNUM = ?, VALID = ? WHERE FILEID_REF = ?',
+           'parameters' => [ $artist,  $album, $title, $genre, $year, $tracknum, 1, $file_id, ],
+           },
+        );
+        PDLNA::Database::disconnect($dbh);
+}
+
+
+
+
+##
+## DEVICE_BM
+
+sub device_bm_get_posseconds
+{
+    my $item_id      = shift;
+    my $device_ip_id = shift;
+    
+        my $dbh = PDLNA::Database::connect();
+	my $bookmark = PDLNA::Database::select_db_field_int(
+		$dbh,
+		{
+		 'query' => 'SELECT POS_SECONDS FROM DEVICE_BM WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+		 'parameters' => [ $item_id, $device_ip_id, ],
+		},
+		);
+                PDLNA::Database::disconnect($dbh);
+                
+        return $bookmark;
+}
+
+
+sub device_bm_update_posseconds
+{
+    my $seconds      = shift;
+    my $item_id      = shift;
+    my $device_ip_id = shift;
+    
+    
+                my $dbh = PDLNA::Database::connect();
+				PDLNA::Database::update_db(
+					$dbh,
+					{
+					'query' => 'UPDATE DEVICE_BM SET POS_SECONDS = ? WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+					'parameters' => [ $seconds, $item_id, $device_ip_id, ],
+					}
+				);
+                PDLNA::Database::disconnect($dbh);
+            
+ 
+}
+
+sub device_bm_insert_posseconds
+{
+    my $item_id      = shift;
+    my $device_ip_id = shift;
+    my $seconds      = shift;
+      
+                my $dbh = PDLNA::Database::connect(); 
+    			PDLNA::Database::insert_db(
+                    $dbh,
+					{
+					'query' => 'INSERT INTO DEVICE_BM (FILE_ID_REF, DEVICE_IP_REF, POS_SECONDS) VALUES (?,?,?)',
+					'parameters' => [ $item_id, $device_ip_id, $seconds ],
+					}
+                );
+                PDLNA::Database::disconnect($dbh);
+                
+}
+
+##
+## SUBTITLES
+
+sub subtitles_get_all
+{
+
+        my @subtitles = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+              $dbh,
+              {
+              'query' => 'SELECT ID, FULLNAME FROM SUBTITLES',
+              'parameters' => [ ],
+               },
+              \@subtitles,
+        );
+        PDLNA::Database::disconnect($dbh);
+        
+   return @subtitles;
+
+}                                                                                                                                             
+
+
+sub subtitles_get_by_several_fields
+{
+ my $path     = shift;
+ my $file_id  = shift;
+ my $mimetype = shift;
+
+                my @results = ();
+                my $dbh = PDLNA::Database::connect(); 
+                PDLNA::Database::select_db(
+                   $dbh,
+                   {
+                   'query' => 'SELECT ID, DATE, SIZE FROM SUBTITLES WHERE FULLNAME = ? AND FILEID_REF = ? AND MIME_TYPE = ?',
+                   'parameters' => [ $path, $file_id, $mimetype ],
+                   },
+                   \@results,
+                 ); 
+                PDLNA::Database::disconnect($dbh);
+  
+   return @results;
+}                                                                                                                                        
+
+sub subtitles_get_records
+{
+    my $item_id  = shift;
+    
+        my @subtitles = ();
+        my $dbh = PDLNA::Database::connect();
+    	PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+				'parameters' => [ $item_id, ],
+			},
+			\@subtitles,
+		);
+        PDLNA::Database::disconnect($dbh);
+    
+    return @subtitles;
+}
+
+sub subtitles_get_record_by_id_type
+{
+  my $id   = shift;
+  my $type = shift;
+  
+  
+        my @subtitles = ();
+        my $dbh = PDLNA::Database::connect();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT FULLNAME, SIZE FROM SUBTITLES WHERE ID = ? AND TYPE = ?',
+				'parameters' => [ $id, $type, ],
+			},
+			\@subtitles,
+		);
+		PDLNA::Database::disconnect($dbh);
+    
+   return $subtitles[0];
+}
+
+sub subtitles_update
+{
+  my $date  = shift;
+  my $size  = shift;
+  my $file_id = shift;
+  
+                my $dbh = PDLNA::Database::connect();
+                PDLNA::Database::update_db(
+                    $dbh,
+                    {
+                    'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ?, WHERE ID = ?;',
+                    'parameters' => [ $date, $size, $file_id, ],
+                    },
+                );
+                PDLNA::Database::disconnect($dbh);                                                                                                                                                                                                                                                       
+}
+
+
+sub subtitles_insert
+{
+ my $file_id = shift;
+ my $path    = shift;
+ my $basename_path = shift;
+ my $type          = shift;
+ my $mimetype      = shift;
+ my $date          = shift;
+ my $size          = shift;
+  
+                my $dbh = PDLNA::Database::connect();
+                PDLNA::Database::insert_db(
+                    $dbh,
+                    {
+                     'query' => 'INSERT INTO SUBTITLES (FILEID_REF, FULLNAME, NAME, TYPE, MIME_TYPE, DATE, SIZE) VALUES (?,?,?,?,?,?,?)',
+                     'parameters' => [ $file_id, $path, $basename_path, $type, $mimetype, $date, $size, ], 
+                    },
+                );
+               PDLNA::Database::disconnect($dbh);
+                                                                                                                                                                        
+}
+
+
+sub subtitles_delete
+{
+ my $sub_id = shift;
+ 
+             my $dbh = PDLNA::Database::connect();
+             PDLNA::Database::delete_db(
+                 $dbh,
+                 {
+                 'query' => 'DELETE FROM SUBTITLES WHERE ID = ?',
+                 'parameters' => [ $sub_id, ],
+                 },
+             );
+             PDLNA::Database::disconnect($dbh);
+             
+}
+
+
+sub subtitles_delete_by_fileid
+{
+ my $file_id = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::delete_db(
+            $dbh,
+            {
+            'query' => 'DELETE FROM SUBTITLES WHERE FILEID_REF = ?',
+            'parameters' => [ $file_id, ],
+            },
+        );
+        PDLNA::Database::disconnect($dbh);
+                                                                                                                         
+}
+
+##
+## DIRECTORIES
+
+sub directories_get_records_by_name_path
+{
+ my $excl_directory = shift;
+ my $path           = shift;
+ 
+            my @directories = ();
+            my $dbh = PDLNA::Database::connect();
+            PDLNA::Database::select_db(
+                  $dbh,
+                  {
+                   'query' => 'SELECT ID FROM DIRECTORIES WHERE NAME = ? AND PATH LIKE ?',
+                   'parameters' => [ $excl_directory, $path.'%', ],
+                  },
+                 \@directories,
+            );
+            PDLNA::Database::disconnect($dbh);
+           
+   return @directories;                                                                                                                                                                                                                                                                                      
+}
+
+
+
+sub directories_get_all
+{
+        my @directories = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+              'query' => 'SELECT ID, PATH, TYPE FROM DIRECTORIES',
+              'parameters' => [ ],
+             },
+             \@directories,
+        );
+        PDLNA::Database::disconnect($dbh);
+          
+        
+    return @directories;                                                                                                                                
+}
+
+
+
+sub directories_get_records
+{
+     my $object_id = shift;
+     
+        my @directories = ();
+        my $dbh = PDLNA::Database::connect();
+    	PDLNA::Database::select_db(
+            $dbh,
+            {
+            'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? );',
+            'parameters' => [ $object_id, ],
+            },
+			\@directories,
+		);
+        PDLNA::Database::disconnect($dbh);
+    
+    return $directories[0];
+}
+
+
+
+sub directories_get_record_by_path
+{
+ my $path = shift;
+ 
+        my @results = ();
+        my $dbh = PDLNA::Database::connect(); 
+        PDLNA::Database::select_db( 
+           $dbh,
+            {
+             'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH = ?',
+              'parameters' => [ $path, ],
+            },
+           \@results,
+        );
+        PDLNA::Database::disconnect($dbh);
+        
+  return $results[0];                                                                                                                         
+}
+
+
+sub directories_insert
+{
+ my $basename_path = shift;
+ my $path          = shift;
+ my $dirname_path  = shift;
+ my $rootdir       = shift;
+ my $type          = shift;
+ 
+                my $dbh = PDLNA::Database::connect();
+                PDLNA::Database::insert_db(
+                         $dbh,
+                          {
+                           'query' => 'INSERT INTO DIRECTORIES (NAME, PATH, DIRNAME, ROOT, TYPE) VALUES (?,?,?,?,?)',
+                           'parameters' => [ $basename_path, $path, $dirname_path, $rootdir, $type ],
+                          },
+                );
+                PDLNA::Database::disconnect($dbh);
+}
+
+
+sub directories_delete
+{
+ my $directory_id = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::delete_db(
+                  $dbh,
+                  {
+                  'query' => 'DELETE FROM DIRECTORIES WHERE ID = ?',
+                  'parameters' => [ $directory_id, ],
+                  },
+        );
+        PDLNA::Database::disconnect($dbh);
+        
+                                                                                                                                                                                                                            
+}
+
+
+sub get_subdirectories_by_id
+{
+ my $object_id = shift;
+ my $starting_index = shift;    
+ my $requested_count = shift;   
+ my $directory_elements = shift;
+
+        my $dbh = PDLNA::Database::connect();
+
+
+        my $sql_query = 'SELECT ID, NAME, PATH FROM DIRECTORIES WHERE ';
+        my @sql_param = ();
+
+        if ($object_id == 0)
+        {
+                $sql_query .= 'ROOT = 1';
+        }   
+        else
+        {
+                $sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                push(@sql_param, $object_id);
+        }
+
+        $sql_query .= ' ORDER BY NAME';
+
+        if (defined($starting_index) && defined($requested_count))
+        {
+                $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
+
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => $sql_query,
+                        'parameters' => \@sql_param,
+                },
+                $directory_elements,
+        );
+
+        PDLNA::Database::disconnect($dbh);
+
+}
+
+
+sub get_subfiles_by_id
+{
+  my $object_id = shift;
+  my $starting_index = shift;
+  my $requested_count = shift;
+  my $file_elements = shift;  
+
+
+        my $dbh = PDLNA::Database::connect();
+        my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE ';
+        my @sql_param = ();
+
+        if ($object_id == 0)
+        {
+                $sql_query .= 'ROOT = 1';
+        }
+        else
+        {   
+                $sql_query .= 'PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                push(@sql_param, $object_id);
+        }
+
+        $sql_query .= ' ORDER BY SEQUENCE, NAME';
+
+        if (defined($starting_index) && defined($requested_count))
+        {
+                $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
+
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => $sql_query,
+                        'parameters' => \@sql_param,
+                },
+                $file_elements,
+        );
+
+      PDLNA::Database::disconnect($dbh);
+
+}
+
+
+sub get_subfiles_size_by_id
+{
+ my $object_id = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        my @result = ();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                 'query' => 'SELECT SUM(SIZE) AS FULLSIZE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )',
+                 'parameters' => [ $object_id, ],
+                },
+                \@result,
+        );
+        PDLNA::Database::disconnect($dbh);
+        return $result[0]->{FULLSIZE};
+}
+
+
+
+
+sub get_amount_subdirectories_by_id
+{
+ my $object_id = shift;
+
+        my @directory_amount = ();
+        my $dbh = PDLNA::Database::connect();
+
+        my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE ';
+        my @sql_param = ();
+        if ($object_id == 0)
+        {
+                $sql_query .= 'ROOT = 1';
+        }
+        else
+        {   
+                $sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                push(@sql_param, $object_id);
+        }
+
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => $sql_query,
+                        'parameters' => \@sql_param,
+                },
+                \@directory_amount,
+        );
+        PDLNA::Database::disconnect($dbh);
+
+
+        return $directory_amount[0]->{AMOUNT};
+}
+
+sub get_amount_subfiles_by_id
+{
+ my $object_id = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        my @files_amount = ();
+
+        my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ?)';
+        my @sql_param = ( $object_id, );
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => $sql_query,
+                        'parameters' => \@sql_param,
+                },
+                \@files_amount,
+        );
+        PDLNA::Database::disconnect($dbh);
+
+        return $files_amount[0]->{AMOUNT};
+}
+ 
+ 
+sub get_parent_of_directory_by_id
+{
+ my $object_id = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        my @directory_parent = ();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? )',
+                'parameters' => [ $object_id, ],
+                },
+                \@directory_parent,
+        );
+        $directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
+        PDLNA::Database::disconnect($dbh);
+
+        return $directory_parent[0]->{ID};
+}
+ 
+sub get_parent_of_item_by_id
+{
+ my $object_id = shift;
+
+        my $dbh = PDLNA::Database::connect();
+        my @item_parent = ();
+        PDLNA::Database::select_db(
+                $dbh,
+                {
+                        'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE ID = ? )',
+                        'parameters' => [ $object_id, ],
+                },
+                \@item_parent,
+        );
+        $item_parent[0]->{ID} = 0 if !defined($item_parent[0]->{ID});
+        PDLNA::Database::disconnect($dbh);
+
+        return $item_parent[0]->{ID};
+}
+
+
 ##
 ##
+
 1;

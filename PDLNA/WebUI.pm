@@ -93,12 +93,12 @@ sub show
 		$response .= '</thead>';
 
 		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($nav[1])).'</td><td>&nbsp;</td></tr>';
+		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::Database::get_subfiles_size_by_id($nav[1])).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
 
 		$response .= '<tbody>';
 		my @files = ();
-		PDLNA::ContentLibrary::get_subfiles_by_id( $nav[1], undef, undef, \@files);
+		PDLNA::Database::get_subfiles_by_id( $nav[1], undef, undef, \@files);
 		foreach my $id (@files)
 		{
 			$response .= '<tr>';
@@ -213,7 +213,7 @@ sub show
 		$response .= '</thead>';
 		$response .= '<tbody>';
 
-                my $timestamp = PDLNA::Database::metadata_get_vaue('TIMESTAMP');
+                my $timestamp = PDLNA::Database::metadata_get_value('TIMESTAMP');
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
 		my ($files_amount, $files_size) = PDLNA::Database::get_amount_size_of_items();
@@ -523,7 +523,7 @@ sub build_directory_tree
 	my $response = '';
 
 	my @results = ();
-	PDLNA::ContentLibrary::get_subdirectories_by_id( $start_id, undef, undef, \@results);
+	PDLNA::Database::get_subdirectories_by_id( $start_id, undef, undef, \@results);
 
 	$response .= '<ul>';
 	foreach my $result (@results)

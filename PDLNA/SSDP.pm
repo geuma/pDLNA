@@ -321,7 +321,6 @@ sub receive_messages
 				next;
 			}
 
-			my $dbh = PDLNA::Database::connect();
 			if ($message{'NTS'} eq 'ssdp:alive' && defined($message{'NT'}))
 			{
 				PDLNA::Log::log('Adding UPnP device '.$message{'USN'}.' ('.$peer_ip_addr.') for '.$message{'NT'}.' to database.', 2, 'discovery');
@@ -349,7 +348,6 @@ sub receive_messages
 					},
 				);
 			}
-			PDLNA::Database::disconnect($dbh)
 		}
 		elsif ($message{'TYPE'} eq 'M-SEARCH')
 		{
