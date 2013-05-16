@@ -248,13 +248,20 @@ sub parse_config
 		}
 	}
 
+
+	# TODO parsing and defining them in configuration file - for MySQL and so on
+	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
+	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
+
+
+
 	#
 	# DATABASE PARSING
 	#
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
-	unless ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	unless (($CONFIG{'DB_TYPE'} eq 'SQLITE3') or ($CONFIG{'DB_TYPE'} eq 'PGSQL') or ($CONFIG{'DB_TYPE'} eq 'MYSQL'))
 	{
-		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3, PGSQL, MYSQL]');
 	}
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
@@ -275,10 +282,12 @@ sub parse_config
 			}
 		}
 	}
-	# TODO parsing and defining them in configuration file - for MySQL and so on
-#	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
-#	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
-
+	else # TODO, to verify in case is a PGSQL or MYSQL 
+	{    # that the database ( using the DB_NAME DB_USER and DB_PASS ) is actually available
+	}
+	
+	
+	
 	#
 	# LOG FILE PARSING
 	#
