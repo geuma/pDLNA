@@ -64,9 +64,9 @@ sub index_directories_thread
 				{
 					'element' => $external->{'command'} || $external->{'streamurl'},
 					'media_type' => $external->{'type'},
-					'mime_type' => '', # need to determine
+					'mime_type' => undef, # need to determine
 					'element_basename' => $external->{'name'},
-					'element_dirname' => '', # set the directory to nothing - no parent
+					'element_dirname' => undef, # set the directory to nothing - no parent
 					'external' => 1,
 					'sequence' => $i,
 					'root' => 1,
@@ -77,7 +77,7 @@ sub index_directories_thread
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
-                PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
+        PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
 
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
@@ -311,7 +311,7 @@ sub add_file_to_db
 	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
 
 	# check if file is in db
-	my $results = PDLNA::Database::files_get_record_by_fullname( $$params{'element'}, basename($$params{'element_dirname'}) );
+	my $results = PDLNA::Database::files_get_record_by_fullname( $$params{'element'}, $$params{'element_dirname'} );
 	if (defined($results->{ID}))
 	{
 		if (
@@ -337,7 +337,7 @@ sub add_file_to_db
 		$results = PDLNA::Database::files_get_record_by_fullname($$params{'element'}, $$params{'element_dirname'});
 
 		# insert entry to FILEINFO table
-		PDLNA::Database::fileinfo_insert_empty($results->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0);
+		# PDLNA::Database::fileinfo_insert_empty($results->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0);
 	}
 
 	return $results->{ID};
@@ -347,8 +347,7 @@ sub remove_nonexistant_files
 {
 
 	PDLNA::Log::log('Started to remove non existant files.', 1, 'library');
-	my @files = ();
-	PDLNA::Database::files_get_records_by_external(0);
+	my @files = PDLNA::Database::files_get_records_by_external(0);
 
 	foreach my $file (@files)
 	{

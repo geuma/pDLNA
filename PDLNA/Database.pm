@@ -108,7 +108,6 @@ sub initialize_db
 			);
 
 			$dbh->do('DROP TABLE "FILES";') if grep(/^FILES$/, @tables);
-			$dbh->do('DROP TABLE "FILEINFO";') if grep(/^FILEINFO$/, @tables);
 			$dbh->do('DROP TABLE "DIRECTORIES";') if grep(/^DIRECTORIES$/, @tables);
 			$dbh->do('DROP TABLE "SUBTITLES";') if grep(/^SUBTITLES$/, @tables);
 			$dbh->do('DROP TABLE "DEVICE_IP";') if grep(/^DEVICE_IP$/, @tables);
@@ -166,15 +165,7 @@ sub initialize_db
 				"TYPE"				VARCHAR(12),
 				"EXTERNAL"			INTEGER,
 				"ROOT"				INTEGER,
-				"SEQUENCE"			BIGINT
-			);'
-		);
-	}
-
-	unless (grep(/^FILEINFO$/, @tables))
-	{
-		$dbh->do('CREATE TABLE "FILEINFO" (
-				"FILEID_REF"		INTEGER PRIMARY KEY,
+				"SEQUENCE"			BIGINT,
 				"VALID"				INTEGER,
 				"WIDTH"				INTEGER,
 				"HEIGHT"			INTEGER,
@@ -396,7 +387,7 @@ sub insert_db
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " with error ==> ". $sth->errstr;
+	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " [ @{$$params{'parameters'}}  ] with error ==> ". $sth->errstr;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -627,6 +618,8 @@ sub files_get_record_by_fullname
  
             my @results = ();
             my $dbh = PDLNA::Database::connect(); 
+            if (defined($path)) 
+            {
             PDLNA::Database::select_db(
               $dbh,
               {
@@ -635,8 +628,21 @@ sub files_get_record_by_fullname
               },
              \@results,
             );
+            }
+            else
+            {
+             PDLNA::Database::select_db(
+              $dbh,
+              {
+              'query' => 'SELECT "ID", "DATE", "SIZE", "MIME_TYPE", "PATH", "SEQUENCE" FROM "FILES" WHERE "FULLNAME" = ? AND "PATH" IS NULL', 
+              'parameters' => [ $fullname ],
+              },
+             \@results,
+            );
+            }
             PDLNA::Database::disconnect($dbh);
-            
+          
+    
      return $results[0];
                                                                                           
 }
@@ -727,7 +733,7 @@ sub files_set_invalid
             PDLNA::Database::update_db(
               $dbh,
               {
-               'query' => 'UPDATE "FILEINFO" SET "VALID" = 0 WHERE "FILEID_REF" = ?;',
+               'query' => 'UPDATE "FILES" SET "VALID" = 0 WHERE "ID" = ?;',
                'parameters' => [ $file_id, ],
               },
             );
@@ -746,7 +752,7 @@ sub files_set_valid
                PDLNA::Database::update_db(
                     $dbh,
                     {
-                    'query' => 'UPDATE "FILEINFO" SET "VALID" = 1 WHERE "FILEID_REF" = ?;',
+                    'query' => 'UPDATE "FILES" SET "VALID" = 1 WHERE "ID" = ?;',
                     'parameters' => [ $file_id, ],
                     },
                );
@@ -1396,7 +1402,7 @@ sub fileinfo_get_all_sumduration
                 my $duration = PDLNA::Database::select_db_field_int(
                         $dbh,
                         {
-                                'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILEINFO"',
+                                'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILES"',
                                 'parameters' => [ ],
                         },
                 );
@@ -1415,7 +1421,7 @@ sub fileinfo_get_by_valid
         PDLNA::Database::select_db(
              $dbh,
              {
-             'query' => 'SELECT "FILEID_REF" FROM "FILEINFO" WHERE "VALID" = ?',
+             'query' => 'SELECT "ID" FROM "FILES" WHERE "VALID" = ?',
              'parameters' => [ $valid ],
              },
              \@results,
@@ -1436,7 +1442,7 @@ sub fileinfo_get_by_id
         PDLNA::Database::select_db(
                  $dbh,
                  {
-                 'query' => 'SELECT "WIDTH", "HEIGHT", "BITRATE", "DURATION", "ARTIST", "ALBUM", "GENRE", "YEAR", "TRACKNUM", "CONTAINER", "AUDIO_CODEC", "VIDEO_CODEC" FROM "FILEINFO" WHERE "FILEID_REF" = ?;', 
+                 'query' => 'SELECT "WIDTH", "HEIGHT", "BITRATE", "DURATION", "ARTIST", "ALBUM", "GENRE", "YEAR", "TRACKNUM", "CONTAINER", "AUDIO_CODEC", "VIDEO_CODEC" FROM "FILES" WHERE "ID" = ?;', 
                  'parameters' => [ $item_id, ],
                   },
                  \@iteminfo,
@@ -1446,21 +1452,21 @@ sub fileinfo_get_by_id
   return $iteminfo[0]; 
 }
 
-sub fileinfo_insert_empty
-{
-  my $file_id = shift;
-  
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::insert_db(
-              $dbh,
-              {
-              'query' => 'INSERT INTO "FILEINFO" ("FILEID_REF", "VALID", "WIDTH", "HEIGHT", "DURATION", "BITRATE", "VBR", "ARTIST", "ALBUM", "TITLE", "GENRE", "YEAR", "TRACKNUM") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
-              'parameters' => [ $file_id, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ]
-              },
-        );
-        PDLNA::Database::disconnect($dbh);
-                                                                                                                                                                                 
-}
+#sub fileinfo_insert_empty
+#{
+#  my $file_id = shift;
+#  
+#        my $dbh = PDLNA::Database::connect();
+#        PDLNA::Database::insert_db(
+#              $dbh,
+#              {
+#              'query' => 'INSERT INTO "FILE" ("ID", "VALID", "WIDTH", "HEIGHT", "DURATION", "BITRATE", "VBR", "ARTIST", "ALBUM", "TITLE", "GENRE", "YEAR", "TRACKNUM") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+#              'parameters' => [ $file_id, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ]
+#              },
+#        );
+#        PDLNA::Database::disconnect($dbh);
+#                                                                                                                                                                                 
+#}
 
 
 sub fileinfo_delete
@@ -1471,7 +1477,7 @@ sub fileinfo_delete
              PDLNA::Database::delete_db(
                   $dbh,
                   {
-                  'query' => 'DELETE FROM "FILEINFO" WHERE "FILEID_REF" = ?',
+                  'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
                   'parameters' => [ $file_id, ],
                   },
              );
@@ -1490,7 +1496,7 @@ sub fileinfo_update_dimensions
          PDLNA::Database::update_db(
                $dbh,
                {
-               'query' => 'UPDATE "FILEINFO" SET "WIDTH" = ?, "HEIGHT" = ?, "VALID" = 1 WHERE "FILEID_REF" = ?', 
+               'query' => 'UPDATE "FILES" SET "WIDTH" = ?, "HEIGHT" = ?, "VALID" = 1 WHERE "ID" = ?', 
                'parameters' => [ $width, $height, $file_id, ],
                },
          );
@@ -1514,7 +1520,7 @@ sub fileinfo_update
         PDLNA::Database::update_db(
            $dbh,
            {
-           'query' => 'UPDATE "FILEINFO" SET "WIDTH" = ?, "HEIGHT" = ?, "DURATION" = ?, "BITRATE" = ?,  "CONTAINER" = ?, "AUDIO_CODEC" = ?, "VIDEO_CODEC" = ? WHERE "FILEID_REF" = ?',
+           'query' => 'UPDATE "FILES" SET "WIDTH" = ?, "HEIGHT" = ?, "DURATION" = ?, "BITRATE" = ?,  "CONTAINER" = ?, "AUDIO_CODEC" = ?, "VIDEO_CODEC" = ? WHERE "FILES" = ?',
            'parameters' => [ $width, $height, $duration, $bitrate, $container, $audio_codec, $video_codec, $file_id, ],
             },
         );
@@ -1538,7 +1544,7 @@ sub fileinfo_update_details_audio
         PDLNA::Database::update_db(
            $dbh,
            {
-           'query' => 'UPDATE "FILEINFO" SET "ARTIST" = ?, "ALBUM" = ?, "TITLE" = ?, "GENRE" = ?, "YEAR" = ?, "TRACKNUM" = ?, "VALID" = ? WHERE "FILEID_REF" = ?',
+           'query' => 'UPDATE "FILES" SET "ARTIST" = ?, "ALBUM" = ?, "TITLE" = ?, "GENRE" = ?, "YEAR" = ?, "TRACKNUM" = ?, "VALID" = ? WHERE "ID" = ?',
            'parameters' => [ $artist,  $album, $title, $genre, $year, $tracknum, 1, $file_id, ],
            },
         );
