@@ -22,6 +22,7 @@ use warnings;
 
 use PDLNA::Database;
 use PDLNA::Utils;
+use PDLNA::Config;
 
 our %SPECIFICVIEWS = (
 	'A' =>  {
@@ -46,10 +47,10 @@ our %SPECIFICVIEWS = (
 
 our %SPECIFICVIEW_QUERIES = (
 	'folder' => {
-		'group_amount' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE TYPE = ? )',
-		'group_elements' => 'SELECT ID, NAME, PATH FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE TYPE = ? ) ORDER BY NAME',
-		'item_amount' => 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? ) AND TYPE = ?',
-		'item_elements' => 'SELECT ID FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? ) AND TYPE = ?',
+		'group_amount' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "TYPE" = ? )',
+		'group_elements' => 'SELECT "ID", "NAME", "PATH" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "TYPE" = ? ) ORDER BY "NAME"',
+		'item_amount' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? ) AND "TYPE" = ?',
+		'item_elements' => 'SELECT "ID" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? ) AND "TYPE" = ?',
 	},
 );
 
@@ -74,11 +75,20 @@ sub get_groups
 	my $group_elements = shift;
 
 
-        my $dbh = PDLNA::Database::connect();
+    my $dbh = PDLNA::Database::connect();
 	my $sql_query = $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'group_elements'};
     if (defined($starting_index) && defined($requested_count))
 	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+		if ($CONFIG{DB_TYPE} eq "PGSQL") 
+        {
+         $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+        
+        }
+        else
+        {
+		  $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
+	
 	}
 
 	PDLNA::Database::select_db(
@@ -99,14 +109,14 @@ sub get_amount_of_groups
 
         my $dbh = PDLNA::Database::connect();
         my @group_amount = ();
-	PDLNA::Database::select_db(
+        PDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'group_amount'},
 			'parameters' => [ $SPECIFICVIEWS{$media_type}->{'MediaType'}, ],
 		},
 		\@group_amount,
-	);
+        );
 
         PDLNA::Database::disconnect($dbh);
 	return $group_amount[0]->{AMOUNT};
@@ -125,7 +135,15 @@ sub get_items
 	my $sql_query = $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'item_elements'};
     if (defined($starting_index) && defined($requested_count))
 	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        if ($CONFIG{DB_TYPE} eq "PGSQL") 
+        {
+         $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+        
+        }
+        else
+        {
+		  $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
 	}
 
 	PDLNA::Database::select_db(

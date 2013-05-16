@@ -25,6 +25,19 @@ use DBI;
 use PDLNA::Config;
 use PDLNA::Log;
 
+my %SQL_TABLES;
+$SQL_TABLES{SQLITE3} = "SELECT name FROM sqlite_master WHERE type = 'table'";
+$SQL_TABLES{MYSQL}   = "SELECT table_name FROM information_schema.tables WHERE table_type = 'base table'";
+$SQL_TABLES{PGSQL}   = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';";
+
+my %SQL_ID_KEYS;
+$SQL_ID_KEYS{SQLITE3} = "INTEGER PRIMARY KEY AUTOINCREMENT";
+$SQL_ID_KEYS{PGSQL} =   "SERIAL PRIMARY KEY";
+$SQL_ID_KEYS{MYSQL} =   "INTEGER auto_increment PRIMARY KEY";
+
+
+
+
 sub connect
 {
 	my $dbh = undef;
@@ -32,6 +45,15 @@ sub connect
 	{
 		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','') || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
 	}
+	elsif ($CONFIG{'DB_TYPE'} eq 'PGSQL')
+	{
+                $dbh = DBI->connect('dbi:Pg:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+	              
+	}
+	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
+	{
+                $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+	} 
 	return $dbh;
 }
 
@@ -46,13 +68,13 @@ sub initialize_db
 	my $dbh = PDLNA::Database::connect();
 
 	my @tables = select_db_tables($dbh);
-	if (grep(/^METADATA$/, @tables))
+	if (grep(/^METADATA$/i, @tables))
 	{
 		my @results = ();
 		select_db(
 			$dbh,
 			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
+				'query' => 'SELECT "VALUE" FROM "METADATA" WHERE "KEY" = ?',
 				'parameters' => [ 'DBVERSION', ],
 			},
 			\@results,
@@ -61,70 +83,70 @@ sub initialize_db
 		# check if DB was build with a different database version of pDLNA
 		if (!defined($results[0]->{VALUE}) || $results[0]->{VALUE} ne $CONFIG{'PROGRAM_DBVERSION'})
 		{
-			$dbh->do('DELETE FROM METADATA;');
+			$dbh->do('DELETE FROM "METADATA";');
 
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 					'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
 				},
 			);
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
 				},
 			);
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 					'parameters' => [ 'TIMESTAMP', time(), ],
 				},
 			);
 
-			$dbh->do('DROP TABLE FILES;') if grep(/^FILES$/, @tables);
-			$dbh->do('DROP TABLE FILEINFO;') if grep(/^FILEINFO$/, @tables);
-			$dbh->do('DROP TABLE DIRECTORIES;') if grep(/^DIRECTORIES$/, @tables);
-			$dbh->do('DROP TABLE SUBTITLES;') if grep(/^SUBTITLES$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_IP;') if grep(/^DEVICE_IP$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_BM;') if grep(/^DEVICE_BM$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_UDN;') if grep(/^DEVICE_UDN$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_NTS;') if grep(/^DEVICE_NTS$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_SERVICE;') if grep(/^DEVICE_SERVICE$/, @tables);
-			$dbh->do('DROP TABLE STAT_MEM;') if grep(/^STAT_MEM$/, @tables);
-			$dbh->do('DROP TABLE STAT_ITEMS;') if grep(/^STAT_ITEMS$/, @tables);
+			$dbh->do('DROP TABLE "FILES";') if grep(/^FILES$/, @tables);
+			$dbh->do('DROP TABLE "FILEINFO";') if grep(/^FILEINFO$/, @tables);
+			$dbh->do('DROP TABLE "DIRECTORIES";') if grep(/^DIRECTORIES$/, @tables);
+			$dbh->do('DROP TABLE "SUBTITLES";') if grep(/^SUBTITLES$/, @tables);
+			$dbh->do('DROP TABLE "DEVICE_IP";') if grep(/^DEVICE_IP$/, @tables);
+			$dbh->do('DROP TABLE "DEVICE_BM";') if grep(/^DEVICE_BM$/, @tables);
+			$dbh->do('DROP TABLE "DEVICE_UDN";') if grep(/^DEVICE_UDN$/, @tables);
+			$dbh->do('DROP TABLE "DEVICE_NTS";') if grep(/^DEVICE_NTS$/, @tables);
+			$dbh->do('DROP TABLE "DEVICE_SERVICE";') if grep(/^DEVICE_SERVICE$/, @tables);
+			$dbh->do('DROP TABLE "STAT_MEM";') if grep(/^STAT_MEM$/, @tables);
+			$dbh->do('DROP TABLE "STAT_ITEMS";') if grep(/^STAT_ITEMS$/, @tables);
 			@tables = ();
 		}
 	}
 	else
 	{
-		$dbh->do('CREATE TABLE METADATA (
-				KEY					VARCHAR(128) PRIMARY KEY,
-				VALUE				VARCHAR(128)
+		$dbh->do('CREATE TABLE "METADATA" (
+				"KEY"				VARCHAR(128) PRIMARY KEY,
+				"VALUE"				VARCHAR(128)
 			);'
 		);
 
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 				'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
 			},
 		);
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
 			},
 		);
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
 				'parameters' => [ 'TIMESTAMP', time(), ],
 			},
 		);
@@ -132,51 +154,43 @@ sub initialize_db
 
 	unless (grep(/^FILES$/, @tables))
 	{
-		$dbh->do("CREATE TABLE FILES (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-
-				NAME				VARCHAR(2048),
-				PATH				VARCHAR(2048),
-				FULLNAME			VARCHAR(2048),
-				FILE_EXTENSION			VARCHAR(4),
-
-				DATE				BIGINT,
-				SIZE				BIGINT,
-
-				MIME_TYPE			VARCHAR(128),
-				TYPE				VARCHAR(12),
-				EXTERNAL			INTEGER,
-
-				ROOT				INTEGER,
-				SEQUENCE			BIGINT
-			);"
+		$dbh->do('CREATE TABLE "FILES" (
+				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"NAME"				VARCHAR(2048),
+				"PATH"				VARCHAR(2048),
+				"FULLNAME"			VARCHAR(2048),
+				"FILE_EXTENSION"	VARCHAR(4),
+				"DATE"				BIGINT,
+				"SIZE"				BIGINT,
+				"MIME_TYPE"			VARCHAR(128),
+				"TYPE"				VARCHAR(12),
+				"EXTERNAL"			INTEGER,
+				"ROOT"				INTEGER,
+				"SEQUENCE"			BIGINT
+			);'
 		);
 	}
 
 	unless (grep(/^FILEINFO$/, @tables))
 	{
-		$dbh->do("CREATE TABLE FILEINFO (
-				FILEID_REF			INTEGER PRIMARY KEY,
-				VALID				INTEGER,
-
-				WIDTH				INTEGER,
-				HEIGHT				INTEGER,
-
-				DURATION			INTEGER,
-				BITRATE				INTEGER,
-				VBR				INTEGER,
-
-				CONTAINER			VARCHAR(128),
-				AUDIO_CODEC			VARCHAR(128),
-				VIDEO_CODEC			VARCHAR(128),
-
-				ARTIST				VARCHAR(128),
-				ALBUM				VARCHAR(128),
-				TITLE				VARCHAR(128),
-				GENRE				VARCHAR(128),
-				YEAR				VARCHAR(4),
-				TRACKNUM			INTEGER
-			);"
+		$dbh->do('CREATE TABLE "FILEINFO" (
+				"FILEID_REF"		INTEGER PRIMARY KEY,
+				"VALID"				INTEGER,
+				"WIDTH"				INTEGER,
+				"HEIGHT"			INTEGER,
+				"DURATION"			INTEGER,
+				"BITRATE"			INTEGER,
+				"VBR"				INTEGER,
+				"CONTAINER"			VARCHAR(128),
+				"AUDIO_CODEC"		VARCHAR(128),
+				"VIDEO_CODEC"		VARCHAR(128),
+				"ARTIST"			VARCHAR(128),
+				"ALBUM"				VARCHAR(128),
+				"TITLE"				VARCHAR(128),
+				"GENRE"				VARCHAR(128),
+				"YEAR"				VARCHAR(4),
+				"TRACKNUM"			INTEGER
+			);'
 		);
 	}
 
@@ -188,127 +202,118 @@ sub initialize_db
 	# 	1		playlist
 	unless (grep(/^DIRECTORIES$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DIRECTORIES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+		$dbh->do('CREATE TABLE "DIRECTORIES" (
+				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"NAME"				VARCHAR(2048),
+				"PATH"				VARCHAR(2048),
+				"DIRNAME"			VARCHAR(2048),
 
-				NAME				VARCHAR(2048),
-				PATH				VARCHAR(2048),
-				DIRNAME				VARCHAR(2048),
-
-				ROOT				INTEGER,
-				TYPE				INTEGER
-			);"
+				"ROOT"				INTEGER,
+				"TYPE"				INTEGER
+			);'
 		);
 	}
 
 	unless (grep(/^SUBTITLES$/, @tables))
 	{
-		$dbh->do("CREATE TABLE SUBTITLES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
-				FILEID_REF			INTEGER,
-
-				TYPE				VARCHAR(2048),
-				MIME_TYPE			VARCHAR(128),
-				NAME				VARCHAR(2048),
-				FULLNAME			VARCHAR(2048),
-
-				DATE				BIGINT,
-				SIZE				BIGINT
-			);"
+		$dbh->do('CREATE TABLE "SUBTITLES" (
+				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"FILEID_REF"		INTEGER,
+				"TYPE"				VARCHAR(2048),
+				"MIME_TYPE"			VARCHAR(128),
+				"NAME"				VARCHAR(2048),
+				"FULLNAME"			VARCHAR(2048),
+				"DATE"				BIGINT,
+				"SIZE"				BIGINT
+			);'
 		);
 	}
 
 	unless (grep(/^DEVICE_IP$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_IP (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-
-				IP				VARCHAR(15),
-				USER_AGENT			VARCHAR(128),
-				LAST_SEEN			BIGINT
-			);"
+		$dbh->do('CREATE TABLE "DEVICE_IP" (
+				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"IP"				VARCHAR(15),
+				"USER_AGENT"		VARCHAR(128),
+				"LAST_SEEN"			BIGINT
+			);'
 		);
 	}
 
 	unless (grep(/^DEVICE_BM$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF			INTEGER,
-
-				FILE_ID_REF			INTEGER,
-				POS_SECONDS			INTEGER
-			);"
+		$dbh->do('CREATE TABLE "DEVICE_BM" (
+				"ID"				    '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"DEVICE_IP_REF"			INTEGER,
+				"FILE_ID_REF"			INTEGER,
+				"POS_SECONDS"			INTEGER
+			);'
 		);
 	}
 
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_IP_REF			INTEGER,
-
-				UDN				VARCHAR(64),
-				SSDP_BANNER			VARCHAR(256),
-				DESC_URL			VARCHAR(512),
-				RELA_URL			VARCHAR(512),
-				BASE_URL			VARCHAR(512),
-
-				TYPE				VARCHAR(256),
-				MODEL_NAME			VARCHAR(256),
-				FRIENDLY_NAME			VARCHAR(256)
-			);"
+		$dbh->do('CREATE TABLE "DEVICE_UDN" (
+				"ID"				    '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"DEVICE_IP_REF"			INTEGER,
+				"UDN"				    VARCHAR(64),
+				"SSDP_BANNER"			VARCHAR(256),
+				"DESC_URL"		    	VARCHAR(512),
+				"RELA_URL"			    VARCHAR(512),
+				"BASE_URL"			    VARCHAR(512),
+				"TYPE"				    VARCHAR(256),
+				"MODEL_NAME"			VARCHAR(256),
+				"FRIENDLY_NAME"			VARCHAR(256)
+			);'
 		);
 	}
 
 	unless (grep(/^DEVICE_NTS$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF			INTEGER,
-
-				TYPE				VARCHAR(128),
-				EXPIRE				BIGINT
-			);"
+		$dbh->do('CREATE TABLE "DEVICE_NTS" (
+				"ID"				        '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"DEVICE_UDN_REF"			INTEGER,
+				"TYPE"				        VARCHAR(128),
+				"EXPIRE"				    BIGINT
+			);'
 		);
 	}
 
 	unless (grep(/^DEVICE_SERVICE$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID				INTEGER PRIMARY KEY AUTOINCREMENT,
-				DEVICE_UDN_REF			INTEGER,
-
-				SERVICE_ID			VARCHAR(256),
-				TYPE				VARCHAR(256),
-				CONTROL_URL			VARCHAR(512),
-				EVENT_URL			VARCHAR(512),
-				SCPD_URL			VARCHAR(512)
-			);"
+		$dbh->do('CREATE TABLE "DEVICE_SERVICE" (
+				"ID"				    '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
+				"DEVICE_UDN_REF"		INTEGER,
+				"SERVICE_ID"			VARCHAR(256),
+				"TYPE"				    VARCHAR(256),
+				"CONTROL_URL"			VARCHAR(512),
+				"EVENT_URL"			    VARCHAR(512),
+				"SCPD_URL"			    VARCHAR(512)
+			);'
 		);
 	}
 
 	unless (grep(/^STAT_MEM$/, @tables))
 	{
-		$dbh->do("CREATE TABLE STAT_MEM (
-				DATE				BIGINT PRIMARY KEY,
-				VMS				BIGINT,
-				RSS				BIGINT
-			);"
+		$dbh->do('CREATE TABLE "STAT_MEM" (
+				"DATE"				BIGINT PRIMARY KEY,
+				"VMS"				BIGINT,
+				"RSS"				BIGINT
+			);'
 		);
 	}
 
 	unless (grep(/^STAT_ITEMS$/, @tables))
 	{
-		$dbh->do("CREATE TABLE STAT_ITEMS (
-				DATE				BIGINT PRIMARY KEY,
-				AUDIO				INTEGER,
-				AUDIO_SIZE			BIGINT,
-				VIDEO				INTEGER,
-				VIDEO_SIZE			BIGINT,
-				IMAGE				INTEGER,
-				IMAGE_SIZE			BIGINT
-			);"
+		$dbh->do('CREATE TABLE "STAT_ITEMS" (
+				"DATE"				BIGINT PRIMARY KEY,
+				"AUDIO"				INTEGER,
+				"AUDIO_SIZE"		BIGINT,
+				"VIDEO"				INTEGER,
+				"VIDEO_SIZE"		BIGINT,
+				"IMAGE"				INTEGER,
+				"IMAGE_SIZE"		BIGINT
+			);'
 		);
 	}
 
@@ -320,11 +325,13 @@ sub select_db_tables
 	my $dbh = shift;
 
 	my @tables = ();
+    
+    
 	select_db_array(
 		$dbh,
 		{
-			'query' => 'SELECT name FROM sqlite_master WHERE type = ?',
-			'parameters' => [ 'table', ],
+			'query' => $SQL_TABLES{$CONFIG{'DB_TYPE'}},
+			'parameters' => [  ],
 		},
 		\@tables,
 	);
@@ -401,8 +408,8 @@ sub update_db
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
-
+	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " [ @{$$params{'parameters'}}  ] with error ==> ". $sth->errstr;
+    
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
 
@@ -461,7 +468,7 @@ sub insert_stats_proc
    my $dbh = PDLNA::Database::connect();           
    PDLNA::Database::insert_db(
                 $dbh,
-                {'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
+                {'query' => 'INSERT INTO "STAT_MEM" ("DATE", "VMS", "RSS") VALUES (?,?,?)',
                 'parameters' => [ $time, $vmsize, $rssize, ]}               
 	        );
    PDLNA::Database::disconnect($dbh);	        
@@ -482,7 +489,7 @@ sub insert_stats_media
    my $dbh = PDLNA::Database::connect();
    PDLNA::Database::insert_db(
                    $dbh,
-                   {'query' => 'INSERT INTO STAT_ITEMS (DATE, AUDIO, AUDIO_SIZE, IMAGE, IMAGE_SIZE, VIDEO, VIDEO_SIZE) VALUES (?,?,?,?,?,?,?)', 
+                   {'query' => 'INSERT INTO "STAT_ITEMS" ("DATE", "AUDIO", "AUDIO_SIZE", "IMAGE", "IMAGE_SIZE", "VIDEO", "VIDEO_SIZE") VALUES (?,?,?,?,?,?,?)', 
                     'parameters' => [ $time, $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
                    },
                   );
@@ -503,10 +510,10 @@ sub stats_getdata
         PDLNA::Database::select_db(
               $dbh,
                {
-                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(DATE, 'unixepoch', 'localtime')) AS datetime,
+                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(\"DATE\", 'unixepoch', 'localtime')) AS datetime,
                                      " .join(', ', @dbfields).  "
                               FROM ".$dbtable. " 
-                              WHERE DATE > strftime('%s', 'now', 'start of ".$period."', 'utc') 
+                              WHERE \"DATE\" > strftime('%s', 'now', 'start of ".$period."', 'utc') 
                               GROUP BY datetime",
                         'parameters' => [ ]
                 },
@@ -528,7 +535,7 @@ sub files_get_records_by_path
 				PDLNA::Database::select_db(
 					$dbh,
 					{
-						'query' => 'SELECT ID, NAME, FULLNAME FROM FILES WHERE PATH = ?',
+						'query' => 'SELECT "ID", "NAME", "FULLNAME" FROM "FILES" WHERE "PATH" = ?',
 						'parameters' => [ $element, ],
 					},
 					\@results,
@@ -547,11 +554,11 @@ sub get_amount_size_of_items
         my $dbh = PDLNA::Database::connect();
 
 
-        my $sql_query = 'SELECT COUNT(ID) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES';
+        my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT", SUM("SIZE") AS "SIZE" FROM "FILES"';
         my @sql_param = ();
         if (defined($type))
         {
-                $sql_query .= ' WHERE TYPE = ? GROUP BY TYPE';
+                $sql_query .= ' WHERE "TYPE" = ? GROUP BY "TYPE"';
                 push(@sql_param, $type);
         }
 
@@ -580,7 +587,7 @@ sub files_get_record_by_id
          PDLNA::Database::select_db(
             $dbh,
              {
-              'query' => 'SELECT NAME, FULLNAME, PATH, TYPE, DATE, SIZE, MIME_TYPE, FILE_EXTENSION, EXTERNAL FROM FILES WHERE ID = ?;', 
+              'query' => 'SELECT "NAME", "FULLNAME", "PATH", "TYPE", "DATE", "SIZE", "MIME_TYPE", "FILE_EXTENSION", "EXTERNAL" FROM "FILES" WHERE "ID" = ?;', 
               'parameters' => [ $item_id, ],
              },
             \@result         
@@ -601,7 +608,7 @@ sub files_get_records_by_name_path
         PDLNA::Database::select_db(
               $dbh,
               {
-              'query' => 'SELECT ID FROM FILES WHERE NAME = ? AND PATH LIKE ?',
+              'query' => 'SELECT "ID" FROM "FILES" WHERE "NAME" = ? AND "PATH" LIKE ?',
               'parameters' => [ $excl_items, $path.'%', ],
               },
               \@items,
@@ -623,7 +630,7 @@ sub files_get_record_by_fullname
             PDLNA::Database::select_db(
               $dbh,
               {
-              'query' => 'SELECT ID, DATE, SIZE, MIME_TYPE, PATH, SEQUENCE FROM FILES WHERE FULLNAME = ? AND PATH = ?', 
+              'query' => 'SELECT "ID", "DATE", "SIZE", "MIME_TYPE", "PATH", "SEQUENCE" FROM "FILES" WHERE "FULLNAME" = ? AND "PATH" = ?', 
               'parameters' => [ $fullname, $path, ],
               },
              \@results,
@@ -644,7 +651,7 @@ sub files_get_records_by_external
         PDLNA::Database::select_db(
               $dbh,
               {
-               'query' => 'SELECT ID, FULLNAME FROM FILES WHERE EXTERNAL = ?',
+               'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = ?',
                'parameters' => [ $external ],
                },
               \@files,
@@ -668,7 +675,7 @@ sub files_update
           PDLNA::Database::update_db(
              $dbh,
              {
-             'query' => 'UPDATE FILES SET DATE = ?, SIZE = ?, MIME_TYPE = ?, TYPE = ?, SEQUENCE = ? WHERE ID = ?;',
+             'query' => 'UPDATE "FILES" SET "DATE" = ?, "SIZE" = ?, "MIME_TYPE" = ?, "TYPE" = ?, "SEQUENCE" = ? WHERE "ID" = ?;',
              'parameters' => [ $date, $size, $mimetype, $type, $sequence, $file_id ], 
              },
           );
@@ -688,7 +695,7 @@ sub files_update_2
            PDLNA::Database::update_db(
                $dbh,
                {
-               'query' => 'UPDATE FILES SET FILE_EXTENSION = ?, MIME_TYPE = ?, TYPE = ? WHERE ID = ?',
+               'query' => 'UPDATE "FILES" SET "FILE_EXTENSION" = ?, "MIME_TYPE" = ?, "TYPE" = ? WHERE "ID" = ?',
                'parameters' => [ $file_extension, $mime_type, $type, $file_id, ], 
                },
            );
@@ -703,7 +710,7 @@ sub files_update_mime_unknown
                PDLNA::Database::update_db(
                    $dbh,
                     {
-                    'query' => 'UPDATE FILES SET FILE_EXTENSION = ? WHERE ID = ?',
+                    'query' => 'UPDATE "FILES" SET "FILE_EXTENSION" = ? WHERE "ID" = ?',
                     'parameters' => [ 'unkn' , $file_id, ],
                     },
                );
@@ -720,7 +727,7 @@ sub files_set_invalid
             PDLNA::Database::update_db(
               $dbh,
               {
-               'query' => 'UPDATE FILEINFO SET VALID = 0 WHERE FILEID_REF = ?;',
+               'query' => 'UPDATE "FILEINFO" SET "VALID" = 0 WHERE "FILEID_REF" = ?;',
                'parameters' => [ $file_id, ],
               },
             );
@@ -739,7 +746,7 @@ sub files_set_valid
                PDLNA::Database::update_db(
                     $dbh,
                     {
-                    'query' => 'UPDATE FILEINFO SET VALID = 1 WHERE FILEID_REF = ?;',
+                    'query' => 'UPDATE "FILEINFO" SET "VALID" = 1 WHERE "FILEID_REF" = ?;',
                     'parameters' => [ $file_id, ],
                     },
                );
@@ -766,7 +773,7 @@ sub files_insert
            PDLNA::Database::insert_db(
                      $dbh,
                      {
-                     'query' => 'INSERT INTO FILES (NAME, PATH, FULLNAME, FILE_EXTENSION, DATE, SIZE, MIME_TYPE, TYPE, EXTERNAL, ROOT, SEQUENCE) VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
+                     'query' => 'INSERT INTO "FILES" ("NAME", "PATH", "FULLNAME", "FILE_EXTENSION", "DATE", "SIZE", "MIME_TYPE", "TYPE", "EXTERNAL", "ROOT", "SEQUENCE") VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
                      'parameters' => [ $element_basename, $element_dirname, $element, $file_extension, $date, $size,  $mime_type, $type, $external, $root, $sequence, ],
                      },
            );
@@ -782,7 +789,7 @@ sub files_delete
         PDLNA::Database::delete_db(
             $dbh,
             {
-             'query' => 'DELETE FROM FILES WHERE ID = ?',
+             'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
              'parameters' => [ $file_id, ],
             },
         );
@@ -803,7 +810,7 @@ sub  device_ip_select_all
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                        'query' => 'SELECT ID, IP FROM DEVICE_IP',
+                        'query' => 'SELECT "ID", "IP" FROM "DEVICE_IP"',
                         'parameters' => [ ],
                 },
                 \@devices_ip,
@@ -822,7 +829,7 @@ sub device_ip_delete_by_id
         PDLNA::Database::delete_db(
                 $dbh,
                 {
-                 'query' => 'DELETE FROM DEVICE_IP WHERE ID = ?',
+                 'query' => 'DELETE FROM "DEVICE_IP" WHERE "ID" = ?',
                  'parameters' => [ $device_ip_id, ],
                 },
         );
@@ -850,7 +857,7 @@ sub device_ip_get_id
         PDLNA::Database::select_db(
                        $dbh,
                        {
-                        'query' => 'SELECT ID, IP, USER_AGENT, LAST_SEEN  FROM DEVICE_IP WHERE IP = ?',
+                        'query' => 'SELECT "ID", "IP", "USER_AGENT", "LAST_SEEN"  FROM "DEVICE_IP" WHERE "IP" = ?',
                         'parameters' => [ $ip, ],
                        },
                       \@devices,
@@ -882,7 +889,7 @@ sub  device_ip_touch
            PDLNA::Database::insert_db(
                         $dbh,
                         {
-                           'query' => 'INSERT INTO DEVICE_IP (IP) VALUES (?)',
+                           'query' => 'INSERT INTO "DEVICE_IP" ("IP") VALUES (?)',
                            'parameters' => [ $ip ],
                         },
                 );
@@ -891,12 +898,12 @@ sub  device_ip_touch
 
         if (defined($useragent)) 
          {
-          $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?, USER_AGENT = ? WHERE ID = ?';
+          $sql = 'UPDATE "DEVICE_IP" SET "LAST_SEEN" = ?, "USER_AGENT" = ? WHERE "ID" = ?';
           $params = [ $time,$useragent,$device_ip->{ID} ];
          }
         else
          {
-          $sql = 'UPDATE DEVICE_IP SET LAST_SEEN = ?  WHERE ID = ?';
+          $sql = 'UPDATE "DEVICE_IP" SET "LAST_SEEN" = ?  WHERE "ID" = ?';
           $params = [ $time,$device_ip->{ID} ];
          }
 
@@ -926,7 +933,7 @@ sub device_udn_get_record
              PDLNA::Database::select_db(
                         $dbh,
                         {
-                         'query' => 'SELECT ID, UDN, SSDP_BANNER, FRIENDLY_NAME, MODEL_NAME, TYPE, DESC_URL FROM DEVICE_UDN WHERE ID = ?', 
+                         'query' => 'SELECT "ID", "UDN", "SSDP_BANNER", "FRIENDLY_NAME", "MODEL_NAME", "TYPE", "DESC_URL" FROM "DEVICE_UDN" WHERE "ID" = ?', 
                          'parameters' => [ $device_ip_id ],
                         },
                \@devices_udn
@@ -949,7 +956,7 @@ sub device_udn_get_id
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                 'query' => 'SELECT ID FROM DEVICE_UDN WHERE DEVICE_IP_REF = ? AND UDN = ?',
+                 'query' => 'SELECT "ID" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" = ? AND "UDN" = ?',
                  'parameters' => [ $device_ip_id, $device_udn, ],
                 },
                 \@device_udn,
@@ -977,7 +984,7 @@ sub device_udn_insert
         PDLNA::Database::insert_db(
                  $dbh,
                   {
-           'query' => 'INSERT INTO DEVICE_UDN (DEVICE_IP_REF, UDN, SSDP_BANNER, DESC_URL, RELA_URL, BASE_URL, TYPE, MODEL_NAME, FRIENDLY_NAME) VALUES (?,?,?,?,?,?,?,?,?)',
+           'query' => 'INSERT INTO "DEVICE_UDN" ("DEVICE_IP_REF", "UDN", "SSDP_BANNER", "DESC_URL", "RELA_URL", "BASE_URL", "TYPE", "MODEL_NAME", "FRIENDLY_NAME") VALUES (?,?,?,?,?,?,?,?,?)',
            'parameters' => [ $device_ip_id, $udn, $ssdp_banner, $dev_desc_loc, $dev_udn_base_url, $dev_udn_rela_url, $dev_udn_devicetype, $dev_udn_modelname, $dev_udn_friendlyname, ],
                    },
          );
@@ -995,7 +1002,7 @@ sub device_udn_get_modelname
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                  'query' => 'SELECT ID, MODEL_NAME FROM DEVICE_UDN WHERE DEVICE_IP_REF IN (SELECT ID FROM DEVICE_IP WHERE IP = ?)',
+                  'query' => 'SELECT "ID", "MODEL_NAME" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" IN (SELECT "ID" FROM "DEVICE_IP" WHERE "IP" = ?)',
                   'parameters' => [ $ip, ],
                 },
                 \@modelnames,
@@ -1020,7 +1027,7 @@ sub device_udn_delete_by_id
         PDLNA::Database::delete_db(
                 $dbh,
                 {
-                        'query' => 'DELETE FROM DEVICE_UDN WHERE ID = ?',
+                        'query' => 'DELETE FROM "DEVICE_UDN" WHERE "ID" = ?',
                         'parameters' => [ $device_udn_id, ],
                 },
         );
@@ -1043,7 +1050,7 @@ sub device_udn_delete_without_nts
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                 'query' => 'SELECT ID FROM DEVICE_UDN',
+                 'query' => 'SELECT "ID" FROM "DEVICE_UDN"',
                  'parameters' => [ ],
                 },
                 \@device_udn,
@@ -1070,7 +1077,7 @@ sub  device_udn_select_by_ip
                 PDLNA::Database::select_db(
                         $dbh,
                         {
-                                'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
+                                'query' => 'SELECT "ID", "UDN" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" = ?',
                                 'parameters' => [ $device_ip_id ],
                         },
                         \@devices_udn,
@@ -1097,7 +1104,7 @@ sub device_service_insert
         PDLNA::Database::insert_db(
            $dbh,
             {
-            'query' => 'INSERT INTO DEVICE_SERVICE (DEVICE_UDN_REF, SERVICE_ID, TYPE, CONTROL_URL, EVENT_URL, SCPD_URL) VALUES (?,?,?,?,?,?)',
+            'query' => 'INSERT INTO "DEVICE_SERVICE" ("DEVICE_UDN_REF", "SERVICE_ID", "TYPE", "CONTROL_URL", "EVENT_URL", "SCPD_URL") VALUES (?,?,?,?,?,?)',
             'parameters' => [ $device_udn_id, $serviceId, $serviceType, $controlURL, $eventSubURL, $scpdURL ],
              }
         );
@@ -1122,7 +1129,7 @@ sub device_service_delete
             PDLNA::Database::delete_db(
             $dbh, 
                {
-                    'query' => 'DELETE FROM DEVICE_SERVICE WHERE DEVICE_UDN_REF = ?',
+                    'query' => 'DELETE FROM "DEVICE_SERVICE" WHERE "DEVICE_UDN_REF" = ?',
                         'parameters' => [ $device_udn_id, ],
                },
             );
@@ -1139,7 +1146,7 @@ sub device_service_get_records_by_serviceid
                 PDLNA::Database::select_db(
                       $dbh,
                       {
-                       'query' => 'SELECT TYPE, CONTROL_URL FROM DEVICE_SERVICE WHERE SERVICE_ID = ?', 
+                       'query' => 'SELECT "TYPE", "CONTROL_URL" FROM "DEVICE_SERVICE" WHERE "SERVICE_ID" = ?', 
                        'parameters' => [ $service_id ],
                       },
                       \@device_services,
@@ -1173,7 +1180,7 @@ sub  device_nts_amount
          PDLNA::Database::select_db(
                $dbh,
                {
-                'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+                'query' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ?',
                 'parameters' => [ $device_udn_id ],
                 },
                \@device_nts_amount,
@@ -1194,7 +1201,7 @@ sub device_nts_get_records
                 PDLNA::Database::select_db(
                         $dbh,
                         {
-                         'query' => 'SELECT TYPE, EXPIRE FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+                         'query' => 'SELECT "TYPE", "EXPIRE" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ?',
                          'parameters' => [ $device_udn_ref ],
                         },
                        \@device_nts,
@@ -1214,7 +1221,7 @@ sub device_nts_device_udn_ref
                 PDLNA::Database::select_db(
                         $dbh,
                         {
-                                'query' => 'SELECT DEVICE_UDN_REF FROM DEVICE_NTS WHERE TYPE = ?',
+                                'query' => 'SELECT "DEVICE_UDN_REF" FROM "DEVICE_NTS" WHERE "TYPE" = ?',
                                 'parameters' => [ $devicetype, ],
                         },
                         \@device_udns,
@@ -1246,7 +1253,7 @@ sub device_nts_get_id
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                        'query' => 'SELECT ID FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ? AND TYPE = ?',
+                        'query' => 'SELECT "ID" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ? AND "TYPE" = ?',
                         'parameters' => [ $device_udn_id, $device_nts_type, ],
                 },
                 \@device_nts,
@@ -1274,7 +1281,7 @@ sub device_nts_delete
             PDLNA::Database::delete_db(
             $dbh,
                {
-                'query' => 'DELETE FROM DEVICE_NTS WHERE ID = ?',
+                'query' => 'DELETE FROM "DEVICE_NTS" WHERE "ID" = ?',
                 'parameters' => [ $nts_id ],
                },
             );
@@ -1296,7 +1303,7 @@ sub device_nts_touch
                 PDLNA::Database::update_db(
                         $dbh,
                         {
-                                'query' => 'UPDATE DEVICE_NTS SET EXPIRE = ? WHERE ID = ? AND TYPE = ?',
+                                'query' => 'UPDATE "DEVICE_NTS" SET "EXPIRE" = ? WHERE "ID" = ? AND "TYPE" = ?',
                                 'parameters' => [ $nt_time_of_expire, $device_nts_id, $nt ],
                         },
                 );
@@ -1306,7 +1313,7 @@ sub device_nts_touch
                 PDLNA::Database::insert_db(
                         $dbh,
                         {
-                                'query' => 'INSERT INTO DEVICE_NTS (DEVICE_UDN_REF, TYPE, EXPIRE) VALUES (?,?,?)',
+                                'query' => 'INSERT INTO "DEVICE_NTS" ("DEVICE_UDN_REF", "TYPE", "EXPIRE") VALUES (?,?,?)',
                                 'parameters' => [ $device_udn_id, $nt, $nt_time_of_expire ],
                         },
                 );
@@ -1328,7 +1335,7 @@ sub device_nts_delete_expired
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                        'query' => 'SELECT ID, EXPIRE FROM DEVICE_NTS',
+                        'query' => 'SELECT "ID", "EXPIRE" FROM "DEVICE_NTS"',
                         'parameters' => [ ],
                 },
                 \@device_nts,
@@ -1354,7 +1361,7 @@ sub metadata_get_value
                  my $val = PDLNA::Database::select_db_field_int(
                      $dbh,
                         {
-                        'query' => 'SELECT value FROM METADATA WHERE key = ?',
+                        'query' => 'SELECT "VALUE" FROM "METADATA" WHERE "KEY" = ?',
                         'parameters' => [ $key, ],
                         },
                  );
@@ -1373,7 +1380,7 @@ sub metadata_update_value
     		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => "UPDATE METADATA SET VALUE = ? WHERE KEY = ?",
+				'query' => 'UPDATE "METADATA" SET "VALUE" = ? WHERE "KEY" = ?',
 				'parameters' => [ $value,$key ],
 			},
             );
@@ -1389,7 +1396,7 @@ sub fileinfo_get_all_sumduration
                 my $duration = PDLNA::Database::select_db_field_int(
                         $dbh,
                         {
-                                'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
+                                'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILEINFO"',
                                 'parameters' => [ ],
                         },
                 );
@@ -1408,7 +1415,7 @@ sub fileinfo_get_by_valid
         PDLNA::Database::select_db(
              $dbh,
              {
-             'query' => 'SELECT FILEID_REF FROM FILEINFO WHERE VALID = ?',
+             'query' => 'SELECT "FILEID_REF" FROM "FILEINFO" WHERE "VALID" = ?',
              'parameters' => [ $valid ],
              },
              \@results,
@@ -1429,7 +1436,7 @@ sub fileinfo_get_by_id
         PDLNA::Database::select_db(
                  $dbh,
                  {
-                 'query' => 'SELECT WIDTH, HEIGHT, BITRATE, DURATION, ARTIST, ALBUM, GENRE, YEAR, TRACKNUM, CONTAINER, AUDIO_CODEC, VIDEO_CODEC FROM FILEINFO WHERE FILEID_REF = ?;', 
+                 'query' => 'SELECT "WIDTH", "HEIGHT", "BITRATE", "DURATION", "ARTIST", "ALBUM", "GENRE", "YEAR", "TRACKNUM", "CONTAINER", "AUDIO_CODEC", "VIDEO_CODEC" FROM "FILEINFO" WHERE "FILEID_REF" = ?;', 
                  'parameters' => [ $item_id, ],
                   },
                  \@iteminfo,
@@ -1447,7 +1454,7 @@ sub fileinfo_insert_empty
         PDLNA::Database::insert_db(
               $dbh,
               {
-              'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
+              'query' => 'INSERT INTO "FILEINFO" ("FILEID_REF", "VALID", "WIDTH", "HEIGHT", "DURATION", "BITRATE", "VBR", "ARTIST", "ALBUM", "TITLE", "GENRE", "YEAR", "TRACKNUM") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
               'parameters' => [ $file_id, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ]
               },
         );
@@ -1464,7 +1471,7 @@ sub fileinfo_delete
              PDLNA::Database::delete_db(
                   $dbh,
                   {
-                  'query' => 'DELETE FROM FILEINFO WHERE FILEID_REF = ?',
+                  'query' => 'DELETE FROM "FILEINFO" WHERE "FILEID_REF" = ?',
                   'parameters' => [ $file_id, ],
                   },
              );
@@ -1483,7 +1490,7 @@ sub fileinfo_update_dimensions
          PDLNA::Database::update_db(
                $dbh,
                {
-               'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, VALID = 1 WHERE FILEID_REF = ?', 
+               'query' => 'UPDATE "FILEINFO" SET "WIDTH" = ?, "HEIGHT" = ?, "VALID" = 1 WHERE "FILEID_REF" = ?', 
                'parameters' => [ $width, $height, $file_id, ],
                },
          );
@@ -1507,7 +1514,7 @@ sub fileinfo_update
         PDLNA::Database::update_db(
            $dbh,
            {
-           'query' => 'UPDATE FILEINFO SET WIDTH = ?, HEIGHT = ?, DURATION = ?, BITRATE = ?,  CONTAINER = ?, AUDIO_CODEC = ?, VIDEO_CODEC = ? WHERE FILEID_REF = ?',
+           'query' => 'UPDATE "FILEINFO" SET "WIDTH" = ?, "HEIGHT" = ?, "DURATION" = ?, "BITRATE" = ?,  "CONTAINER" = ?, "AUDIO_CODEC" = ?, "VIDEO_CODEC" = ? WHERE "FILEID_REF" = ?',
            'parameters' => [ $width, $height, $duration, $bitrate, $container, $audio_codec, $video_codec, $file_id, ],
             },
         );
@@ -1531,7 +1538,7 @@ sub fileinfo_update_details_audio
         PDLNA::Database::update_db(
            $dbh,
            {
-           'query' => 'UPDATE FILEINFO SET ARTIST = ?, ALBUM = ?, TITLE = ?, GENRE = ?, YEAR = ?, TRACKNUM = ?, VALID = ? WHERE FILEID_REF = ?',
+           'query' => 'UPDATE "FILEINFO" SET "ARTIST" = ?, "ALBUM" = ?, "TITLE" = ?, "GENRE" = ?, "YEAR" = ?, "TRACKNUM" = ?, "VALID" = ? WHERE "FILEID_REF" = ?',
            'parameters' => [ $artist,  $album, $title, $genre, $year, $tracknum, 1, $file_id, ],
            },
         );
@@ -1553,7 +1560,7 @@ sub device_bm_get_posseconds
 	my $bookmark = PDLNA::Database::select_db_field_int(
 		$dbh,
 		{
-		 'query' => 'SELECT POS_SECONDS FROM DEVICE_BM WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+		 'query' => 'SELECT "POS_SECONDS" FROM "DEVICE_BM" WHERE "FILE_ID_REF" = ? AND "DEVICE_IP_REF" = ?',
 		 'parameters' => [ $item_id, $device_ip_id, ],
 		},
 		);
@@ -1574,7 +1581,7 @@ sub device_bm_update_posseconds
 				PDLNA::Database::update_db(
 					$dbh,
 					{
-					'query' => 'UPDATE DEVICE_BM SET POS_SECONDS = ? WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
+					'query' => 'UPDATE "DEVICE_BM" SET "POS_SECONDS" = ? WHERE "FILE_ID_REF" = ? AND "DEVICE_IP_REF" = ?',
 					'parameters' => [ $seconds, $item_id, $device_ip_id, ],
 					}
 				);
@@ -1593,7 +1600,7 @@ sub device_bm_insert_posseconds
     			PDLNA::Database::insert_db(
                     $dbh,
 					{
-					'query' => 'INSERT INTO DEVICE_BM (FILE_ID_REF, DEVICE_IP_REF, POS_SECONDS) VALUES (?,?,?)',
+					'query' => 'INSERT INTO "DEVICE_BM" ("FILE_ID_REF", "DEVICE_IP_REF", "POS_SECONDS") VALUES (?,?,?)',
 					'parameters' => [ $item_id, $device_ip_id, $seconds ],
 					}
                 );
@@ -1612,7 +1619,7 @@ sub subtitles_get_all
         PDLNA::Database::select_db(
               $dbh,
               {
-              'query' => 'SELECT ID, FULLNAME FROM SUBTITLES',
+              'query' => 'SELECT "ID", "FULLNAME" FROM "SUBTITLES"',
               'parameters' => [ ],
                },
               \@subtitles,
@@ -1635,7 +1642,7 @@ sub subtitles_get_by_several_fields
                 PDLNA::Database::select_db(
                    $dbh,
                    {
-                   'query' => 'SELECT ID, DATE, SIZE FROM SUBTITLES WHERE FULLNAME = ? AND FILEID_REF = ? AND MIME_TYPE = ?',
+                   'query' => 'SELECT "ID", "DATE", "SIZE" FROM "SUBTITLES" WHERE "FULLNAME" = ? AND "FILEID_REF" = ? AND "MIME_TYPE" = ?',
                    'parameters' => [ $path, $file_id, $mimetype ],
                    },
                    \@results,
@@ -1654,7 +1661,7 @@ sub subtitles_get_records
     	PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+				'query' => 'SELECT "ID", "TYPE", "FULLNAME" FROM "SUBTITLES" WHERE "FILEID_REF" = ?',
 				'parameters' => [ $item_id, ],
 			},
 			\@subtitles,
@@ -1675,7 +1682,7 @@ sub subtitles_get_record_by_id_type
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT FULLNAME, SIZE FROM SUBTITLES WHERE ID = ? AND TYPE = ?',
+				'query' => 'SELECT "FULLNAME", "SIZE" FROM "SUBTITLES" WHERE "ID" = ? AND "TYPE" = ?',
 				'parameters' => [ $id, $type, ],
 			},
 			\@subtitles,
@@ -1695,7 +1702,7 @@ sub subtitles_update
                 PDLNA::Database::update_db(
                     $dbh,
                     {
-                    'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ?, WHERE ID = ?;',
+                    'query' => 'UPDATE "SUBTITLES" SET "DATE" = ?, "SIZE" = ?, WHERE "ID" = ?;',
                     'parameters' => [ $date, $size, $file_id, ],
                     },
                 );
@@ -1717,7 +1724,7 @@ sub subtitles_insert
                 PDLNA::Database::insert_db(
                     $dbh,
                     {
-                     'query' => 'INSERT INTO SUBTITLES (FILEID_REF, FULLNAME, NAME, TYPE, MIME_TYPE, DATE, SIZE) VALUES (?,?,?,?,?,?,?)',
+                     'query' => 'INSERT INTO "SUBTITLES" ("FILEID_REF", "FULLNAME", "NAME", "TYPE", "MIME_TYPE", "DATE", "SIZE") VALUES (?,?,?,?,?,?,?)',
                      'parameters' => [ $file_id, $path, $basename_path, $type, $mimetype, $date, $size, ], 
                     },
                 );
@@ -1734,7 +1741,7 @@ sub subtitles_delete
              PDLNA::Database::delete_db(
                  $dbh,
                  {
-                 'query' => 'DELETE FROM SUBTITLES WHERE ID = ?',
+                 'query' => 'DELETE FROM "SUBTITLES" WHERE "ID" = ?',
                  'parameters' => [ $sub_id, ],
                  },
              );
@@ -1751,7 +1758,7 @@ sub subtitles_delete_by_fileid
         PDLNA::Database::delete_db(
             $dbh,
             {
-            'query' => 'DELETE FROM SUBTITLES WHERE FILEID_REF = ?',
+            'query' => 'DELETE FROM "SUBTITLES" WHERE "FILEID_REF" = ?',
             'parameters' => [ $file_id, ],
             },
         );
@@ -1772,7 +1779,7 @@ sub directories_get_records_by_name_path
             PDLNA::Database::select_db(
                   $dbh,
                   {
-                   'query' => 'SELECT ID FROM DIRECTORIES WHERE NAME = ? AND PATH LIKE ?',
+                   'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "NAME" = ? AND "PATH" LIKE ?',
                    'parameters' => [ $excl_directory, $path.'%', ],
                   },
                  \@directories,
@@ -1791,7 +1798,7 @@ sub directories_get_all
         PDLNA::Database::select_db(
              $dbh,
              {
-              'query' => 'SELECT ID, PATH, TYPE FROM DIRECTORIES',
+              'query' => 'SELECT "ID", "PATH", "TYPE" FROM "DIRECTORIES"',
               'parameters' => [ ],
              },
              \@directories,
@@ -1813,7 +1820,7 @@ sub directories_get_records
     	PDLNA::Database::select_db(
             $dbh,
             {
-            'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? );',
+            'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "DIRNAME" FROM "DIRECTORIES" WHERE "ID" = ? );',
             'parameters' => [ $object_id, ],
             },
 			\@directories,
@@ -1834,7 +1841,7 @@ sub directories_get_record_by_path
         PDLNA::Database::select_db( 
            $dbh,
             {
-             'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH = ?',
+             'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" = ?',
               'parameters' => [ $path, ],
             },
            \@results,
@@ -1857,7 +1864,7 @@ sub directories_insert
                 PDLNA::Database::insert_db(
                          $dbh,
                           {
-                           'query' => 'INSERT INTO DIRECTORIES (NAME, PATH, DIRNAME, ROOT, TYPE) VALUES (?,?,?,?,?)',
+                           'query' => 'INSERT INTO "DIRECTORIES" ("NAME", "PATH", "DIRNAME", "ROOT", "TYPE") VALUES (?,?,?,?,?)',
                            'parameters' => [ $basename_path, $path, $dirname_path, $rootdir, $type ],
                           },
                 );
@@ -1873,7 +1880,7 @@ sub directories_delete
         PDLNA::Database::delete_db(
                   $dbh,
                   {
-                  'query' => 'DELETE FROM DIRECTORIES WHERE ID = ?',
+                  'query' => 'DELETE FROM "DIRECTORIES" WHERE "ID" = ?',
                   'parameters' => [ $directory_id, ],
                   },
         );
@@ -1893,24 +1900,34 @@ sub get_subdirectories_by_id
         my $dbh = PDLNA::Database::connect();
 
 
-        my $sql_query = 'SELECT ID, NAME, PATH FROM DIRECTORIES WHERE ';
+        my $sql_query = 'SELECT "ID", "NAME", "PATH" FROM "DIRECTORIES" WHERE ';
         my @sql_param = ();
 
         if ($object_id == 0)
         {
-                $sql_query .= 'ROOT = 1';
+                $sql_query .= '"ROOT" = 1';
         }   
         else
         {
-                $sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                $sql_query .= '"DIRNAME" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? )';
                 push(@sql_param, $object_id);
         }
 
-        $sql_query .= ' ORDER BY NAME';
+        $sql_query .= ' ORDER BY "NAME"';
 
         if (defined($starting_index) && defined($requested_count))
         {
-                $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+            
+         if ($CONFIG{DB_TYPE} eq "PGSQL") 
+          {
+           $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+        
+          }
+         else
+          {
+		   $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+          }
+	
         }
 
         PDLNA::Database::select_db(
@@ -1936,24 +1953,31 @@ sub get_subfiles_by_id
 
 
         my $dbh = PDLNA::Database::connect();
-        my $sql_query = 'SELECT ID, NAME, SIZE, DATE FROM FILES WHERE ';
+        my $sql_query = 'SELECT "ID", "NAME", "SIZE", "DATE" FROM "FILES" WHERE ';
         my @sql_param = ();
 
         if ($object_id == 0)
         {
-                $sql_query .= 'ROOT = 1';
+                $sql_query .= '"ROOT" = 1';
         }
         else
         {   
-                $sql_query .= 'PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                $sql_query .= '"PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? )';
                 push(@sql_param, $object_id);
         }
 
-        $sql_query .= ' ORDER BY SEQUENCE, NAME';
+        $sql_query .= ' ORDER BY "SEQUENCE", "NAME"';
 
         if (defined($starting_index) && defined($requested_count))
         {
-                $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+           if ($CONFIG{DB_TYPE} eq "PGSQL") 
+            {
+             $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+            }
+           else
+            {
+		     $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+            }
         }
 
         PDLNA::Database::select_db(
@@ -1979,7 +2003,7 @@ sub get_subfiles_size_by_id
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                 'query' => 'SELECT SUM(SIZE) AS FULLSIZE FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )',
+                 'query' => 'SELECT SUM("SIZE") AS "FULLSIZE" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? )',
                  'parameters' => [ $object_id, ],
                 },
                 \@result,
@@ -1998,15 +2022,15 @@ sub get_amount_subdirectories_by_id
         my @directory_amount = ();
         my $dbh = PDLNA::Database::connect();
 
-        my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE ';
+        my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT" FROM "DIRECTORIES" WHERE ';
         my @sql_param = ();
         if ($object_id == 0)
         {
-                $sql_query .= 'ROOT = 1';
+                $sql_query .= '"ROOT" = 1';
         }
         else
         {   
-                $sql_query .= 'DIRNAME IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? )';
+                $sql_query .= '"DIRNAME" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? )';
                 push(@sql_param, $object_id);
         }
 
@@ -2031,7 +2055,7 @@ sub get_amount_subfiles_by_id
         my $dbh = PDLNA::Database::connect();
         my @files_amount = ();
 
-        my $sql_query = 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ?)';
+        my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ?)';
         my @sql_param = ( $object_id, );
         PDLNA::Database::select_db(
                 $dbh,
@@ -2056,7 +2080,7 @@ sub get_parent_of_directory_by_id
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? )',
+                'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "DIRNAME" FROM "DIRECTORIES" WHERE "ID" = ? )',
                 'parameters' => [ $object_id, ],
                 },
                 \@directory_parent,
@@ -2076,7 +2100,7 @@ sub get_parent_of_item_by_id
         PDLNA::Database::select_db(
                 $dbh,
                 {
-                        'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE ID = ? )',
+                        'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "ID" = ? )',
                         'parameters' => [ $object_id, ],
                 },
                 \@item_parent,

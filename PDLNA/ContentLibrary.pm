@@ -535,7 +535,7 @@ sub get_fileinfo
 
 			if (defined($info{TYPE}) && defined($info{MIME_TYPE}) && defined($info{FILE_EXTENSION}))
 			{
-				PDLNA::Database::files_update_2( $info{MIME_TYPE}, $info{TYPE}, $info{FILE_EXTENSION}, $id->{FILEID_REF});
+				PDLNA::Database::files_update_2( $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE},  $id->{FILEID_REF});
 			}
 
 			if ($file->{TYPE} eq 'video')
@@ -550,12 +550,12 @@ sub get_fileinfo
 		if ($file->{TYPE} eq 'audio' && defined($info{AUDIO_CODEC}))
 		{
 			my %audioinfo = (
-				'ARTIST' => '',
-				'ALBUM' => '',
-				'TRACKNUM' => '',
-				'TITLE' => '',
-				'GENRE' => '',
-				'YEAR' => '',
+				'ARTIST' => undef,
+				'ALBUM' => undef,
+				'TRACKNUM' => undef,
+				'TITLE' => undef,
+				'GENRE' => undef,
+				'YEAR' => undef,
 			);
 			PDLNA::Media::get_audio_fileinfo($file->{FULLNAME}, $info{AUDIO_CODEC}, \%audioinfo);
 			PDLNA::Database::fileinfo_update_details_audio( $audioinfo{ARTIST}, $audioinfo{ALBUM}, $audioinfo{TITLE}, $audioinfo{GENRE}, $audioinfo{YEAR}, $audioinfo{TRACKNUM}, 1, $id->{FILEID_REF} );

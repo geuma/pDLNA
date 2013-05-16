@@ -258,6 +258,8 @@ sub parse_config
 	#
 	# DATABASE PARSING
 	#
+    $CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
+    
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
 	unless (($CONFIG{'DB_TYPE'} eq 'SQLITE3') or ($CONFIG{'DB_TYPE'} eq 'PGSQL') or ($CONFIG{'DB_TYPE'} eq 'MYSQL'))
 	{
@@ -266,7 +268,6 @@ sub parse_config
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
 		if (-f $CONFIG{'DB_NAME'})
 		{
 			unless (mimetype($CONFIG{'DB_NAME'}) eq 'application/octet-stream') # TODO better check if it is a valid database
