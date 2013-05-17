@@ -176,7 +176,7 @@ sub get_browseresponse_item_detailed
 		push(@{$xml}, '&lt;upnp:class&gt;object.item.'.$item->{TYPE}.'Item&lt;/upnp:class&gt;');
 	}
 
-	my $iteminfo = PDLNA::Database::fileinfo_get_by_id($item_id);
+	my $iteminfo = PDLNA::Database::files_get_record_by_id($item_id);
 
 	#
 	# check if we need to transcode the content

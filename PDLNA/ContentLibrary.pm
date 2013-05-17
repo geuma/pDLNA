@@ -82,7 +82,7 @@ sub index_directories_thread
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
-		my ($amount, $size) = PDLNA::Database::get_amount_size_of_items();
+		my ($amount, $size) = PDLNA::Database::files_get_all_size();
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		remove_nonexistant_files();
@@ -232,7 +232,7 @@ sub process_directory
 				}
 
 				# delete not (any more) configured - media files from playlists
-				my @results = PDLNA::Database::files_get_records_by_path($element);
+				my @results = PDLNA::Database::files_get_records_by({PATH => $element});
 				foreach my $result (@results)
 				{
 					unless (grep(/^$result->{NAME}$/, @items) || grep(/^$result->{FULLNAME}$/, @items))
@@ -309,7 +309,8 @@ sub add_file_to_db
 	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
 
 	# check if file is in db
-	my $results = PDLNA::Database::files_get_record_by_fullname( $$params{'element'}, $$params{'element_dirname'} );
+	my @records = PDLNA::Database::files_get_records_by( {FULLNAME => $$params{'element'}, PATH => $$params{'element_dirname'}} );
+        my $results = $records[0];
 	if (defined($results->{ID}))
 	{
 		if (
@@ -435,7 +436,7 @@ sub remove_nonexistant_files
 		# delete excluded items
 		foreach my $excl_items (@{$$directory{'exclude_items'}})
 		{
-			my @items = PDLNA::Database::files_get_records_by_name_path($excl_items, $directory->{'path'}.'%');
+			my @items = PDLNA::Database::files_get_records_by({NAME => $excl_items, PATH => $directory->{'path'}.'%'});
 			foreach my $item (@items)
 			{
 				delete_all_by_itemid( $item->{ID});
@@ -478,27 +479,26 @@ sub get_fileinfo
 {
 
 	PDLNA::Log::log('Started to fetch metadata for media items.', 1, 'library');
-	my @results = PDLNA::Database::fileinfo_get_by_valid(0);
+	my @results = PDLNA::Database::files_get_all_valid_records();
 	foreach my $id (@results)
 	{
-		my $file = PDLNA::Database::files_get_record_by_id( $id->{FILEID_REF} );
-		if ($file->{EXTERNAL})
+		if ($id->{EXTERNAL})
 		{
 			my %info = ();
-			PDLNA::Media::get_mplayer_info($file->{FULLNAME}, \%info);
+			PDLNA::Media::get_mplayer_info($id->{FULLNAME}, \%info);
 			if (defined($info{MIME_TYPE}))
 			{
-				PDLNA::Database::files_update_2( $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE}, $id->{FILEID_REF});
-				$file->{TYPE} = $info{TYPE};
-				$file->{MIME_TYPE} = $info{MIME_TYPE};
+				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
+				$id->{TYPE} = $info{TYPE};
+				$id->{MIME_TYPE} = $info{MIME_TYPE};
 			}
 			else
 			{
-				PDLNA::Database::files_update_mime_unknown( $id->{FILEID_REF});
+				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unkn' });
 			}
 		}
 
-		unless (defined($file->{MIME_TYPE}))
+		unless (defined($id->{MIME_TYPE}))
 		{
 			next;
 		}
@@ -506,10 +506,10 @@ sub get_fileinfo
 		#
 		# FILL METADATA OF IMAGES
 		#
-		if ($file->{TYPE} eq 'image')
+		if ($id->{TYPE} eq 'image')
 		{
-			my ($width, $height) = PDLNA::Media::get_image_fileinfo($file->{FULLNAME});
-			PDLNA::Database::fileinfo_update_dimensions( $width, $height,  $id->{FILEID_REF});
+			my ($width, $height) = PDLNA::Media::get_image_fileinfo($id->{FULLNAME});
+			PDLNA::Database::files_update( $id->{ID}, { WIDTH => $width, HEIGHT => $height} );
 			next;
 		}
 
@@ -522,26 +522,25 @@ sub get_fileinfo
 		# FILL MPLAYER DATA OF VIDEO OR AUDIO FILES
 		#
 		my %info = ();
-		if ($file->{TYPE} eq 'video' || $file->{TYPE} eq 'audio')
+		if ($id->{TYPE} eq 'video' || $id->{TYPE} eq 'audio')
 		{
-			PDLNA::Media::get_mplayer_info($file->{FULLNAME}, \%info);
-			PDLNA::Database::fileinfo_update( $info{WIDTH}, $info{HEIGHT}, $info{DURATION}, $info{BITRATE}, $info{CONTAINER}, $info{AUDIO_CODEC}, $info{VIDEO_CODEC}, $id->{FILEID_REF});
-
+			PDLNA::Media::get_mplayer_info($id->{FULLNAME}, \%info);
+			PDLNA::Database::files_update( $id->{ID}, { WIDTH => $info{WIDTH}, HEIGHT => $info{HEIGHT}, DURATION => $info{DURATION}, BITRATE => $info{BITRATE}, CONTAINER => $info{CONTAINER}, AUDIO_CODEC => $info{AUDIO_CODEC}, VIDEO_CODEC => $info{VIDEO_CODEC} } );
 			if (defined($info{TYPE}) && defined($info{MIME_TYPE}) && defined($info{FILE_EXTENSION}))
 			{
-				PDLNA::Database::files_update_2( $info{FILE_EXTENSION}, $info{MIME_TYPE}, $info{TYPE},  $id->{FILEID_REF});
+				PDLNA::Database::files_update( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
 			}
 
-			if ($file->{TYPE} eq 'video')
+			if ($id->{TYPE} eq 'video')
 			{
-				PDLNA::Database::files_set_valid( $id->{FILEID_REF});
+				PDLNA::Database::files_set_valid( $id->{ID});
 			}
 		}
 
 		#
 		# FILL METADATA OF AUDIO FILES
 		#
-		if ($file->{TYPE} eq 'audio' && defined($info{AUDIO_CODEC}))
+		if ($id->{TYPE} eq 'audio' && defined($info{AUDIO_CODEC}))
 		{
 			my %audioinfo = (
 				'ARTIST' => undef,
@@ -551,8 +550,9 @@ sub get_fileinfo
 				'GENRE' => undef,
 				'YEAR' => undef,
 			);
-			PDLNA::Media::get_audio_fileinfo($file->{FULLNAME}, $info{AUDIO_CODEC}, \%audioinfo);
-			PDLNA::Database::fileinfo_update_details_audio( $audioinfo{ARTIST}, $audioinfo{ALBUM}, $audioinfo{TITLE}, $audioinfo{GENRE}, $audioinfo{YEAR}, $audioinfo{TRACKNUM}, 1, $id->{FILEID_REF} );
+			PDLNA::Media::get_audio_fileinfo($id->{FULLNAME}, $info{AUDIO_CODEC}, \%audioinfo);
+			PDLNA::Database::files_update( $id->{ID} , \%audioinfo );
+			PDLNA::Database::files_set_valid( $id->{ID});
 		}
 	}
 }

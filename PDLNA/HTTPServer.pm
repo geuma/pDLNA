@@ -819,7 +819,6 @@ sub stream_media
 		# getting information from database
 		#
 		my $item = PDLNA::Database::files_get_record_by_id($id);
-		my $iteminfo = PDLNA::Database::fileinfo_get_by_id($id);
 		#
 		# check if we need to transcode
 		#
@@ -827,9 +826,9 @@ sub stream_media
 			'fullname' => $item->{FULLNAME},
 			'external' => $item->{EXTERNAL},
 			'media_type' => $item->{TYPE},
-			'container' => $iteminfo->{CONTAINER},
-			'audio_codec' => $iteminfo->{AUDIO_CODEC},
-			'video_codec' => $iteminfo->{VIDEO_CODEC},
+			'container' => $item->{CONTAINER},
+			'audio_codec' => $item->{AUDIO_CODEC},
+			'video_codec' => $item->{VIDEO_CODEC},
 		);
 		my $transcode = 0;
 		if ($transcode = PDLNA::Transcode::shall_we_transcode(
@@ -945,9 +944,7 @@ sub stream_media
 			{
 				if ($item->{TYPE} eq 'video' || $item->{TYPE} eq 'audio')
 				{
-					my $item_metainfo = PDLNA::Database::fileinfo_get_by_id($id);
-					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item_metainfo->{DURATION}.'000;'); # in milliseconds
-
+					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->{DURATION}.'000;'); # in milliseconds
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
 						push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item, $transcode));

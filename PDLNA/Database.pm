@@ -158,7 +158,7 @@ sub initialize_db
 				"NAME"				VARCHAR(2048),
 				"PATH"				VARCHAR(2048),
 				"FULLNAME"			VARCHAR(2048),
-				"FILE_EXTENSION"	VARCHAR(4),
+				"FILE_EXTENSION"		VARCHAR(4),
 				"DATE"				BIGINT,
 				"SIZE"				BIGINT,
 				"MIME_TYPE"			VARCHAR(128),
@@ -173,8 +173,8 @@ sub initialize_db
 				"BITRATE"			INTEGER,
 				"VBR"				INTEGER,
 				"CONTAINER"			VARCHAR(128),
-				"AUDIO_CODEC"		VARCHAR(128),
-				"VIDEO_CODEC"		VARCHAR(128),
+				"AUDIO_CODEC"			VARCHAR(128),
+				"VIDEO_CODEC"			VARCHAR(128),
 				"ARTIST"			VARCHAR(128),
 				"ALBUM"				VARCHAR(128),
 				"TITLE"				VARCHAR(128),
@@ -209,7 +209,7 @@ sub initialize_db
 	{
 		$dbh->do('CREATE TABLE "SUBTITLES" (
 				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
-				"FILEID_REF"		INTEGER,
+				"FILEID_REF"			INTEGER,
 				"TYPE"				VARCHAR(2048),
 				"MIME_TYPE"			VARCHAR(128),
 				"NAME"				VARCHAR(2048),
@@ -225,7 +225,7 @@ sub initialize_db
 		$dbh->do('CREATE TABLE "DEVICE_IP" (
 				"ID"				'.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
 				"IP"				VARCHAR(15),
-				"USER_AGENT"		VARCHAR(128),
+				"USER_AGENT"			VARCHAR(128),
 				"LAST_SEEN"			BIGINT
 			);'
 		);
@@ -247,12 +247,12 @@ sub initialize_db
 		$dbh->do('CREATE TABLE "DEVICE_UDN" (
 				"ID"				    '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
 				"DEVICE_IP_REF"			INTEGER,
-				"UDN"				    VARCHAR(64),
+				"UDN"				VARCHAR(64),
 				"SSDP_BANNER"			VARCHAR(256),
 				"DESC_URL"		    	VARCHAR(512),
-				"RELA_URL"			    VARCHAR(512),
-				"BASE_URL"			    VARCHAR(512),
-				"TYPE"				    VARCHAR(256),
+				"RELA_URL"			VARCHAR(512),
+				"BASE_URL"			VARCHAR(512),
+				"TYPE"				VARCHAR(256),
 				"MODEL_NAME"			VARCHAR(256),
 				"FRIENDLY_NAME"			VARCHAR(256)
 			);'
@@ -265,7 +265,7 @@ sub initialize_db
 				"ID"				        '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
 				"DEVICE_UDN_REF"			INTEGER,
 				"TYPE"				        VARCHAR(128),
-				"EXPIRE"				    BIGINT
+				"EXPIRE"				BIGINT
 			);'
 		);
 	}
@@ -276,10 +276,10 @@ sub initialize_db
 				"ID"				    '.$SQL_ID_KEYS{$CONFIG{DB_TYPE}}.',
 				"DEVICE_UDN_REF"		INTEGER,
 				"SERVICE_ID"			VARCHAR(256),
-				"TYPE"				    VARCHAR(256),
+				"TYPE"				VARCHAR(256),
 				"CONTROL_URL"			VARCHAR(512),
-				"EVENT_URL"			    VARCHAR(512),
-				"SCPD_URL"			    VARCHAR(512)
+				"EVENT_URL"			VARCHAR(512),
+				"SCPD_URL"			VARCHAR(512)
 			);'
 		);
 	}
@@ -299,11 +299,11 @@ sub initialize_db
 		$dbh->do('CREATE TABLE "STAT_ITEMS" (
 				"DATE"				BIGINT PRIMARY KEY,
 				"AUDIO"				INTEGER,
-				"AUDIO_SIZE"		BIGINT,
+				"AUDIO_SIZE"			BIGINT,
 				"VIDEO"				INTEGER,
-				"VIDEO_SIZE"		BIGINT,
+				"VIDEO_SIZE"			BIGINT,
 				"IMAGE"				INTEGER,
-				"IMAGE_SIZE"		BIGINT
+				"IMAGE_SIZE"			BIGINT
 			);'
 		);
 	}
@@ -446,10 +446,20 @@ sub _log_query
 }
 
 
+
+##
+## INTERFACE FUNCTIONS FOR OTHER MODULES
+## -------------------------------------
+## 
+## In order to access the database the other modules
+## will use any of these
+##
+
+
 #
-# STATS
+# STATS TABLE
 # 
-sub insert_stats_proc
+sub stats_insert_mem
 {
  my $time = shift;
  my $vmsize = shift;
@@ -459,15 +469,17 @@ sub insert_stats_proc
    my $dbh = PDLNA::Database::connect();           
    PDLNA::Database::insert_db(
                 $dbh,
-                {'query' => 'INSERT INTO "STAT_MEM" ("DATE", "VMS", "RSS") VALUES (?,?,?)',
-                'parameters' => [ $time, $vmsize, $rssize, ]}               
-	        );
+                {
+                'query' => 'INSERT INTO "STAT_MEM" ("DATE", "VMS", "RSS") VALUES (?,?,?)',
+                'parameters' => [ $time, $vmsize, $rssize, ]
+                }               
+   );
    PDLNA::Database::disconnect($dbh);	        
 }                                                                                                                                                                                        
 
 
 
-sub insert_stats_media
+sub stats_insert_media
 { 
  my $time = shift;
  my $audio_amount = shift;
@@ -479,13 +491,13 @@ sub insert_stats_media
  
    my $dbh = PDLNA::Database::connect();
    PDLNA::Database::insert_db(
-                   $dbh,
-                   {'query' => 'INSERT INTO "STAT_ITEMS" ("DATE", "AUDIO", "AUDIO_SIZE", "IMAGE", "IMAGE_SIZE", "VIDEO", "VIDEO_SIZE") VALUES (?,?,?,?,?,?,?)', 
-                    'parameters' => [ $time, $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
-                   },
-                  );
-   PDLNA::Database::disconnect($dbh);
-                        
+           $dbh,
+           {
+           'query' => 'INSERT INTO "STAT_ITEMS" ("DATE", "AUDIO", "AUDIO_SIZE", "IMAGE", "IMAGE_SIZE", "VIDEO", "VIDEO_SIZE") VALUES (?,?,?,?,?,?,?)', 
+           'parameters' => [ $time, $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
+            },
+   );
+   PDLNA::Database::disconnect($dbh);                        
 }
 
 
@@ -501,11 +513,11 @@ sub stats_getdata
         PDLNA::Database::select_db(
               $dbh,
                {
-                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(\"DATE\", 'unixepoch', 'localtime')) AS datetime,
+                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(\"DATE\", 'unixepoch', 'localtime')) AS DATETIME,
                                      " .join(', ', @dbfields).  "
                               FROM ".$dbtable. " 
                               WHERE \"DATE\" > strftime('%s', 'now', 'start of ".$period."', 'utc') 
-                              GROUP BY datetime",
+                              GROUP BY DATETIME",
                         'parameters' => [ ]
                 },
                 \@results,
@@ -514,37 +526,135 @@ sub stats_getdata
     return @results;
 }
 
+
 ##
-## FILES
+## FILES TABLE
 ##
-sub files_get_records_by_path
+
+# Given an ID we just retrieve all the fields of that FILE
+sub files_get_record_by_id
 {
-    my $element = shift;
-    
-                my $dbh = PDLNA::Database::connect();
-                my @results = ();
-				PDLNA::Database::select_db(
-					$dbh,
-					{
-						'query' => 'SELECT "ID", "NAME", "FULLNAME" FROM "FILES" WHERE "PATH" = ?',
-						'parameters' => [ $element, ],
-					},
-					\@results,
-				);
-                PDLNA::Database::disconnect($dbh);
-               
-       return @results;         
+ my $item_id = shift;
+ 
+         my $dbh = PDLNA::Database::connect();
+         my @result = ();
+         PDLNA::Database::select_db(
+            $dbh,
+             {
+              'query' => 'SELECT * FROM "FILES" WHERE "ID" = ?;', 
+              'parameters' => [ $item_id, ],
+             },
+            \@result         
+         );
+         PDLNA::Database::disconnect($dbh);
+        
+    return $result[0];      
 }
 
 
-sub get_amount_size_of_items
+# Given an ID , just delete the entry of that file
+sub files_delete
+{
+ my $file_id = shift;
+ 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::delete_db(
+            $dbh,
+            {
+             'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
+             'parameters' => [ $file_id, ],
+            },
+        );
+        PDLNA::Database::disconnect($dbh);
+                                                                                                                 
+}
+
+
+# Update FILES, given an ID , and then an array with a hash ref 
+#    where the keys are the names of the fields and the values the values
+#    we want to update.   NOTE: undef perl value will be transformed into an ANSI SQL  NULL value. 
+sub files_update
+{
+ my $id  = shift;
+ my $params = shift;
+ 
+        my @setarray;
+        my @paramsarray;
+        
+        my $sql = 'UPDATE "FILES" SET ';
+        foreach my $key (keys(%{$params}))
+         {
+          push @setarray, "\"$key\" = ?";
+          push @paramsarray, $$params{$key}; 
+         }
+        $sql = $sql . join(',',@setarray) . " WHERE ID = ?"; 
+        push @paramsarray, $id;
+                
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::update_db(
+             $dbh,
+             {
+             'query' => $sql,
+             'parameters' => \@paramsarray
+             },
+         );
+         PDLNA::Database::disconnect($dbh);                  
+}
+
+# Get records from FILES where the search clausules are defined
+# in a hash ref, the keys are the FIELDS and the values are the lookup values
+sub files_get_records_by
+{
+ my $params = shift;
+ 
+        my @setarray;
+        my @paramsarray;
+        my @records = ();        
+
+        my $sql = 'SELECT * FROM  "FILES" WHERE ';
+        foreach my $key (keys(%{$params}))
+         {
+          if (! defined ($$params{$key}) )
+           {
+            push @setarray , "\"$key\" IS NULL";
+           }
+          else
+           {
+            if ( $$params{$key} =~ /%$/ )
+             {
+              push @setarray , "\"$key\" LIKE ?";
+              push @paramsarray, $$params{$key}; 
+             }
+            else
+             {
+             push @setarray, "\"$key\" = ?";
+             push @paramsarray, $$params{$key};
+             }
+           } 
+        }
+        $sql = $sql . join(' AND ',@setarray) ; 
+                
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+             'query' => $sql,
+             'parameters' => \@paramsarray
+             },
+            \@records
+         );
+         PDLNA::Database::disconnect($dbh);                  
+
+  return @records;
+}
+
+
+#
+sub files_get_all_size
 {
   my $type = shift || undef;
 
-
         my $dbh = PDLNA::Database::connect();
-
-
         my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT", SUM("SIZE") AS "SIZE" FROM "FILES"';
         my @sql_param = ();
         if (defined($type))
@@ -562,89 +672,24 @@ sub get_amount_size_of_items
                 },
                 \@result,
         );
-
         PDLNA::Database::disconnect($dbh);
 
-        return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
+   return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
-
-sub files_get_record_by_id
+sub files_get_all_duration
 {
- my $item_id = shift;
- 
-         my $dbh = PDLNA::Database::connect();
-         my @result = ();
-         PDLNA::Database::select_db(
-            $dbh,
-             {
-              'query' => 'SELECT "NAME", "FULLNAME", "PATH", "TYPE", "DATE", "SIZE", "MIME_TYPE", "FILE_EXTENSION", "EXTERNAL" FROM "FILES" WHERE "ID" = ?;', 
-              'parameters' => [ $item_id, ],
-             },
-            \@result         
-         );
-         PDLNA::Database::disconnect($dbh);
-        
-    return $result[0];      
-}
-
-
-sub files_get_records_by_name_path
-{
- my  $excl_items = shift;
- my  $path       = shift;
- 
-        my @items = ();
         my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-              $dbh,
-              {
-              'query' => 'SELECT "ID" FROM "FILES" WHERE "NAME" = ? AND "PATH" LIKE ?',
-              'parameters' => [ $excl_items, $path.'%', ],
-              },
-              \@items,
-       );
-       PDLNA::Database::disconnect($dbh);
-       
-   return @items;
-                                                                                                                                                                                                                                                                                                 
-}
+        my $duration = PDLNA::Database::select_db_field_int(
+                  $dbh,
+                  {
+                   'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILES"',
+                   'parameters' => [ ],
+                   },
+        );
+        PDLNA::Database::disconnect($dbh);
 
-
-sub files_get_record_by_fullname
-{
- my $fullname = shift;
- my $path     = shift;
- 
-            my @results = ();
-            my $dbh = PDLNA::Database::connect(); 
-            if (defined($path)) 
-            {
-            PDLNA::Database::select_db(
-              $dbh,
-              {
-              'query' => 'SELECT "ID", "DATE", "SIZE", "MIME_TYPE", "PATH", "SEQUENCE" FROM "FILES" WHERE "FULLNAME" = ? AND "PATH" = ?', 
-              'parameters' => [ $fullname, $path, ],
-              },
-             \@results,
-            );
-            }
-            else
-            {
-             PDLNA::Database::select_db(
-              $dbh,
-              {
-              'query' => 'SELECT "ID", "DATE", "SIZE", "MIME_TYPE", "PATH", "SEQUENCE" FROM "FILES" WHERE "FULLNAME" = ? AND "PATH" IS NULL', 
-              'parameters' => [ $fullname ],
-              },
-             \@results,
-            );
-            }
-            PDLNA::Database::disconnect($dbh);
-          
-    
-     return $results[0];
-                                                                                          
+  return $duration;
 }
 
 #----
@@ -686,67 +731,12 @@ sub files_get_external_files
 #----------
 
 
-sub files_update
-{
- my $date = shift;
- my $size = shift;
- my $mimetype = shift;
- my $type     = shift;
- my $sequence = shift;
- my $file_id  = shift;
- 
-          my $dbh = PDLNA::Database::connect();
-          PDLNA::Database::update_db(
-             $dbh,
-             {
-             'query' => 'UPDATE "FILES" SET "DATE" = ?, "SIZE" = ?, "MIME_TYPE" = ?, "TYPE" = ?, "SEQUENCE" = ? WHERE "ID" = ?;',
-             'parameters' => [ $date, $size, $mimetype, $type, $sequence, $file_id ], 
-             },
-          );
-          PDLNA::Database::disconnect($dbh);
-                     
-}
 
-
-sub files_update_2
-{
- my $file_extension = shift;
- my $mime_type      = shift;
- my $type           = shift;
- my $file_id        = shift;
- 
-           my $dbh = PDLNA::Database::connect();
-           PDLNA::Database::update_db(
-               $dbh,
-               {
-               'query' => 'UPDATE "FILES" SET "FILE_EXTENSION" = ?, "MIME_TYPE" = ?, "TYPE" = ? WHERE "ID" = ?',
-               'parameters' => [ $file_extension, $mime_type, $type, $file_id, ], 
-               },
-           );
-           PDLNA::Database::disconnect($dbh);
-}                                        
-
-sub files_update_mime_unknown
-{
- my $file_id        = shift;
-    
-               my $dbh = PDLNA::Database::connect();
-               PDLNA::Database::update_db(
-                   $dbh,
-                    {
-                    'query' => 'UPDATE "FILES" SET "FILE_EXTENSION" = ? WHERE "ID" = ?',
-                    'parameters' => [ 'unkn' , $file_id, ],
-                    },
-               );
-              PDLNA::Database::disconnect($dbh);
-}
-                                                                                                                           
-
+#--- To swith on and off the valid flag of a file
 sub files_set_invalid
 {
  my $file_id = shift;
  
-            # set FILEINFO entry to INVALID data
             my $dbh = PDLNA::Database::connect();
             PDLNA::Database::update_db(
               $dbh,
@@ -765,7 +755,6 @@ sub files_set_valid
 {
  my $file_id = shift;
   
-              # set FILEINFO entry to VALID data
                my $dbh = PDLNA::Database::connect();
                PDLNA::Database::update_db(
                     $dbh,
@@ -777,8 +766,30 @@ sub files_set_valid
                PDLNA::Database::disconnect($dbh);
                
 }   
+ 
+sub files_get_all_valid_records
+{
+        my @results = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+             'query' => 'SELECT * FROM "FILES" WHERE "VALID" = 1',
+             'parameters' => [ ],
+             },
+             \@results,
+        );
+        PDLNA::Database::disconnect($dbh);
+   
+ return @results;
 
+}                                                                                                                                
 
+#------------
+
+# It inserts a new record into files and it returns back a 
+# hash ref with the record of that new record that contains the
+# assigned ID.
 sub files_insert_returning_record
 {
  my $params = shift;
@@ -792,11 +803,13 @@ sub files_insert_returning_record
                        },
             );    
 
-            my $record = files_get_record_by_fullname($$params{'element'},$$params{'element_dirname'});
+            my $record = files_get_records_by({ FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
             PDLNA::Database::disconnect($dbh);
             
        return $record;                         
 }
+
+
 
 sub files_insert
 {
@@ -824,22 +837,6 @@ sub files_insert
            PDLNA::Database::disconnect($dbh);                                                                                                                                                                             
 }
 
-
-sub files_delete
-{
- my $file_id = shift;
- 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::delete_db(
-            $dbh,
-            {
-             'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
-             'parameters' => [ $file_id, ],
-            },
-        );
-        PDLNA::Database::disconnect($dbh);
-                                                                                                                 
-}
 
 
 
@@ -1430,149 +1427,6 @@ sub metadata_update_value
             );
             PDLNA::Database::disconnect($dbh);
 }
-
-##
-## FILEINFO
-
-sub fileinfo_get_all_sumduration
-{
-                my $dbh = PDLNA::Database::connect();
-                my $duration = PDLNA::Database::select_db_field_int(
-                        $dbh,
-                        {
-                                'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILES"',
-                                'parameters' => [ ],
-                        },
-                );
-               PDLNA::Database::disconnect($dbh);
-
-  return $duration;
-}
-
-
-sub fileinfo_get_by_valid
-{
- my $valid = shift;
- 
-        my @results = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-             $dbh,
-             {
-             'query' => 'SELECT "ID" FROM "FILES" WHERE "VALID" = ?',
-             'parameters' => [ $valid ],
-             },
-             \@results,
-        );
-        PDLNA::Database::disconnect($dbh);
-   
- return @results;
-
-}                                                                                                                                
-
-
-sub fileinfo_get_by_id
-{
- my $item_id = shift;
- 
-        my $dbh = PDLNA::Database::connect();
-        my @iteminfo = ();
-        PDLNA::Database::select_db(
-                 $dbh,
-                 {
-                 'query' => 'SELECT "WIDTH", "HEIGHT", "BITRATE", "DURATION", "ARTIST", "ALBUM", "GENRE", "YEAR", "TRACKNUM", "CONTAINER", "AUDIO_CODEC", "VIDEO_CODEC" FROM "FILES" WHERE "ID" = ?;', 
-                 'parameters' => [ $item_id, ],
-                  },
-                 \@iteminfo,
-        );
-        PDLNA::Database::disconnect($dbh);
-         
-  return $iteminfo[0]; 
-}
-
-#sub fileinfo_insert_empty
-#{
-#  my $file_id = shift;
-#  
-#        my $dbh = PDLNA::Database::connect();
-#        PDLNA::Database::insert_db(
-#              $dbh,
-#              {
-#              'query' => 'INSERT INTO "FILE" ("ID", "VALID", "WIDTH", "HEIGHT", "DURATION", "BITRATE", "VBR", "ARTIST", "ALBUM", "TITLE", "GENRE", "YEAR", "TRACKNUM") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', 
-#              'parameters' => [ $file_id, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ]
-#              },
-#        );
-#        PDLNA::Database::disconnect($dbh);
-#                                                                                                                                                                                 
-#}
-
-
-
-sub fileinfo_update_dimensions
-{
- my $width   = shift;
- my $height  = shift;
- my $file_id = shift;
- 
-         my $dbh = PDLNA::Database::connect();
-         PDLNA::Database::update_db(
-               $dbh,
-               {
-               'query' => 'UPDATE "FILES" SET "WIDTH" = ?, "HEIGHT" = ?, "VALID" = 1 WHERE "ID" = ?', 
-               'parameters' => [ $width, $height, $file_id, ],
-               },
-         );
-         PDLNA::Database::disconnect($dbh);
-            
-}
-
-
-sub fileinfo_update
-{
- my $width     = shift;
- my $height    = shift;
- my $duration  = shift;
- my $bitrate   = shift;
- my $container = shift;
- my $audio_codec = shift;
- my $video_codec = shift;
- my $file_id     = shift;
- 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::update_db(
-           $dbh,
-           {
-           'query' => 'UPDATE "FILES" SET "WIDTH" = ?, "HEIGHT" = ?, "DURATION" = ?, "BITRATE" = ?,  "CONTAINER" = ?, "AUDIO_CODEC" = ?, "VIDEO_CODEC" = ? WHERE "FILES" = ?',
-           'parameters' => [ $width, $height, $duration, $bitrate, $container, $audio_codec, $video_codec, $file_id, ],
-            },
-        );
-        PDLNA::Database::disconnect($dbh);
-                                                                                                                                                                                                                                   
-}
-
-
-sub fileinfo_update_details_audio
-{
- my $artist     = shift;
- my $album      = shift;
- my $title      = shift;
- my $genre      = shift;
- my $year       = shift;
- my $tracknum   = shift;
- my $file_id    = shift;
- 
- 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::update_db(
-           $dbh,
-           {
-           'query' => 'UPDATE "FILES" SET "ARTIST" = ?, "ALBUM" = ?, "TITLE" = ?, "GENRE" = ?, "YEAR" = ?, "TRACKNUM" = ?, "VALID" = ? WHERE "ID" = ?',
-           'parameters' => [ $artist,  $album, $title, $genre, $year, $tracknum, 1, $file_id, ],
-           },
-        );
-        PDLNA::Database::disconnect($dbh);
-}
-
 
 
 

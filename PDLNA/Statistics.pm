@@ -74,16 +74,16 @@ sub write_statistics_periodic
 		# MEMORY
 		#
 		my %proc_info = get_proc_information();
-		PDLNA::Database::insert_stats_proc(time(),$proc_info{'vmsize'},$proc_info{'rssize'});
+		PDLNA::Database::stats_insert_mem(time(),$proc_info{'vmsize'},$proc_info{'rssize'});
 		
 
 		#
 		# MEDIA ITEMS
 		#
-		my ($audio_amount, $audio_size) = PDLNA::Database::get_amount_size_of_items( 'audio');
-		my ($image_amount, $image_size) = PDLNA::Database::get_amount_size_of_items( 'image');
-		my ($video_amount, $video_size) = PDLNA::Database::get_amount_size_of_items( 'video');
-		PDLNA::Database::insert_stats_media( time(),$audio_amount,$audio_size,$image_amount,$image_size,$video_amount,$video_size);
+		my ($audio_amount, $audio_size) = PDLNA::Database::files_get_all_size( 'audio');
+		my ($image_amount, $image_size) = PDLNA::Database::files_get_all_size( 'image');
+		my ($video_amount, $video_size) = PDLNA::Database::files_get_all_size( 'video');
+		PDLNA::Database::stats_insert_media( time(),$audio_amount,$audio_size,$image_amount,$image_size,$video_amount,$video_size);
 
 
 		sleep 60;

@@ -216,17 +216,17 @@ sub show
                 my $timestamp = PDLNA::Database::metadata_get_value('TIMESTAMP');
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
-		my ($files_amount, $files_size) = PDLNA::Database::get_amount_size_of_items();
+		my ($files_amount, $files_size) = PDLNA::Database::files_get_all_size();
 		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
 
-                my $duration = PDLNA::Database::fileinfo_get_all_sumduration();
+                my $duration = PDLNA::Database::files_get_all_duration();
 		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>';
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
 		foreach my $type ('image', 'audio', 'video')
 		{
-			my ($type_amount, $type_size) = PDLNA::Database::get_amount_size_of_items( $type);
+			my ($type_amount, $type_size) = PDLNA::Database::files_get_all_size( $type);
 			$response .= '<tr><td>'.ucfirst($type).' Items</td><td>'.$type_amount.' ('.PDLNA::Utils::convert_bytes($type_size).')</td></tr>';
 		}
 
@@ -677,11 +677,10 @@ sub graph
 
 
 	my @results = PDLNA::Database::stats_getdata($data_options{'dateformatstring'},$data_options{'dbtable'},$period,@{$data_options{'dbfields'}});
-
 	my @data = ();
 	for (my $i = 0; $i < @results; $i++)
 	{
-		$data[0][$i] = $results[$i]->{datetime};
+		$data[0][$i] = $results[$i]->{DATETIME};
 		my $j = 1;
 		foreach my $field (@{$data_options{'dbfields'}})
 		{
