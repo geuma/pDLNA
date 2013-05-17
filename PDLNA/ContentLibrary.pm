@@ -77,7 +77,7 @@ sub index_directories_thread
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
-        PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
+                PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
 
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
@@ -183,9 +183,7 @@ sub process_directory
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
 			{
 				PDLNA::Log::log('Adding playlist '.$element.' as directory.', 2, 'library');
-
 				add_directory_to_db( $element, $$params{'rootdir'}, 1);
-
 				my @items = PDLNA::Media::parse_playlist($element, $mime_type);
 				for (my $i = 0; $i < @items; $i++)
 				{
@@ -330,14 +328,12 @@ sub add_file_to_db
 	}
 	else
 	{
-		# insert file to db
-		PDLNA::Database::files_insert( $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $file_extension, $fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'external'}, $$params{'root'}, $$params{'sequence'});
-
-		# select ID of newly added element
-		$results = PDLNA::Database::files_get_record_by_fullname($$params{'element'}, $$params{'element_dirname'});
-
-		# insert entry to FILEINFO table
-		# PDLNA::Database::fileinfo_insert_empty($results->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0);
+	        # insert file to db returning ID
+		$$params{'size'} = $fileinfo[7];
+		$$params{'date'} = $fileinfo[9];
+		$$params{'file_extension'} = $file_extension;
+		$results = PDLNA::Database::files_insert_returning_record( $params );
+		
 	}
 
 	return $results->{ID};
@@ -347,13 +343,13 @@ sub remove_nonexistant_files
 {
 
 	PDLNA::Log::log('Started to remove non existant files.', 1, 'library');
-	my @files = PDLNA::Database::files_get_records_by_external(0);
+	my @files = PDLNA::Database::files_get_non_external_files();
 
 	foreach my $file (@files)
 	{
 		unless (-f "$file->{FULLNAME}")
 		{
-			delete_all_by_itemid( $file->{ID});
+			delete_all_by_itemid( $file->{ID} );
 		}
 	}
 
@@ -385,12 +381,12 @@ sub remove_nonexistant_files
 	my @conf_directories = ();
 	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
 	{
-		push(@conf_directories, $directory->{'path'});
+	   push(@conf_directories, $directory->{'path'});
 	}
 
 	foreach my $rootdir (@rootdirs)
 	{
-		unless (grep(/^$rootdir->{PATH}\/$/, @conf_directories))
+		unless (grep(/^$rootdir->{PATH}\/*$/, @conf_directories))
 		{
 			delete_subitems_recursively( $rootdir->{ID});
 		}
@@ -417,7 +413,7 @@ sub remove_nonexistant_files
 	# delete external media items from database, if LOW_RESOURCE_MODE has been enabled
 	if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
 	{
-		my @externalfiles = PDLNA::Database::files_get_records_by_external(1);
+		my @externalfiles = PDLNA::Database::files_get_external_files();
 		foreach my $externalfile (@externalfiles)
 		{
 			delete_all_by_itemid( $externalfile->{ID});
@@ -453,7 +449,6 @@ sub delete_all_by_itemid
 	my $object_id = shift;
 
 	PDLNA::Database::files_delete($object_id);
-	PDLNA::Database::fileinfo_delete($object_id);
 	PDLNA::Database::subtitles_delete_by_fileid($object_id);
 }
 

@@ -647,25 +647,43 @@ sub files_get_record_by_fullname
                                                                                           
 }
 
-
-sub files_get_records_by_external
+#----
+sub files_get_non_external_files
 {
- my $external = shift;
 
         my @files = ();
         my $dbh = PDLNA::Database::connect();
         PDLNA::Database::select_db(
               $dbh,
               {
-               'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = ?',
-               'parameters' => [ $external ],
+               'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = 0',
+               'parameters' => [ ],
                },
               \@files,
         );
-        PDLNA::Database::disconnect($dbh);     
-        
+        PDLNA::Database::disconnect($dbh);
+
    return @files;
 }
+
+sub files_get_external_files
+{
+
+        my @files = ();
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+              $dbh,
+              {
+               'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = 1',
+               'parameters' => [ ],
+               },
+              \@files,
+        );
+        PDLNA::Database::disconnect($dbh);
+
+   return @files;
+}
+#----------
 
 
 sub files_update
@@ -759,6 +777,26 @@ sub files_set_valid
                PDLNA::Database::disconnect($dbh);
                
 }   
+
+
+sub files_insert_returning_record
+{
+ my $params = shift;
+ 
+            my $dbh = PDLNA::Database::connect();                        
+            PDLNA::Database::insert_db(
+                       $dbh,
+                       {
+                       'query' => 'INSERT INTO "FILES" ("NAME", "PATH", "FULLNAME", "FILE_EXTENSION", "DATE", "SIZE", "MIME_TYPE", "TYPE", "EXTERNAL", "ROOT", "SEQUENCE") VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
+                       'parameters' => [ $$params{'element_basename'}, $$params{'element_dirname'}, $$params{'element'}, $$params{'file_extension'}, $$params{'date'}, $$params{'size'},  $$params{'mime_type'},$$params{'media_type'},$$params{'external'},$$params{'root'},$$params{'sequence'} ],
+                       },
+            );    
+
+            my $record = files_get_record_by_fullname($$params{'element'},$$params{'element_dirname'});
+            PDLNA::Database::disconnect($dbh);
+            
+       return $record;                         
+}
 
 sub files_insert
 {
@@ -1468,22 +1506,6 @@ sub fileinfo_get_by_id
 #                                                                                                                                                                                 
 #}
 
-
-sub fileinfo_delete
-{
-   my $file_id = shift;
-     
-             my $dbh = PDLNA::Database::connect();
-             PDLNA::Database::delete_db(
-                  $dbh,
-                  {
-                  'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
-                  'parameters' => [ $file_id, ],
-                  },
-             );
-             PDLNA::Database::disconnect($dbh);
-                                                                                                                
-}
 
 
 sub fileinfo_update_dimensions
