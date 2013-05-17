@@ -308,7 +308,7 @@ sub get_browseresponse_item_detailed
 	# subtitles
 	if ($item->{TYPE} eq 'video')
 	{
-		my @subtitles = PDLNA::Database::subtitles_get_record($item_id);
+		my @subtitles = PDLNA::Database::subtitles_get_records($item_id);
 		foreach my $subtitle (@subtitles)
 		{
 			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.$subtitle->{TYPE}.'&quot; &gt;http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.'.$subtitle->{TYPE}.'&lt;/sec:CaptionInfoEx&gt;') if grep(/^sec:CaptionInfoEx$/, @{$filter});

@@ -880,7 +880,6 @@ sub device_ip_delete_by_id
 #
 # given a database connection and a ip address,
 # returns its id
-
 sub device_ip_get_id
 {
    my $dbh = shift;
