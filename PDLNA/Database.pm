@@ -1514,86 +1514,57 @@ sub device_bm_insert_posseconds
 ##
 ## SUBTITLES
 
-sub subtitles_get_all
-{
-
-        my @subtitles = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-              $dbh,
-              {
-              'query' => 'SELECT "ID", "FULLNAME" FROM "SUBTITLES"',
-              'parameters' => [ ],
-               },
-              \@subtitles,
-        );
-        PDLNA::Database::disconnect($dbh);
-        
-   return @subtitles;
-
-}                                                                                                                                             
-
-
-sub subtitles_get_by_several_fields
-{
- my $path     = shift;
- my $file_id  = shift;
- my $mimetype = shift;
-
-                my @results = ();
-                my $dbh = PDLNA::Database::connect(); 
-                PDLNA::Database::select_db(
-                   $dbh,
-                   {
-                   'query' => 'SELECT "ID", "DATE", "SIZE" FROM "SUBTITLES" WHERE "FULLNAME" = ? AND "FILEID_REF" = ? AND "MIME_TYPE" = ?',
-                   'parameters' => [ $path, $file_id, $mimetype ],
-                   },
-                   \@results,
-                 ); 
-                PDLNA::Database::disconnect($dbh);
-  
-   return @results;
-}                                                                                                                                        
-
 sub subtitles_get_records
 {
-    my $item_id  = shift;
-    
-        my @subtitles = ();
+ my $params = shift;
+ 
+        my @setarray;
+        my @paramsarray = ();
+        my @records = ();        
+
+        my $sql = 'SELECT * FROM  "SUBTITLES"  ';
+        
+        if (defined $params)
+        {
+        $sql = $sql . " WHERE ";
+         foreach my $key (keys(%{$params}))
+         {
+          if (! defined ($$params{$key}) )
+           {
+            push @setarray , "\"$key\" IS NULL";
+           }
+          else
+           {
+            if ( $$params{$key} =~ /%$/ )
+             {
+              push @setarray , "\"$key\" LIKE ?";
+              push @paramsarray, $$params{$key}; 
+             }
+            else
+             {
+             push @setarray, "\"$key\" = ?";
+             push @paramsarray, $$params{$key};
+             }
+           } 
+         } # end for
+         $sql = $sql . join(' AND ',@setarray) ; 
+        } # end if 
+               
         my $dbh = PDLNA::Database::connect();
-    	PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT "ID", "TYPE", "FULLNAME" FROM "SUBTITLES" WHERE "FILEID_REF" = ?',
-				'parameters' => [ $item_id, ],
-			},
-			\@subtitles,
-		);
-        PDLNA::Database::disconnect($dbh);
-    
-    return @subtitles;
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+             'query' => $sql,
+             'parameters' => \@paramsarray
+             },
+            \@records
+         );
+         PDLNA::Database::disconnect($dbh);                  
+
+  return @records;
+
 }
 
-sub subtitles_get_record_by_id_type
-{
-  my $id   = shift;
-  my $type = shift;
-  
-  
-        my @subtitles = ();
-        my $dbh = PDLNA::Database::connect();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT "FULLNAME", "SIZE" FROM "SUBTITLES" WHERE "ID" = ? AND "TYPE" = ?',
-				'parameters' => [ $id, $type, ],
-			},
-			\@subtitles,
-		);
-		PDLNA::Database::disconnect($dbh);
-    
-   return $subtitles[0];
-}
 
 sub subtitles_update
 {

@@ -754,7 +754,8 @@ sub deliver_subtitle
 
 		PDLNA::Log::log('Delivering subtitle: '.$id.'.'.$type.'.', 3, 'httpstream');
 
-		my $subtitles = PDLNA::Database::subtitles_get_record_by_id_type($id, $type);
+		my @records = PDLNA::Database::subtitles_get_records({ ID => $id, TYPE => $type});
+        my $subtitles = $records[0];
         
 		if (defined($subtitles->{FULLNAME}) && -f $subtitles->{FULLNAME})
 		{
@@ -912,7 +913,7 @@ sub stream_media
 			{
 				if ($item->{TYPE} eq 'video')
 				{
-					my @subtitles = PDLNA::Database::subtitles_get_records($id);
+					my @subtitles = PDLNA::Database::subtitles_get_records({FILEID_REF => $id});
 					foreach my $subtitle (@subtitles)
 					{
 						if ($subtitle->{TYPE} eq 'srt' && -f $subtitle->{FULLNAME})

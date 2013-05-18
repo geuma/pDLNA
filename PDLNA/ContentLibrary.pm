@@ -275,7 +275,8 @@ sub add_subtitle_to_db
 	my $params = shift;
 
 	# check if file is in db
-	my $results = PDLNA::Database::subtitles_get_by_several_fields($$params{'path'}, $$params{'file_id'}, $$params{'mimetype'});
+	my @records = PDLNA::Database::subtitles_get_records({ FULLNAME => $$params{'path'}, FILEID_REF => $$params{'file_id'}, MIME_TYPE => $$params{'mimetype'}});
+    my $results = $records[0];
 	my @fileinfo = stat($$params{'path'});
 
 	if (defined($results->{ID}))
@@ -366,7 +367,7 @@ sub remove_nonexistant_files
 		}
 	}
 
-	my @subtitles = PDLNA::Database::subtitles_get_all();
+	my @subtitles = PDLNA::Database::subtitles_get_records();
 	foreach my $subtitle (@subtitles)
 	{
 		unless (-f $subtitle->{FULLNAME})
