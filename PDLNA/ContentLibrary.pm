@@ -495,7 +495,7 @@ sub get_fileinfo
 			}
 			else
 			{
-				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unkn' });
+				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unknown' });
 			}
 		}
 
