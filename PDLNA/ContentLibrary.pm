@@ -322,7 +322,7 @@ sub add_file_to_db
 			)
 		{
 			# update the datbase entry (something changed)
-			PDLNA::Database::files_update($fileinfo[9], $fileinfo[7], $$params{'mime_type'}, $$params{'media_type'}, $$params{'sequence'}, $results->{ID});
+			PDLNA::Database::files_update($results->{ID} , { DATE => $fileinfo[9], SIZE => $fileinfo[7], MIME_TYPE => $$params{'mime_type'}, TYPE => $$params{'media_type'}, SEQUENCE => $$params{'sequence'} } );
 
 			# set FILEINFO entry to INVALID data
 			PDLNA::Database::files_set_invalid($results->{ID});
