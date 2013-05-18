@@ -164,10 +164,10 @@ sub initialize_db
 				"SIZE"				BIGINT,
 				"MIME_TYPE"			VARCHAR(128),
 				"TYPE"				VARCHAR(12),
-				"EXTERNAL"			INTEGER,
+				"EXTERNAL"			INTEGER DEFAULT 0,
 				"ROOT"				INTEGER,
 				"SEQUENCE"			BIGINT,
-				"VALID"				INTEGER,
+				"VALID"				INTEGER DEFAULT 1,
 				"WIDTH"				INTEGER,
 				"HEIGHT"			INTEGER,
 				"DURATION"			INTEGER,
@@ -553,25 +553,6 @@ sub stats_getdata
 ## FILES TABLE
 ##
 
-# Given an ID we just retrieve all the fields of that FILE
-sub files_get_record_by_id
-{
- my $item_id = shift;
- 
-         my $dbh = PDLNA::Database::connect();
-         my @result = ();
-         PDLNA::Database::select_db(
-            $dbh,
-             {
-              'query' => 'SELECT * FROM "FILES" WHERE "ID" = ?;', 
-              'parameters' => [ $item_id, ],
-             },
-            \@result         
-         );
-         PDLNA::Database::disconnect($dbh);
-        
-    return $result[0];      
-}
 
 
 # Given an ID , just delete the entry of that file
@@ -609,7 +590,7 @@ sub files_update
           push @setarray, "\"$key\" = ?";
           push @paramsarray, $$params{$key}; 
          }
-        $sql = $sql . join(',',@setarray) . " WHERE ID = ?"; 
+        $sql = $sql . join(',',@setarray) . " WHERE \"ID\" = ?"; 
         push @paramsarray, $id;
                 
         my $dbh = PDLNA::Database::connect();

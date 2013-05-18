@@ -168,7 +168,8 @@ sub get_browseresponse_item_detailed
 
 	push(@{$xml}, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
 
-	my $item = PDLNA::Database::files_get_record_by_id($item_id);
+	my @records = PDLNA::Database::files_get_records_by({ID => $item_id});
+    my $item = $records[0];
 	push(@{$xml}, '&lt;dc:title&gt;'.$item->{NAME}.'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
 
 	if (grep(/^upnp:class$/, @{$filter}))
@@ -176,7 +177,6 @@ sub get_browseresponse_item_detailed
 		push(@{$xml}, '&lt;upnp:class&gt;object.item.'.$item->{TYPE}.'Item&lt;/upnp:class&gt;');
 	}
 
-	my $iteminfo = PDLNA::Database::files_get_record_by_id($item_id);
 
 	#
 	# check if we need to transcode the content
@@ -185,9 +185,9 @@ sub get_browseresponse_item_detailed
 		'fullname' => $item->{FULLNAME},
 		'external' => $item->{EXTERNAL},
 		'media_type' => $item->{TYPE},
-		'container' => $iteminfo->{CONTAINER},
-		'audio_codec' => $iteminfo->{AUDIO_CODEC},
-		'video_codec' => $iteminfo->{VIDEO_CODEC},
+		'container' => $item->{CONTAINER},
+		'audio_codec' => $item->{AUDIO_CODEC},
+		'video_codec' => $item->{VIDEO_CODEC},
 	);
 	my $transcode = 0;
 	if ($transcode = PDLNA::Transcode::shall_we_transcode(
@@ -199,11 +199,11 @@ sub get_browseresponse_item_detailed
 		))
 	{
 		$item->{MIME_TYPE} = $media_data{'mime_type'};
-		$iteminfo->{CONTAINER} = $media_data{'container'};
-		$iteminfo->{AUDIO_CODEC} = $media_data{'audio_codec'};
-		$iteminfo->{VIDEO_CODEC} = $media_data{'video_codec'};
-		$iteminfo->{BITRATE} = 0;
-		$iteminfo->{VBR} = 0;
+		$item->{CONTAINER} = $media_data{'container'};
+		$item->{AUDIO_CODEC} = $media_data{'audio_codec'};
+		$item->{VIDEO_CODEC} = $media_data{'video_codec'};
+		$item->{BITRATE} = 0;
+		$item->{VBR} = 0;
 	}
 	#
 	# end of checking for transcoding
@@ -211,11 +211,11 @@ sub get_browseresponse_item_detailed
 
 	if ($item->{TYPE} eq 'audio')
 	{
-		push(@{$xml}, '&lt;upnp:artist&gt;'.$iteminfo->{ARTIST}.'&lt;/upnp:artist&gt;') if grep(/^upnp:artist$/, @{$filter});
-		push(@{$xml}, '&lt;dc:creator&gt;'.$iteminfo->{ARTIST}.'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
-		push(@{$xml}, '&lt;upnp:album&gt;'.$iteminfo->{ALBUM}.'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
-		push(@{$xml}, '&lt;upnp:genre&gt;'.$iteminfo->{GENRE}.'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
-		push(@{$xml}, '&lt;upnp:originalTrackNumber&gt;'.$iteminfo->{TRACKNUM}.'&lt;/upnp:originalTrackNumber&gt;') if grep(/^upnp:originalTrackNumber$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:artist&gt;'.$item->{ARTIST}.'&lt;/upnp:artist&gt;') if grep(/^upnp:artist$/, @{$filter});
+		push(@{$xml}, '&lt;dc:creator&gt;'.$item->{ARTIST}.'&lt;/dc:creator&gt;') if grep(/^dc:creator$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:album&gt;'.$item->{ALBUM}.'&lt;/upnp:album&gt;') if grep(/^upnp:album$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:genre&gt;'.$item->{GENRE}.'&lt;/upnp:genre&gt;') if grep(/^upnp:genre$/, @{$filter});
+		push(@{$xml}, '&lt;upnp:originalTrackNumber&gt;'.$item->{TRACKNUM}.'&lt;/upnp:originalTrackNumber&gt;') if grep(/^upnp:originalTrackNumber$/, @{$filter});
 		# albumArtURI
 	}
 	elsif ($item->{TYPE} eq 'image')
@@ -240,8 +240,8 @@ sub get_browseresponse_item_detailed
 #		push(@infos, 'MOODSCORE=0') if $item->type() eq 'audio';
 #		push(@infos, 'MOODID=5') if $item->type() eq 'audio';
 #
-		push(@infos, 'WIDTH='.$iteminfo->{WIDTH}) if $item->{TYPE} eq 'image';
-		push(@infos, 'HEIGHT='.$iteminfo->{HEIGHT}) if $item->{TYPE} eq 'image';
+		push(@infos, 'WIDTH='.$item->{WIDTH}) if $item->{TYPE} eq 'image';
+		push(@infos, 'HEIGHT='.$item->{HEIGHT}) if $item->{TYPE} eq 'image';
 #		push(@infos, 'COMPOSCORE=0') if $item->type() eq 'image';
 #		push(@infos, 'COMPOID=0') if $item->type() eq 'image';
 #		push(@infos, 'COLORSCORE=0') if $item->type() eq 'image';
@@ -276,17 +276,18 @@ sub get_browseresponse_item_detailed
 	}
 	if ($item->{TYPE} eq 'audio' || $item->{TYPE} eq 'video')
 	{
-		push(@{$xml}, 'bitrate=&quot;'.$iteminfo->{BITRATE}.'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
-		push(@{$xml}, 'duration=&quot;'.PDLNA::ContentLibrary::duration($iteminfo->{DURATION}).'&quot; ') if grep(/^res\@duration$/, @{$filter});
+		push(@{$xml}, 'bitrate=&quot;'.$item->{BITRATE}.'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
+		push(@{$xml}, 'duration=&quot;'.PDLNA::ContentLibrary::duration($item->{DURATION}).'&quot; ') if grep(/^res\@duration$/, @{$filter});
 	}
 	if ($item->{TYPE} eq 'image' || $item->{TYPE} eq 'video')
 	{
-		push(@{$xml}, 'resolution=&quot;'.$iteminfo->{WIDTH}.'x'.$iteminfo->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
+		push(@{$xml}, 'resolution=&quot;'.$item->{WIDTH}.'x'.$item->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
 	if ($transcode == 0 || $item->{EXTERNAL} == 0) # just add the size attribute if file is local and not transcoded
 	{
 		push(@{$xml}, 'size=&quot;'.$item->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
 	}
+  
 	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item->{MIME_TYPE}.':'.PDLNA::Media::get_dlnacontentfeatures($item, $transcode).'&quot; ');
 	push(@{$xml}, '&gt;');
 	push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item->{FILE_EXTENSION});

@@ -819,7 +819,8 @@ sub stream_media
 		#
 		# getting information from database
 		#
-		my $item = PDLNA::Database::files_get_record_by_id($id);
+		my @records = PDLNA::Database::files_get_records_by({ID => $id});
+        my $item = $records[0];
 		#
 		# check if we need to transcode
 		#
@@ -1125,7 +1126,8 @@ sub preview_media
 		my $id = $1;
 
 	
-		my $item_info = PDLNA::Database::files_get_record_by_id($id);
+		my @records = PDLNA::Database::files_get_records_by({ID => $id});
+        my $item_info = $records[0];
 		if (defined($item_info->{FULLNAME}))
 		{
 			if (-f $item_info->{FULLNAME})
