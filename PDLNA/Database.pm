@@ -427,8 +427,13 @@ sub delete_db
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
+    my @sanitized_params;
+    foreach my $p (@{$$params{'parameters'}}) {
+       push (@sanitized_params, Encode::decode('UTF-8', $p )); # UTF-8 drives me crazy
+     }
+     
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+	$sth->execute(@sanitized_params) or die $sth->errstr;;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -820,10 +825,10 @@ sub files_insert_returning_record
                        },
             );    
 
-            my $record = files_get_records_by({ FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
+            my @records = files_get_records_by({ FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
             PDLNA::Database::disconnect($dbh);
             
-       return $record;                         
+       return $records[0];                         
 }
 
 
