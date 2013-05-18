@@ -19,6 +19,7 @@ package PDLNA::Database;
 
 use strict;
 use warnings;
+use Encode;
 
 use DBI;
 
@@ -370,8 +371,14 @@ sub select_db
     
     my $sth;
 	#_log_query($params);
+    
+    my @sanitized_params;
+    foreach my $p (@{$$params{'parameters'}}) {
+       push (@sanitized_params, Encode::decode('UTF-8', $p )); # UTF-8 drives me crazy
+     }
+    
 	eval { $sth = $dbh->prepare($$params{'query'}) };  die "Could not prepare Query: ".$$params{'query'}."\n" if ($@);
-	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " with error ==> ". $sth->errstr;
+	$sth->execute(@sanitized_params) or die "Query: ".$$params{'query'}. " with error ==> ". $sth->errstr;
 	while (my $data = $sth->fetchrow_hashref)
 	{
 		push(@{$result}, $data);
@@ -386,8 +393,13 @@ sub insert_db
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
+    my @sanitized_params;
+    foreach my $p (@{$$params{'parameters'}}) {
+       push (@sanitized_params, Encode::decode('UTF-8', $p )); # UTF-8 drives me crazy
+     }
+
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " [ @{$$params{'parameters'}}  ] with error ==> ". $sth->errstr;
+	$sth->execute(@sanitized_params) or die "Query: ".$$params{'query'}. " [  @sanitized_params ]  with error ==> ". $sth->errstr;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -397,9 +409,14 @@ sub update_db
 	my $dbh = shift;
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
+    
+    my @sanitized_params;
+    foreach my $p (@{$$params{'parameters'}}) {
+       push (@sanitized_params, Encode::decode('UTF-8', $p )); # UTF-8 drives me crazy
+     }
 
 	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die "Query: ".$$params{'query'}. " [ @{$$params{'parameters'}}  ] with error ==> ". $sth->errstr;
+	$sth->execute(@sanitized_params) or die "Query: ".$$params{'query'}. " [ @sanitized_params ]  with error ==> ". $sth->errstr;
     
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
