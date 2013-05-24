@@ -24,7 +24,7 @@ use warnings;
 
 use IO::Socket::INET;
 use IO::Socket::Multicast;
-use Net::Netmask;
+
 
 use PDLNA::Config;
 use PDLNA::Database;
