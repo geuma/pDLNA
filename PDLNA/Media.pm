@@ -386,7 +386,7 @@ sub is_supported_stream
 {
 	my $url = shift || '';
 
-	return 1 if $url =~ /^(http|mms):\/\//;
+	return 1 if $url =~ /^(http|mms|rtmp):\/\//;
 	return 0;
 }
 

@@ -25,7 +25,6 @@ use Data::Dumper;
 use Date::Format;
 use GD;
 use IO::Select;
-use Net::Netmask;
 use Socket;
 use threads;
 use threads::shared;
