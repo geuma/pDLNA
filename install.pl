@@ -75,7 +75,6 @@ use_ok ('IO::Socket');
 use_ok ('IO::Socket::INET');
 use_ok ('IO::Socket::Multicast');
 use_ok ('LWP::UserAgent');
-use_ok ('MP3::Info');
 use_ok ('MP4::Info');
 use_ok ('Net::Address::Ethernet');
 use_ok ('Net::Interface');

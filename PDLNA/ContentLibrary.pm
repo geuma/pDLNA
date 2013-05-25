@@ -486,7 +486,7 @@ sub get_fileinfo
 		if ($id->{EXTERNAL})
 		{
 			my %info = ();
-			PDLNA::Media::get_mplayer_info($id->{FULLNAME}, \%info);
+			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
 			if (defined($info{MIME_TYPE}))
 			{
 				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
@@ -525,7 +525,7 @@ sub get_fileinfo
 		my %info = ();
 		if ($id->{TYPE} eq 'video' || $id->{TYPE} eq 'audio')
 		{
-			PDLNA::Media::get_mplayer_info($id->{FULLNAME}, \%info);
+			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
 			PDLNA::Database::files_update( $id->{ID}, { WIDTH => $info{WIDTH}, HEIGHT => $info{HEIGHT}, DURATION => $info{DURATION}, BITRATE => $info{BITRATE}, CONTAINER => $info{CONTAINER}, AUDIO_CODEC => $info{AUDIO_CODEC}, VIDEO_CODEC => $info{VIDEO_CODEC} } );
 			if (defined($info{TYPE}) && defined($info{MIME_TYPE}) && defined($info{FILE_EXTENSION}))
 			{

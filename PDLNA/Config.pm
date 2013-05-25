@@ -25,6 +25,9 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
+
+
+
 use Config qw();
 use Config::ApacheFormat;
 use Digest::MD5;
@@ -39,7 +42,6 @@ use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
 
-use PDLNA::Media;
 
 our %CONFIG = (
 	# values which can be modified by configuration file
@@ -97,6 +99,10 @@ our %CONFIG = (
 	'HOSTNAME' => hostname(),
 );
 $CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+
+use PDLNA::Media;
+
+
 
 sub print_version
 {
@@ -752,6 +758,11 @@ sub parse_config
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;
+}
+
+sub get_ffmpeg
+{
+    return $CONFIG{'FFMPEG_BIN'};
 }
 
 1;
