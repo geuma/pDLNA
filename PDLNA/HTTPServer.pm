@@ -1033,7 +1033,9 @@ sub stream_media
 						my $command = '';
 						if (PDLNA::Media::is_supported_stream($item->{FULLNAME})) # if it is a supported stream
 						{
-							$command = $CONFIG{'MPLAYER_BIN'}.' '.$item->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
+                            
+                            if ($item->{FULLNAME} =~ /^rtmp/) { $command = " $CONFIG{'RTMPDUMP_BIN'} -r $item->{FULLNAME} -q -v 2>/dev/null"; }
+                            else {$command = $CONFIG{'MPLAYER_BIN'}.' '.$item->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null'; }
 						}
 						elsif ($transcode) # if TRANSCODING is required
 						{
@@ -1043,7 +1045,7 @@ sub stream_media
 						{
 							$command = $item->{FULLNAME};
 						}
-
+                        print "el comand a ejecutar es $command\n";
 						open(ITEM, '-|', $command);
 						binmode(ITEM);
 						@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header

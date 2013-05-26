@@ -157,12 +157,12 @@ my %CONTAINER = (
 		'AudioCodecs' => ['mp3', 'a52', 'pcm_s16le'],
 		'VideoCodecs' => ['xdiv', 'divx', 'mpeg4','msmpeg4v3', 'h264','msmpeg4v1'],
 		'xvid' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+			'MimeType' => 'video/x-divx', # video/avi, video/msvideo
 			'FileExtension' => 'avi',
 			'MediaType' => 'video',
 		},
 		'divx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+			'MimeType' => 'video/x-divx', # video/avi, video/msvideo
 			'FileExtension' => 'avi',
 			'MediaType' => 'video',
 		},
@@ -188,25 +188,6 @@ my %CONTAINER = (
 		},
 	},
 
-	'lavf' => {
-		'AudioCodecs' => ['a52', 'pcm', 'ffac3', ],
-		'VideoCodecs' => [],
-		'a52' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-		'pcm' => {
-			'MimeType' => 'audio/x-aiff',
-			'FileExtension' => 'aif',
-			'MediaType' => 'audio',
-		},
-		'ffac3' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-	},
 	'matroska' => {
 		'AudioCodecs' => ['a52', ],
 		'VideoCodecs' => ['h264', 'divx', ],
@@ -275,7 +256,7 @@ my %CONTAINER = (
 	},
 	'ogg' => {
 		'AudioCodecs' => ['vorbis', ],
-		'VideoCodecs' => ['mpeg4'],
+		'VideoCodecs' => ['mpeg4', 'xvid'],
 		'vorbis' => {
 			'MimeType' => 'video/x-theora+ogg',
 			'FileExtension' => 'ogg',
@@ -286,9 +267,26 @@ my %CONTAINER = (
 			'FileExtension' => 'mp4',
 			'MediaType' => 'video',
 		},
-        
-        
+        'xvid' => {
+			'MimeType' => 'video/mp4',
+			'FileExtension' => 'mp4',
+			'MediaType' => 'video',
+		},
+    },
+    'flv' => {
+		'AudioCodecs' => ['aac', 'mp3'],
+		'VideoCodecs' => ['h264',  ],
+		'h264' => {
+			'MimeType' => 'video/x-flv',
+			'FileExtension' => 'flv',
+			'MediaType' => 'video',
+		},
+
 	},
+    
+        
+        
+	
 );
 
 sub audio_codec_by_beautiful_name
@@ -522,8 +520,13 @@ sub get_media_info
  
     $$info{DURATION} = 0;
     my $ffmpegbin = PDLNA::Config::get_ffmpeg();
+    my $rtmpdumpbin = PDLNA::Config::get_rtmpdump();
     
-    open(CMD,$ffmpegbin." -i \"$file\" 2>&1 |") or PDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
+    my $cmd;
+    if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -r $file -q -v | $ffmpegbin -i pipe:0 2>&1 "; }
+    else                       { $cmd = "$ffmpegbin -i \"$file\" 2>&1"; }
+    
+    open(CMD,"$cmd |") or PDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
     while(<CMD>) 
     {
         if (/Duration: (\d\d):(\d\d):(\d\d).(\d+), /)
@@ -532,12 +535,14 @@ sub get_media_info
         }
         if (/Stream .+: Audio: ([\w|\d]+) .+, (\d+) Hz, .+, (\d+) kb\/s/)
         {
+
          $$info{AUDIO_CODEC} = $1;
          $$info{HZ}          = $2;
          $$info{BITRATE}     = $3*1000;
         }
         elsif (/Stream .+: Audio: ([\w|\d]+), (\d+) Hz, .+, (\d+) kb\/s/)
         {
+  
          $$info{AUDIO_CODEC} = $1;
          $$info{HZ}          = $2;
          $$info{BITRATE}     = $3*1000;
@@ -565,6 +570,10 @@ sub get_media_info
     }
     close(CMD);
     
+    if ($file =~ /.mp3$/) {  $$info{VIDEO_CODEC} = undef; }
+    if ($file =~ /.wav$/) {  $$info{VIDEO_CODEC} = undef; }
+    
+ #   print "We got $$info{CONTAINER}, $$info{VIDEO_CODEC}, and $$info{AUDIO_CODEC}\n";
     
 	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');

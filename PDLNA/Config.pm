@@ -73,6 +73,7 @@ our %CONFIG = (
 	'LOW_RESOURCE_MODE' => 0,
 	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
+    'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
 	'TRANSCODING_PROFILES' => [],
@@ -763,6 +764,11 @@ sub parse_config
 sub get_ffmpeg
 {
     return $CONFIG{'FFMPEG_BIN'};
+}
+
+sub get_rtmpdump
+{
+    return $CONFIG{'RTMPDUMP_BIN'};
 }
 
 1;

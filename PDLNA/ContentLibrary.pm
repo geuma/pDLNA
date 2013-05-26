@@ -483,21 +483,18 @@ sub get_fileinfo
 	my @results = PDLNA::Database::files_get_all_valid_records();
 	foreach my $id (@results)
 	{
-		if ($id->{EXTERNAL})
-		{
-			my %info = ();
-			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
-			if (defined($info{MIME_TYPE}))
-			{
-				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
-				$id->{TYPE} = $info{TYPE};
-				$id->{MIME_TYPE} = $info{MIME_TYPE};
-			}
-			else
-			{
-				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unknown' });
-			}
-		}
+    
+#		{
+#			my %info = ();
+#			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
+#           
+#			if (defined($info{MIME_TYPE}))
+#			{
+#				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
+#				$id->{TYPE} = $info{TYPE};
+#				$id->{MIME_TYPE} = $info{MIME_TYPE};
+#			}
+		
 
 		unless (defined($id->{MIME_TYPE}))
 		{
