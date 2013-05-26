@@ -523,8 +523,10 @@ sub get_media_info
     my $rtmpdumpbin = PDLNA::Config::get_rtmpdump();
     
     my $cmd;
-    if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -r $file -q -v | $ffmpegbin -i pipe:0 2>&1 "; }
+    if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -m 200 -r $file -q | $ffmpegbin -i pipe:0 2>&1 "; }
     else                       { $cmd = "$ffmpegbin -i \"$file\" 2>&1"; }
+    
+    print "the command is $cmd \n";
     
     open(CMD,"$cmd |") or PDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
     while(<CMD>) 
@@ -573,7 +575,7 @@ sub get_media_info
     if ($file =~ /.mp3$/) {  $$info{VIDEO_CODEC} = undef; }
     if ($file =~ /.wav$/) {  $$info{VIDEO_CODEC} = undef; }
     
- #   print "We got $$info{CONTAINER}, $$info{VIDEO_CODEC}, and $$info{AUDIO_CODEC}\n";
+ print "We got $$info{CONTAINER}, $$info{VIDEO_CODEC}, and $$info{AUDIO_CODEC}\n";
     
 	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');

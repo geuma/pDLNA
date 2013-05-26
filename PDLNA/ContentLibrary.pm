@@ -483,18 +483,23 @@ sub get_fileinfo
 	my @results = PDLNA::Database::files_get_all_valid_records();
 	foreach my $id (@results)
 	{
-    
-#		{
-#			my %info = ();
-#			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
-#           
-#			if (defined($info{MIME_TYPE}))
-#			{
-#				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
-#				$id->{TYPE} = $info{TYPE};
-#				$id->{MIME_TYPE} = $info{MIME_TYPE};
-#			}
-		
+        print "Tratamos id $id->{ID} $id->{FULLNAME} \n";
+		if ($id->{EXTERNAL})
+		{
+			my %info = ();
+			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
+            print "Hemos pedido detalles de $id->{FULLNAME} y la respuesta es $info{MIME_TYPE}\n";
+			if (defined($info{MIME_TYPE}))
+			{
+				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
+				$id->{TYPE} = $info{TYPE};
+				$id->{MIME_TYPE} = $info{MIME_TYPE};
+			}
+			else
+			{
+				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unknown' });
+			}
+		}
 
 		unless (defined($id->{MIME_TYPE}))
 		{
