@@ -86,7 +86,7 @@ sub index_directories_thread
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		remove_nonexistant_files();
-		get_fileinfo();
+		
 
 
 		sleep $CONFIG{'RESCAN_MEDIA'};
@@ -310,22 +310,20 @@ sub add_file_to_db
 	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
 
 	# check if file is in db
-	my @records = PDLNA::Database::get_records_by( "FILES", {FULLNAME => $$params{'element'}, PATH => $$params{'element_dirname'}} );
-        my $results = $records[0];
+	my $results = (PDLNA::Database::get_records_by( "FILES", {FULLNAME => $$params{'element'}, PATH => $$params{'element_dirname'}} ))[0];
 	if (defined($results->{ID}))
 	{
-		if (
-				$results->{SIZE} != $fileinfo[7] ||
-				$results->{DATE} != $fileinfo[9] ||
-#				$results->{MIME_TYPE} ne $$params{'mime_type'} ||
-				$results->{SEQUENCE} != $$params{'sequence'}
-			)
+		if ( $$params{'external'} == 0 and ($results->{SIZE} != $fileinfo[7] || $results->{DATE} != $fileinfo[9]) )
 		{
 			# update the datbase entry (something changed)
+            # TODO : We have here at least two updates that we could consolidate into a single one
 			PDLNA::Database::files_update($results->{ID} , { DATE => $fileinfo[9], SIZE => $fileinfo[7], MIME_TYPE => $$params{'mime_type'}, TYPE => $$params{'media_type'}, SEQUENCE => $$params{'sequence'} } );
+            my %info = ();
+			PDLNA::Media::get_media_info(     $results->{FULLNAME}, \%info);
+			PDLNA::Database::files_update(    $results->{ID}, \%info );
+            PDLNA::Database::files_set_valid( $results->{ID});
+            
 
-			# set FILEINFO entry to INVALID data
-			PDLNA::Database::files_set_invalid($results->{ID});
 		}
 	}
 	else
@@ -335,6 +333,10 @@ sub add_file_to_db
 		$$params{'date'} = $fileinfo[9];
 		$$params{'file_extension'} = $file_extension;
 		$results = PDLNA::Database::files_insert_returning_record( $params );
+            my %info = ();
+			PDLNA::Media::get_media_info($results->{FULLNAME}, \%info);
+			PDLNA::Database::files_update( $results->{ID}, \%info );
+            PDLNA::Database::files_set_valid( $results->{ID});
 		
 	}
 
@@ -476,37 +478,7 @@ sub delete_subitems_recursively
 	PDLNA::Database::directories_delete( $object_id );
 }
 
-sub get_fileinfo
-{
 
-	PDLNA::Log::log('Started to fetch metadata for media items.', 1, 'library');
-	my @results = PDLNA::Database::files_get_all_valid_records();
-	foreach my $id (@results)
-	{
-
-
-		#
-		# FILL METADATA OF IMAGES
-		#
-
-
-		if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
-		{
-			next;
-		}
-
-		#
-		# FILL MPLAYER DATA OF VIDEO OR AUDIO FILES
-		#
-		my %info = ();
-
-
-			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
-			PDLNA::Database::files_update( $id->{ID}, \%info );
-            PDLNA::Database::files_set_valid( $id->{ID});
-
-	}
-}
 
 #
 # various function for getting information about the ContentLibrary from the DB

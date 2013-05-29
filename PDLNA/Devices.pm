@@ -43,11 +43,13 @@ sub add_device
 	return 0 unless defined($$params{'ssdp_banner'});
 	return 0 unless defined($$params{'device_description_location'});
 
-	my $device_udn_id = (PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}}))[0]->{ID};
+    my $device_udn_id;
+	my @results = PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
 	
-	if (defined($device_udn_id))
+	if (@results)
 	{
 		# we got nothing to do here
+        $device_udn_id = $results[0]->{ID};
 	}
 	else
 	{
@@ -150,7 +152,7 @@ sub add_device
 	return 0 unless defined($$params{'nt_time_of_expire'});
 
 
-        PDLNA::Database::device_nts_touch($device_udn_id,$$params{'nt'},$$params{'nt_time_of_expire'});
+    PDLNA::Database::device_nts_touch($device_udn_id,$$params{'nt'},$$params{'nt_time_of_expire'});
 	#
 	# END OF NTS
 	#
