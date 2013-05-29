@@ -43,7 +43,7 @@ sub add_device
 	return 0 unless defined($$params{'ssdp_banner'});
 	return 0 unless defined($$params{'device_description_location'});
 
-	my $device_udn_id = PDLNA::Database::device_udn_get_id($device_ip_id, $$params{'udn'});
+	my $device_udn_id = (PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}}))[0]->{ID};
 	
 	if (defined($device_udn_id))
 	{
@@ -125,9 +125,9 @@ sub add_device
 
 		if (defined($device_udn_modelname) && defined($device_udn_friendlyname))
 		{
-                        PDLNA::Database::device_udn_insert($device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname);
-			$device_udn_id = PDLNA::Database::device_udn_get_id($device_ip_id, $$params{'udn'});
-
+            PDLNA::Database::device_udn_insert($device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname);
+			my @results = PDLNA::Database::get_records_by("DEVICE_UDN",{ DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
+            $device_udn_id = $results[0]->{ID};
 			# create the DEVICE_SERVICE entries
 			foreach my $service (keys %services)
 			{
@@ -175,8 +175,8 @@ sub delete_device
 	return 0 if !defined($$params{'nt'});
 
 	my $device_ip  = PDLNA::Database::device_ip_get_id($$params{'ip'});
-	my $device_udn_id = PDLNA::Database::device_udn_get_id($device_ip->{ID}, $$params{'udn'}) if defined($device_ip);
-	my $device_nts_id = PDLNA::Database::device_nts_get_id($device_udn_id, $$params{'nt'}) if defined($device_udn_id);
+	my $device_udn_id = (PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip->{ID}, UDN => $$params{'udn'}}))[0]->{ID} if defined($device_ip);
+    my $device_nts_id = PDLNA::Database::device_nts_get_id($device_udn_id, $$params{'nt'}) if defined($device_udn_id);
 
 	PDLNA::Database::device_nts_delete($device_nts_id) if defined($device_nts_id);
 

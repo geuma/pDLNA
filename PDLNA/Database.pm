@@ -468,6 +468,61 @@ sub _log_query
 }
 
 
+#
+# Second level of db layer 
+# Get records from TABLE where the search clausules are defined
+# in a hash ref, the keys are the FIELDS and the values are the lookup values
+sub get_records_by
+{
+ my $table  = shift;
+ my $params = shift;
+ 
+        my @setarray;
+        my @paramsarray;
+        my @records = ();        
+
+        my $sql = 'SELECT * FROM  "'.$table.'"  ';
+        if (defined $params)
+        {
+        $sql = $sql . " WHERE ";
+        foreach my $key (keys(%{$params}))
+         {
+          if (! defined ($$params{$key}) )
+           {
+            push @setarray , "\"$key\" IS NULL";
+           }
+          else
+           {
+            if ( $$params{$key} =~ /%$/ )
+             {
+              push @setarray , "\"$key\" LIKE ?";
+              push @paramsarray, $$params{$key}; 
+             }
+            else
+             {
+             push @setarray, "\"$key\" = ?";
+             push @paramsarray, $$params{$key};
+             }
+           } 
+        } # end for
+        $sql = $sql . join(' AND ',@setarray) ; 
+        } # end if
+                 
+        my $dbh = PDLNA::Database::connect();
+        PDLNA::Database::select_db(
+             $dbh,
+             {
+             'query' => $sql,
+             'parameters' => \@paramsarray
+             },
+            \@records
+         );
+         PDLNA::Database::disconnect($dbh);                  
+
+  return @records;
+}
+
+
 
 ##
 ## INTERFACE FUNCTIONS FOR OTHER MODULES
@@ -602,53 +657,6 @@ sub files_update
              },
          );
          PDLNA::Database::disconnect($dbh);                  
-}
-
-# Get records from FILES where the search clausules are defined
-# in a hash ref, the keys are the FIELDS and the values are the lookup values
-sub files_get_records_by
-{
- my $params = shift;
- 
-        my @setarray;
-        my @paramsarray;
-        my @records = ();        
-
-        my $sql = 'SELECT * FROM  "FILES" WHERE ';
-        foreach my $key (keys(%{$params}))
-         {
-          if (! defined ($$params{$key}) )
-           {
-            push @setarray , "\"$key\" IS NULL";
-           }
-          else
-           {
-            if ( $$params{$key} =~ /%$/ )
-             {
-              push @setarray , "\"$key\" LIKE ?";
-              push @paramsarray, $$params{$key}; 
-             }
-            else
-             {
-             push @setarray, "\"$key\" = ?";
-             push @paramsarray, $$params{$key};
-             }
-           } 
-        }
-        $sql = $sql . join(' AND ',@setarray) ; 
-                
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-             $dbh,
-             {
-             'query' => $sql,
-             'parameters' => \@paramsarray
-             },
-            \@records
-         );
-         PDLNA::Database::disconnect($dbh);                  
-
-  return @records;
 }
 
 
@@ -806,7 +814,7 @@ sub files_insert_returning_record
                        },
             );    
 
-            my @records = files_get_records_by({ FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
+            my @records = get_records_by("FILES", { FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
             PDLNA::Database::disconnect($dbh);
             
        return $records[0];                         
@@ -847,23 +855,6 @@ sub files_insert
 ##
 ## DEVICE_IP
 
-sub  device_ip_select_all
-{
-        my @devices_ip = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-                $dbh,
-                {
-                        'query' => 'SELECT "ID", "IP" FROM "DEVICE_IP"',
-                        'parameters' => [ ],
-                },
-                \@devices_ip,
-        );
-        PDLNA::Database::disconnect($dbh);
-
-    return @devices_ip;
-
-}
 
 sub device_ip_delete_by_id
  {
@@ -965,51 +956,6 @@ sub  device_ip_touch
 
 ##
 ## DEVICE UDN
-
-sub device_udn_get_record
-{
-   my $device_ip_id = shift;
-      
-              my $dbh = PDLNA::Database::connect();
-              my @devices_udn = ();
-
-             PDLNA::Database::select_db(
-                        $dbh,
-                        {
-                         'query' => 'SELECT "ID", "UDN", "SSDP_BANNER", "FRIENDLY_NAME", "MODEL_NAME", "TYPE", "DESC_URL" FROM "DEVICE_UDN" WHERE "ID" = ?', 
-                         'parameters' => [ $device_ip_id ],
-                        },
-               \@devices_udn
-              );
-             PDLNA::Database::disconnect($dbh);
-             return $devices_udn[0];                                               
-}
-
-
-
-sub device_udn_get_id
-{
-  my $device_ip_id = shift;
-  my $device_udn = shift;
-
-
-        my $dbh = PDLNA::Database::connect();
-        my @device_udn = ();
-
-        PDLNA::Database::select_db(
-                $dbh,
-                {
-                 'query' => 'SELECT "ID" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" = ? AND "UDN" = ?',
-                 'parameters' => [ $device_ip_id, $device_udn, ],
-                },
-                \@device_udn,
-        );
-
-
-        PDLNA::Database::disconnect($dbh);
-        return $device_udn[0]->{ID};
-}
-
 
 sub device_udn_insert
 {
@@ -1495,57 +1441,6 @@ sub device_bm_insert_posseconds
 ##
 ## SUBTITLES
 
-sub subtitles_get_records
-{
- my $params = shift;
- 
-        my @setarray;
-        my @paramsarray = ();
-        my @records = ();        
-
-        my $sql = 'SELECT * FROM  "SUBTITLES"  ';
-        
-        if (defined $params)
-        {
-        $sql = $sql . " WHERE ";
-         foreach my $key (keys(%{$params}))
-         {
-          if (! defined ($$params{$key}) )
-           {
-            push @setarray , "\"$key\" IS NULL";
-           }
-          else
-           {
-            if ( $$params{$key} =~ /%$/ )
-             {
-              push @setarray , "\"$key\" LIKE ?";
-              push @paramsarray, $$params{$key}; 
-             }
-            else
-             {
-             push @setarray, "\"$key\" = ?";
-             push @paramsarray, $$params{$key};
-             }
-           } 
-         } # end for
-         $sql = $sql . join(' AND ',@setarray) ; 
-        } # end if 
-               
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-             $dbh,
-             {
-             'query' => $sql,
-             'parameters' => \@paramsarray
-             },
-            \@records
-         );
-         PDLNA::Database::disconnect($dbh);                  
-
-  return @records;
-
-}
-
 
 sub subtitles_update
 {
@@ -1624,46 +1519,6 @@ sub subtitles_delete_by_fileid
 ##
 ## DIRECTORIES
 
-sub directories_get_records_by_name_path
-{
- my $excl_directory = shift;
- my $path           = shift;
- 
-            my @directories = ();
-            my $dbh = PDLNA::Database::connect();
-            PDLNA::Database::select_db(
-                  $dbh,
-                  {
-                   'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "NAME" = ? AND "PATH" LIKE ?',
-                   'parameters' => [ $excl_directory, $path.'%', ],
-                  },
-                 \@directories,
-            );
-            PDLNA::Database::disconnect($dbh);
-           
-   return @directories;                                                                                                                                                                                                                                                                                      
-}
-
-
-
-sub directories_get_all
-{
-        my @directories = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-             $dbh,
-             {
-              'query' => 'SELECT "ID", "PATH", "TYPE" FROM "DIRECTORIES"',
-              'parameters' => [ ],
-             },
-             \@directories,
-        );
-        PDLNA::Database::disconnect($dbh);
-          
-        
-    return @directories;                                                                                                                                
-}
-
 
 
 sub directories_get_records
@@ -1685,26 +1540,6 @@ sub directories_get_records
     return $directories[0];
 }
 
-
-
-sub directories_get_record_by_path
-{
- my $path = shift;
- 
-        my @results = ();
-        my $dbh = PDLNA::Database::connect(); 
-        PDLNA::Database::select_db( 
-           $dbh,
-            {
-             'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" = ?',
-              'parameters' => [ $path, ],
-            },
-           \@results,
-        );
-        PDLNA::Database::disconnect($dbh);
-        
-  return $results[0];                                                                                                                         
-}
 
 
 sub directories_insert
@@ -1744,6 +1579,9 @@ sub directories_delete
                                                                                                                                                                                                                             
 }
 
+
+##
+## Others to catalog
 
 sub get_subdirectories_by_id
 {

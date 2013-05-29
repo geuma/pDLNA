@@ -136,7 +136,8 @@ sub show
 		}
 		elsif (defined($nav[1]) && defined($nav[2]))
 		{
-			my $device_udn = PDLNA::Database::device_udn_get_record($nav[2]);
+			my @results = PDLNA::Database::get_records_by("DEVICE_UDN",{ ID => $nav[2] } );
+            my $device_udn = $results[0];
 			if (defined($device_udn->{UDN}))
 			{
 				$response .= '<table>';
@@ -543,7 +544,7 @@ sub build_connected_devices
 {
 	my $response = '';
 
-	my @devices_ip = PDLNA::Database::device_ip_select_all();
+	my @devices_ip = PDLNA::Database::get_records_by("DEVICE_IP");
 	$response .= '<ul>';
 	foreach my $device_ip (@devices_ip)
 	{

@@ -77,7 +77,7 @@ sub index_directories_thread
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
-                PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
+        PDLNA::Database::metadata_update_value($timestamp_end,'TIMESTAMP');
 
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
@@ -232,7 +232,7 @@ sub process_directory
 				}
 
 				# delete not (any more) configured - media files from playlists
-				my @results = PDLNA::Database::files_get_records_by({PATH => $element});
+				my @results = PDLNA::Database::get_records_by( "FILES", {PATH => $element});
 				foreach my $result (@results)
 				{
 					unless (grep(/^$result->{NAME}$/, @items) || grep(/^$result->{FULLNAME}$/, @items))
@@ -261,7 +261,7 @@ sub add_directory_to_db
 	my $type = shift;
 
 	# check if directoriy is in db
-	my $results = PDLNA::Database::directories_get_record_by_path($path);
+	my $results = (PDLNA::Database::get_records_by("DIRECTORIES", { PATH => $path}))[0];
 	unless (defined($results->{ID}))
 	{
 		# add directory to database
@@ -275,7 +275,7 @@ sub add_subtitle_to_db
 	my $params = shift;
 
 	# check if file is in db
-	my @records = PDLNA::Database::subtitles_get_records({ FULLNAME => $$params{'path'}, FILEID_REF => $$params{'file_id'}, MIME_TYPE => $$params{'mimetype'}});
+	my @records = PDLNA::Database::get_records_by("SUBTITLES", { FULLNAME => $$params{'path'}, FILEID_REF => $$params{'file_id'}, MIME_TYPE => $$params{'mimetype'}});
     my $results = $records[0];
 	my @fileinfo = stat($$params{'path'});
 
@@ -310,7 +310,7 @@ sub add_file_to_db
 	$$params{'sequence'} = 0 if !defined($$params{'sequence'});
 
 	# check if file is in db
-	my @records = PDLNA::Database::files_get_records_by( {FULLNAME => $$params{'element'}, PATH => $$params{'element_dirname'}} );
+	my @records = PDLNA::Database::get_records_by( "FILES", {FULLNAME => $$params{'element'}, PATH => $$params{'element_dirname'}} );
         my $results = $records[0];
 	if (defined($results->{ID}))
 	{
@@ -355,7 +355,7 @@ sub remove_nonexistant_files
 		}
 	}
 
-	my @directories = PDLNA::Database::directories_get_all();
+	my @directories = PDLNA::Database::get_records_by("DIRECTORIES");
 	foreach my $directory (@directories)
 	{
 		if (
@@ -367,7 +367,7 @@ sub remove_nonexistant_files
 		}
 	}
 
-	my @subtitles = PDLNA::Database::subtitles_get_records();
+	my @subtitles = PDLNA::Database::get_records_by("SUBTITLES");
 	foreach my $subtitle (@subtitles)
 	{
 		unless (-f $subtitle->{FULLNAME})
@@ -427,7 +427,7 @@ sub remove_nonexistant_files
 		# delete excluded directories and their items
 		foreach my $excl_directory (@{$$directory{'exclude_dirs'}})
 		{
-			my @directories = PDLNA::Database::sub directories_get_records_by_name_path($excl_directory, $directory->{'path'}.'%');
+			my @directories = PDLNA::Database::get_records_by("DIRECTORIES", { NAME => $excl_directory, PATH => $directory->{'path'}.'%'});
 			foreach my $dir (@directories)
 			{
 				delete_subitems_recursively( $dir->{ID});
@@ -437,7 +437,7 @@ sub remove_nonexistant_files
 		# delete excluded items
 		foreach my $excl_items (@{$$directory{'exclude_items'}})
 		{
-			my @items = PDLNA::Database::files_get_records_by({NAME => $excl_items, PATH => $directory->{'path'}.'%'});
+			my @items = PDLNA::Database::get_records_by( "FILES", {NAME => $excl_items, PATH => $directory->{'path'}.'%'});
 			foreach my $item (@items)
 			{
 				delete_all_by_itemid( $item->{ID});

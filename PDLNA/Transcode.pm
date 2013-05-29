@@ -227,10 +227,7 @@ sub get_ffmpeg_formats
 	my @output = <CMD>;
 	close(CMD);
 
-	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
-	{
-		return 0;
-	}
+
 
 	foreach my $line (@output)
 	{
@@ -276,10 +273,6 @@ sub get_ffmpeg_codecs
 	my @output = <CMD>;
 	close(CMD);
 
-	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
-	{
-		return 0;
-	}
 
 	foreach my $line (@output)
 	{

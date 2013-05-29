@@ -280,8 +280,8 @@ my %CONTAINER = (
 	},
    'image2' => {
 		'AudioCodecs' => [ ],
-		'VideoCodecs' => ['mpjeg','png'  ],
-		'mpjeg' => {
+		'VideoCodecs' => ['mjpeg','png'  ],
+		'mjpeg' => {
 			'MimeType' => 'image/jpeg',
 			'FileExtension' => 'jpg',
 			'MediaType' => 'image',
