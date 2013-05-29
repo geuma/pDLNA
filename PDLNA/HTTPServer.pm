@@ -268,6 +268,7 @@ sub handle_connection
 #	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 	{
+         print "Nos han pedido $CGI{'USER-AGENT'}\n";
 		stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name, $peer_ip_addr, $CGI{'USER-AGENT'});
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/subtitle\/(.*)$/) # handling delivering of subtitles
@@ -808,11 +809,12 @@ sub stream_media
 	my $user_agent = shift;
 
 
-
+    print "entramos en stream media\n";
 	PDLNA::Log::log('ContentID: '.$content_id, 3, 'httpstream');
-	if ($content_id =~ /^(\d+)\.(\w+)$/)
+	if ($content_id =~ /^(\d+)/)
 	{
 		my $id = $1;
+        print "nos han pedido el item $id\n";
 		PDLNA::Log::log('ID: '.$id, 3, 'httpstream');
 
 		#
@@ -846,6 +848,7 @@ sub stream_media
 		#
 		# sanity checks
 		#
+        print "el valor de transcode es $transcode\n";
 		unless (defined($item->{FULLNAME}))
 		{
 			PDLNA::Log::log('Content with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
@@ -882,7 +885,8 @@ sub stream_media
 		#
 		# for streaming relevant code starts here
 		#
-
+        print "starting relevant code here \n";
+        
 		my @additional_header = ();
 		push(@additional_header, 'Content-Type: '.PDLNA::Media::get_mimetype_by_modelname($item->{MIME_TYPE}, $model_name));
 		push(@additional_header, 'Content-Length: '.$item->{SIZE}) if !$item->{EXTERNAL};
@@ -961,7 +965,7 @@ sub stream_media
 				});
 			}
 		}
-
+        print "el method HTTP es $method\n";
 		if ($method eq 'HEAD') # handling HEAD requests
 		{
 			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item->{NAME}.'.', 1, 'httpstream');
@@ -978,11 +982,14 @@ sub stream_media
 			# we set it, because they seem to ignore it
 			if (defined($$CGI{'USER-AGENT'}))
 			{
+                print "The user agent is $$CGI{'USER-AGENT'}\n";
 				if (
 					$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^vlc/i || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^stagefright/ || # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
 					$$CGI{'USER-AGENT'} =~ /^gvfs/ || # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+                    $$CGI{'USER-AGENT'} =~ /^Mozilla/ || # In order to allow some tests from the Browser directly
+                    $$CGI{'USER-AGENT'} =~ /^Dalvik/  || # Some android stuff ( to see the images )
 					$$CGI{'USER-AGENT'} =~ /^\(null\)/
 					)
 				{
@@ -995,6 +1002,7 @@ sub stream_media
 			{
 				if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
 				{
+                    print "un poco mas alla\n";
 					push(@additional_header, 'transferMode.dlna.org: Streaming');
 
 					my $statuscode = 200;
@@ -1025,6 +1033,7 @@ sub stream_media
 					#
 					if (!$item->{EXTERNAL} && !$transcode) # file on disk or TRANSFERMODE is NOT required
 					{
+                        print "abriendo el fichero\n";
 						sysopen(ITEM, $item->{FULLNAME}, O_RDONLY);
 						sysseek(ITEM, $lowrange, 0) if $lowrange;
 					}

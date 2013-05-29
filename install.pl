@@ -50,9 +50,7 @@ print "Step 1:\n";
 print "Testing for necessary Perl Modules ...\n";
 print "------------------------------------------------------\n";
 
-use_ok ('Audio::FLAC::Header');
-use_ok ('Audio::Wav');
-use_ok ('Audio::WMA');
+
 use_ok ('Config');
 use_ok ('Config::ApacheFormat');
 use_ok ('Data::Dumper');
@@ -75,12 +73,10 @@ use_ok ('IO::Socket');
 use_ok ('IO::Socket::INET');
 use_ok ('IO::Socket::Multicast');
 use_ok ('LWP::UserAgent');
-use_ok ('MP4::Info');
 use_ok ('Net::Address::Ethernet');
 use_ok ('Net::Interface');
 use_ok ('Net::IP');
 use_ok ('Movie::Info');
-use_ok ('Ogg::Vorbis::Header');
 use_ok ('POSIX');
 use_ok ('Proc::ProcessTable');
 use_ok ('SOAP::Lite');

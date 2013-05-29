@@ -149,7 +149,7 @@ sub shall_we_transcode
 		return 0;
 	}
 
-	PDLNA::Log::log('Looking for a matching Transcoding Profile for Container: '.$$media_data{'container'}.', AudioCodec: '.$$media_data{'audio_codec'}.'.', 2, 'transcoding');
+	PDLNA::Log::log('Looking for a matching Transcoding Profile for Container: '.$$media_data{'container'}.'.', 2, 'transcoding');
 
 	foreach my $profile (@{$CONFIG{'TRANSCODING_PROFILES'}})
 	{

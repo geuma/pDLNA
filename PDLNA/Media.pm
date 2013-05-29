@@ -20,13 +20,8 @@ package PDLNA::Media;
 use strict;
 use warnings;
 
-use Audio::FLAC::Header;
-use Audio::Wav;
-use Audio::WMA;
+
 use Fcntl;
-use Image::Info qw(image_info dim image_type);
-use MP4::Info;
-use Ogg::Vorbis::Header;
 use XML::Simple;
 
 use PDLNA::Config;
@@ -34,7 +29,7 @@ use PDLNA::Config;
 my %MIME_TYPES = (
 	'image/jpeg' => 'jpeg',
 	'image/gif' => 'gif',
-
+    'image/png' => 'png',
 	'audio/mpeg' => 'mp3',
 	'audio/mp4' => 'mp4',
 	'audio/x-ms-wma' => 'wma',
@@ -43,7 +38,6 @@ my %MIME_TYPES = (
 	'video/x-theora+ogg' => 'ogg',
 	'audio/ac3' => 'ac3',
 	'audio/x-aiff' => 'lpcm',
-
 	'video/x-msvideo' => 'avi',
 	'video/x-matroska' => 'mkv',
 	'video/mp4' => 'mp4',
@@ -72,6 +66,7 @@ my %AUDIO_CODECS = (
 	'mp3' => 'mp3',
 	'ffvorbis' => 'vorbis',
 	'pcm' => 'wav',
+    'pcm_s16le' => 'wav',
 	'ffwmav1' => 'wmav1',
 	'ffwmav2' => 'wmav2',
 	'ffmp3float' => 'mp3',
@@ -280,6 +275,21 @@ my %CONTAINER = (
 			'MimeType' => 'video/x-flv',
 			'FileExtension' => 'flv',
 			'MediaType' => 'video',
+		},
+
+	},
+   'image2' => {
+		'AudioCodecs' => [ ],
+		'VideoCodecs' => ['mpjeg','png'  ],
+		'mpjeg' => {
+			'MimeType' => 'image/jpeg',
+			'FileExtension' => 'jpg',
+			'MediaType' => 'image',
+		},
+        'png' => {
+			'MimeType' => 'image/png',
+			'FileExtension' => 'png',
+			'MediaType' => 'image',
 		},
 
 	},
@@ -504,13 +514,6 @@ sub get_dlnacontentfeatures
 	return $contentfeatures;
 }
 
-sub get_image_fileinfo
-{
-	my $path = shift;
-
-	my $info = image_info($path);
-	return dim($info);
-}
 
 sub get_media_info
 {
@@ -526,7 +529,7 @@ sub get_media_info
     if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -m 200 -r $file -q | $ffmpegbin -i pipe:0 2>&1 "; }
     else                       { $cmd = "$ffmpegbin -i \"$file\" 2>&1"; }
     
-    print "the command is $cmd \n";
+
     
     open(CMD,"$cmd |") or PDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
     while(<CMD>) 
@@ -535,18 +538,16 @@ sub get_media_info
         {
           $$info{DURATION} = 3600*$1+60*$2+$3; # ignore miliseconds
         }
-        if (/Stream .+: Audio: ([\w|\d]+) .+, (\d+) Hz, .+, (\d+) kb\/s/)
+        if (/Stream .+: Audio: ([\w|\d|_]+) .+, (\d+) Hz, .+, (\d+) kb\/s/)
         {
 
          $$info{AUDIO_CODEC} = $1;
-         $$info{HZ}          = $2;
          $$info{BITRATE}     = $3*1000;
         }
-        elsif (/Stream .+: Audio: ([\w|\d]+), (\d+) Hz, .+, (\d+) kb\/s/)
+        elsif (/Stream .+: Audio: ([\w|\d|_]+), (\d+) Hz, .+, (\d+) kb\/s/)
         {
   
          $$info{AUDIO_CODEC} = $1;
-         $$info{HZ}          = $2;
          $$info{BITRATE}     = $3*1000;
         }
         elsif (/Stream .+ Video: ([\w|\d]+) .+, (\d+)x(\d+)/)
@@ -563,6 +564,30 @@ sub get_media_info
          $$info{HEIGHT}      = $3;
          if (/XVID/ ) { $$info{VIDEO_CODEC} = "xvid"; }
         }
+        elsif (/TITLE\S:\S(.+)$/i)
+        {
+         $$info{TITLE} = $1;
+        }
+        elsif (/ARTIST\S:\S(.+)$/i)
+        {
+         $$info{ARTIST} = $1;
+        }
+        elsif (/ALBUM\S:\S(.+)$/i)
+        {
+         $$info{ALBUM} = $1;
+        }
+        elsif (/TRACK\S:\S(\d+)$/i)
+        {
+         $$info{TRACKNUM} = $1;
+        }
+        elsif (/GENRE\S:\S(.+)$/i)
+        {
+         $$info{GENRE} = $1;
+        }
+        elsif (/DATE\S:\S(\d\d\d\d)$/i)
+        {
+         $$info{DATE} = $1;
+        }
         elsif (/Input .+, ([\w|\d|,]+), from /)
         {
          my $ctn = $1;
@@ -575,7 +600,7 @@ sub get_media_info
     if ($file =~ /.mp3$/) {  $$info{VIDEO_CODEC} = undef; }
     if ($file =~ /.wav$/) {  $$info{VIDEO_CODEC} = undef; }
     
- print "We got $$info{CONTAINER}, $$info{VIDEO_CODEC}, and $$info{AUDIO_CODEC}\n";
+ 
     
 	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
@@ -590,69 +615,6 @@ sub get_media_info
 		PDLNA::Log::log('PDLNA::Media::details() was unable to determine details for '.$file.'.', 3, 'library');
 	}
 
-	return 1;
-}
-
-sub get_audio_fileinfo
-{
-	my $file = shift;
-	my $audio_codec = shift;
-	my $info = shift;
-
-	if ($audio_codec eq 'mp3' || $audio_codec eq 'mp3float')
-	{
-		my $tag = get_mp4tag($file);
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'faad' || $audio_codec eq 'aac')
-	{
-		my $tag = get_mp4tag($file);
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'wmav2')
-	{
-		my $wma = Audio::WMA->new($file);
-		my $tag = $wma->tags();
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'flac')
-	{
-		my $flac = Audio::FLAC::Header->new($file);
-		my $tag = $flac->tags();
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
-			$$info{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
-			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
-			$$info{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
-			$$info{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
-			$$info{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
-		}
-	}
 	return 1;
 }
 

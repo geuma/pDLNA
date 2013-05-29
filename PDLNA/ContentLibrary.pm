@@ -483,38 +483,12 @@ sub get_fileinfo
 	my @results = PDLNA::Database::files_get_all_valid_records();
 	foreach my $id (@results)
 	{
-        print "Tratamos id $id->{ID} $id->{FULLNAME} \n";
-		if ($id->{EXTERNAL})
-		{
-			my %info = ();
-			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
-            print "Hemos pedido detalles de $id->{FULLNAME} y la respuesta es $info{MIME_TYPE}\n";
-			if (defined($info{MIME_TYPE}))
-			{
-				PDLNA::Database::files_update ( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
-				$id->{TYPE} = $info{TYPE};
-				$id->{MIME_TYPE} = $info{MIME_TYPE};
-			}
-			else
-			{
-				PDLNA::Database::files_update( $id->{ID}, { MIME_TYPE => 'unknown' });
-			}
-		}
 
-		unless (defined($id->{MIME_TYPE}))
-		{
-			next;
-		}
 
 		#
 		# FILL METADATA OF IMAGES
 		#
-		if ($id->{TYPE} eq 'image')
-		{
-			my ($width, $height) = PDLNA::Media::get_image_fileinfo($id->{FULLNAME});
-			PDLNA::Database::files_update( $id->{ID}, { WIDTH => $width, HEIGHT => $height} );
-			next;
-		}
+
 
 		if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
 		{
@@ -525,38 +499,12 @@ sub get_fileinfo
 		# FILL MPLAYER DATA OF VIDEO OR AUDIO FILES
 		#
 		my %info = ();
-		if ($id->{TYPE} eq 'video' || $id->{TYPE} eq 'audio')
-		{
+
+
 			PDLNA::Media::get_media_info($id->{FULLNAME}, \%info);
-			PDLNA::Database::files_update( $id->{ID}, { WIDTH => $info{WIDTH}, HEIGHT => $info{HEIGHT}, DURATION => $info{DURATION}, BITRATE => $info{BITRATE}, CONTAINER => $info{CONTAINER}, AUDIO_CODEC => $info{AUDIO_CODEC}, VIDEO_CODEC => $info{VIDEO_CODEC} } );
-			if (defined($info{TYPE}) && defined($info{MIME_TYPE}) && defined($info{FILE_EXTENSION}))
-			{
-				PDLNA::Database::files_update( $id->{ID}, { FILE_EXTENSION => $info{FILE_EXTENSION}, MIME_TYPE => $info{MIME_TYPE}, TYPE => $info{TYPE} });
-			}
+			PDLNA::Database::files_update( $id->{ID}, \%info );
+            PDLNA::Database::files_set_valid( $id->{ID});
 
-			if ($id->{TYPE} eq 'video')
-			{
-				PDLNA::Database::files_set_valid( $id->{ID});
-			}
-		}
-
-		#
-		# FILL METADATA OF AUDIO FILES
-		#
-		if ($id->{TYPE} eq 'audio' && defined($info{AUDIO_CODEC}))
-		{
-			my %audioinfo = (
-				'ARTIST' => undef,
-				'ALBUM' => undef,
-				'TRACKNUM' => undef,
-				'TITLE' => undef,
-				'GENRE' => undef,
-				'YEAR' => undef,
-			);
-			PDLNA::Media::get_audio_fileinfo($id->{FULLNAME}, $info{AUDIO_CODEC}, \%audioinfo);
-			PDLNA::Database::files_update( $id->{ID} , \%audioinfo );
-			PDLNA::Database::files_set_valid( $id->{ID});
-		}
 	}
 }
 

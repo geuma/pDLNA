@@ -1,67 +1,68 @@
-	
+
     
-rtve1) 
+rtve1) NOT WORKING
 rtmpdump -m 200 -r "rtmp://cp68975.live.edgefcs.net:1935/live" -y "LA1_AKA_WEB_NOG@58877" -W "http://www.rtve.es/swf/4.1.11/RTVEPlayerVideo.swf" -p "http://www.rtve.es/noticias/directo-la-1" -t "rtmp://cp68975.live.edgefcs.net:1935/live" -v -q > /tmp/$CANAL."$ID" & ;;
 
-rtve2)
+rtve2) NOT WORKING
 rtmpdump -m 200 -r "rtmp://cp68975.live.edgefcs.net:1935/live" -y "LA2_AKA_WEB_NOG@60554" -W "http://www.rtve.es/swf/4.1.11/RTVEPlayerVideo.swf" -p "http://www.rtve.es/television/la-2-directo" -t "rtmp://cp68975.live.edgefcs.net:1935/live" -q -v > /tmp/$CANAL."$ID" & ;;
 
-rtve24)
+rtve24) OK
 rtmpdump -r "rtmp://rtvefs.fplive.net:1935/rtve-live-live?ovpfv=2.1.2/RTVE_24H_LV3_WEB_NOG" -W "http://www.rtve.es/swf/4.1.18/RTVEPlayerVideo.swf" -q -v > /tmp/$CANAL."$ID" & ;;
 
-tdp)
+tdp) NOT WORKING 
 rtmpdump -m 200 -r "rtmp://cp48772.live.edgefcs.net:1935/live" -y "RTVE_TDP_LV3_WEB_GEO?aksessionid=1364156661735_65518" -W "http://www.rtve.es/swf/4.0.37/RTVEPlayerVideo.swf" -p "http://www.rtve.es/deportes/directo/teledeporte" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	#tdp) rtmpdump -m 200 -r "rtmp://rtvegeofs.fplive.net:1935/rtvegeo-live-live" -y "RTVE_TDP_LV3_WEB_GEO?aksessionid=1364156661735_65518" -W "http://www.rtve.es/swf/4.1.20/RTVEPlayerVideo.swf" -p "http://www.rtve.es/deportes/directo/teledeporte" -q -v > /tmp/$CANAL."$ID" & ;;
+	
+Antena_3) NOT WORKING
+rtmpdump -m 200 -r "rtmp://antena3fms35livefs.fplive.net:1935/antena3fms35live-live" -y "stream-antena3" -W "http://www.antena3.com/static/swf/A3Player.swf?nocache=200" -p "http://www.antena3.com/directo/" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	#tdp) rtmpdump -m 200 -r "rtmp://rtvegeofs.fplive.net:1935/rtvegeo-live-live" -y "RTVE_TDP_LV3_WEB_GEO?aksessionid=1364156661735_65518" -W "http://www.rtve.es/swf/4.1.20/RTVEPlayerVideo.swf" -p "http://www.rtve.es/deportes/directo/teledeporte" -C Z: -q -v > /tmp/$CANAL."$ID" & ;;
-
-
-	Antena_3) rtmpdump -m 200 -r "rtmp://antena3fms35livefs.fplive.net:1935/antena3fms35live-live" -y "stream-antena3" -W "http://www.antena3.com/static/swf/A3Player.swf?nocache=200" -p "http://www.antena3.com/directo/" -q -v > /tmp/$CANAL."$ID" & ;;
-
-	La_Sexta)
+La_Sexta) OK
 rtmpdump -m 200 -r "rtmp://antena3fms35livefs.fplive.net:1935/antena3fms35live-live/stream-lasexta" -W "http://www.antena3.com/static/swf/A3Player.swf" -p "http://www.lasexta.com/directo" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Cuatro)
+Cuatro) NOT WORKING
 rtmpdump -m 200 -r "rtmp://109.123.126.28/live" -y "cuatrolacajatv?id=14756" -W "http://www.ucaster.eu/static/scripts/eplayer.swf" -p "http://www.ucaster.eu/embedded/cuatrolacajatv/1/670/400" -C S:OK  -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Tele5)
+Tele5) OK
 rtmpdump -m 200 -a "live" -r "rtmp://50.7.28.234/live" -y "t5hdlacajatv2" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://www.castamp.com/embed.php?c=t5hdlacajatv2&vwidth=670&vheight=400" -q > /tmp/$CANAL."$ID" & ;;
 
-	Xplora) rtmpdump -m 200 -a "live" -r "rtmp://antena3fms35geobloqueolivefs.fplive.net:1935/antena3fms35geobloqueolive-live/stream-xplora" -W "http://www.antena3.com/static/swf/A3Player.swf" -p "http://www.lasexta.com/xplora/directo" -q -v > /tmp/$CANAL."$ID" & ;;
+Xplora) MOT WORKING
+rtmpdump -m 200 -a "live" -r "rtmp://antena3fms35geobloqueolivefs.fplive.net:1935/antena3fms35geobloqueolive-live/stream-xplora" -W "http://www.antena3.com/static/swf/A3Player.swf" -p "http://www.lasexta.com/xplora/directo" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Nitro) rtmpdump -m 200 -a "live" -r "rtmp://50.23.113.212/live" -y "nitrolacajatv?id=126587" -W "http://mips.tv/content/scripts/eplayer.swf" -p "http://mips.tv/embedplayer/nitrolacajatv/1/670/400"  -q -v > /tmp/$CANAL."$ID" & ;;
+Nitro) NOT WORKING
+rtmpdump -m 200 -a "live" -r "rtmp://50.23.113.212/live" -y "nitrolacajatv?id=126587" -W "http://mips.tv/content/scripts/eplayer.swf" -p "http://mips.tv/embedplayer/nitrolacajatv/1/670/400"  -q -v > /tmp/$CANAL."$ID" & ;;
 
-Neox)
-  rtmpdump -m 200 -r "rtmp://212.7.206.54/live" -y "neoxxghf67ghjkl?id=1877" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
+Neox) NOT WORKING
+rtmpdump -m 200 -r "rtmp://212.7.206.54/live" -y "neoxxghf67ghjkl?id=1877" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
-	La_Sexta_3) rtmpdump -m 200 -r "rtmp://174.36.251.140/live/lasexta3lacaja?id=15912" -W "http://www.ucaster.eu/static/scripts/eplayer.swf" -p "http://schuster92.com" -C S:OK -q > /tmp/$CANAL."$ID" & ;;
+La_Sexta_3) OK
+rtmpdump -m 200 -r "rtmp://174.36.251.140/live/lasexta3lacaja?id=15912" -W "http://www.ucaster.eu/static/scripts/eplayer.swf" -p "http://schuster92.com" -C S:OK -q > /tmp/$CANAL."$ID" & ;;
 
-	Paramount) rtmpdump -m 200 -r "rtmp://159.253.145.168/live" -y "185957" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://castalba.tv/embed.php?cid=14043&wh=660&ht=410&r=www.tvline.es" -q -v > /tmp/$CANAL."$ID" & ;;
+	
+Paramount) OK
+rtmpdump -m 200 -r "rtmp://159.253.145.168/live" -y "185957" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://castalba.tv/embed.php?cid=14043&wh=660&ht=410&r=www.tvline.es" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Intereconomia) rtmpdump -m 200 -r "rtmp://media.intereconomia.com/live/intereconomiatv1" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	BusinessTV) rtmpdump -m 200 -r "rtmp://media.intereconomia.com/live" -y "business1" -W "ttp://www.intereconomia.com/flowplayer-3.2.5.swf?0.19446.067378316934" -p "http://www.intereconomia.com/ver-intereconomia-business-tv"  -q -v > /tmp/$CANAL."$ID" & ;;
+13TV) OK
+ rtmpdump -m 200 -r "rtmp://xiiitvlivefs.fplive.net/xiiitvlive-live" -y "stream13tv" -W "http://static.hollybyte.com/public/players/flowplayer/swf/flowplayer.commercial.swf" -p "http://live.13tv.hollybyte.tv/embed/4f33a91894a05f5f49020000" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	13TV) rtmpdump -m 200 -r "rtmp://xiiitvlivefs.fplive.net/xiiitvlive-live" -y "stream13tv" -W "http://static.hollybyte.com/public/players/flowplayer/swf/flowplayer.commercial.swf" -p "http://live.13tv.hollybyte.tv/embed/4f33a91894a05f5f49020000" -q -v > /tmp/$CANAL."$ID" & ;;
+Energy) NOT TESTED
+rtmpdump -m 200 -r "rtmp://50.7.28.130/live" -y "lacajatvenergy" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://www.castamp.com/embed.php?c=lacajatvenergy&vwidth=670&vheight=400" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Energy) rtmpdump -m 200 -r "rtmp://50.7.28.130/live" -y "lacajatvenergy" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://www.castamp.com/embed.php?c=lacajatvenergy&vwidth=670&vheight=400" -q -v > /tmp/$CANAL."$ID" & ;;
-
-	FDF)
+FDF) OK
 rtmpdump -m 200 -r "rtmp://178.18.23.114/strm" -y "fdfhd" -W "http://www.telecast.eu/player/player.swf" -p "http://www.telecast.eu/embed.php?u=tnthdd&vw=650&vh=400"  -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Aragon_TV) rtmpdump -m 200 -r "rtmp://aragontvlivefs.fplive.net/aragontvlive-live" -y "stream_normal_abt" -W "http://alacarta.aragontelevision.es/streaming/flowplayer.commercial-3.2.7.swf" -p "http://alacarta.aragontelevision.es/streaming/streaming.html" -q -v > /tmp/$CANAL."$ID" & ;;
-
-	# IberoamericaTV) mplayer -really-quiet -dumpstream -dumpfile /tmp/$CANAL."$ID" "rtsp://cdns724ste1010.multistream.net:80/iberoamericatvlive/Continuidad-500"  > /dev/null 2>&1 & mplayer_conf_change ;; 
+Aragon_TV) NOT TESTED
+rtmpdump -m 200 -r "rtmp://aragontvlivefs.fplive.net/aragontvlive-live" -y "stream_normal_abt" -W "http://alacarta.aragontelevision.es/streaming/flowplayer.commercial-3.2.7.swf" -p "http://alacarta.aragontelevision.es/streaming/streaming.html" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	IberoamericaTV) cvlc -q "rtsp://cdns724ste1010.multistream.net:80/iberoamericatvlive/Continuidad-500" --sout=file/ts:/tmp/$CANAL."$ID" > /dev/null 2>&1 & mplayer_conf_change ;;
 
 	Huesca_TV) rtmpdump -m 200 -r "rtmp://streaming2.radiohuesca.com/live/" -W "http://player.longtailvideo.com/player5.3.swf" -y "huescatv" -p "http://www.intertelevision.com/spain/localiatv.php" -v > /tmp/$CANAL."$ID" & ;;
 
-	Galicia_TV_EU)
+Galicia_TV_EU) OK
 rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvge_2" -W "http://www.crtvg.es/flowplayer3/flowplayer.commercial-3.2.7.swf" -p "http://www.crtvg.es/tvg/tvg-en-directo" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Galicia_TV_AM) rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvga_2" -W "http://www.crtvg.es/flowplayer3/flowplayer.commercial-3.2.7.swf" -p "http://www.crtvg.es/tvg/tvg-en-directo/canle/galicia-tv-america" -q -v > /tmp/$CANAL."$ID"  & ;;
+Galicia_TV_AM) NOT TESTED
+rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvga_2" -W "http://www.crtvg.es/flowplayer3/flowplayer.commercial-3.2.7.swf" -p "http://www.crtvg.es/tvg/tvg-en-directo/canle/galicia-tv-america" -q -v > /tmp/$CANAL."$ID"  & ;;
 
 	Teleminho) rtmpdump -m 200 -a "teleminho" -r "rtmp://fcs.grupo5.com/teleminho/" -y "telemiño" -W "http://www.grupo5.com/fcs/teleminho/teleminho.swf" -p "http://www.teleminho.com/" -q -v > /tmp/$CANAL."$ID"  & ;;
 
@@ -95,7 +96,8 @@ rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvge_2" -W "http://www.c
 
 	TV3CAT) rtmpdump -m 200 -r "rtmp://tv-nogeo-flashlivefs.fplive.net/tv-nogeo-flashlive-live" -y "stream_TV3CAT_FLV" -W "http://www.tv3.cat/ria/players/3ac/evp/Main.swf" -p "http://www.tv3.cat/directes/" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	TV3) rtmpdump -m 200 -r "rtmp://tv-nogeo-flashlivefs.fplive.net/tv-nogeo-flashlive-live" -y "stream_TV3_FLV" -W "http://www.tv3.cat/ria/players/3ac/evp/Main.swf" -p "http://www.tv3.cat/directes/" -q -v > /tmp/$CANAL."$ID" & ;;
+TV3) OK
+rtmpdump -m 200 -r "rtmp://tv-nogeo-flashlivefs.fplive.net/tv-nogeo-flashlive-live" -y "stream_TV3_FLV" -W "http://www.tv3.cat/ria/players/3ac/evp/Main.swf" -p "http://www.tv3.cat/directes/" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	TV3_24) rtmpdump -m 200 -r "rtmp://tv-nogeo-flashlivefs.fplive.net/tv-nogeo-flashlive-live" -y "stream_324_FLV" -W "http://www.tv3.cat/ria/players/3ac/evp/Main.swf" -p "http://www.tv3.cat/directes/" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -117,7 +119,8 @@ rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvge_2" -W "http://www.c
 
 	Ribera_TV) rtmpdump -m 200 -r "rtmp://flash3.todostreaming.es/ribera" -y "livestream" -W "http://www.todostreaming.es/player_new.swf" -p "http://www.riberatelevisio.com" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Telemadrid_SAT) rtmpdump -m 200 -r "rtmp://cp118140.live.edgefcs.net:1935/live" -y "TSAtelemadridsat@47720" -q -v > /tmp/$CANAL."$ID" & ;;
+Telemadrid_SAT) OK
+rtmpdump -m 200 -r "rtmp://cp118140.live.edgefcs.net:1935/live" -y "TSAtelemadridsat@47720" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	Telemadrid_Otra) rtmpdump -m 200 -r "rtmp://cp96225.live.edgefcs.net:1935/live?videoId=292161053001&lineUpId=&pubId=104403117001&playerId=111868723001&.affiliateId=" -W "http://admin.brightcove.com/viewer/us20130118.1025/federatedVideoUI/BrightcovePlayer.swf" -y "Laotra@30799" -p "http://www.telemadrid.es/?q=emision_en_directo_laotra" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -129,18 +132,23 @@ rtmpdump -m 200 -r "rtmp://media3.crtvg.es:80/live" -y "tvge_2" -W "http://www.c
 
 	TeleBilbao) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "telebilbao.stream" -W "http://www.lasteles.com/js/mediaplayer-5.8/player.swf" -p "http://www.lasteles.com/es/player.php?auto=0&id=14884" -q -v > /tmp/$CANAL."$ID" & ;;
 
-Divinity)
+Divinity) OK
  rtmpdump -m 200 -a "live" -r "rtmp://50.7.28.234/live" -y "discomaxlacajatv" -W "http://www.udemy.com/static/flash/player5.9.swf" -p "http://www.castamp.com/embed.php?c=discomaxlacajatv&tk=5mD8Tatf&vwidth=650&vheight=400" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Discovery_Channel) rtmpdump -m 200 -r "rtmp://46.23.67.114/live" -y "discoverylacajatv?id=14680" -W "http://www.ucaster.eu/static/scripts/eplayer.swf" -p "http://www.ucaster.eu/embedded/discoverylacajatv/1/650/400" -C S:OK -q > /tmp/$CANAL."$ID" & ;;
+Discovery_Channel) NOT WORKING
+rtmpdump -m 200 -r "rtmp://46.23.67.114/live" -y "discoverylacajatv?id=14680" -W "http://www.ucaster.eu/static/scripts/eplayer.swf" -p "http://www.ucaster.eu/embedded/discoverylacajatv/1/650/400" -C S:OK -q > /tmp/$CANAL."$ID" & ;;
 
-	TNT) rtmpdump -m 200 -r "rtmp://178.18.23.114/strm" -y "tnthdd" -W "http://www.telecast.eu/player/player.swf" -p "http://www.telecast.eu/embed.php?u=tnthdd&vw=650&vh=400"  -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
+TNT) NOT TESTED
+rtmpdump -m 200 -r "rtmp://178.18.23.114/strm" -y "tnthdd" -W "http://www.telecast.eu/player/player.swf" -p "http://www.telecast.eu/embed.php?u=tnthdd&vw=650&vh=400"  -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Xtrm) rtmpdump -m 200 -r "rtmp://64.191.80.10/live" -y "xtrem?id=390" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
+Xtrm) NOT TESTED
+rtmpdump -m 200 -r "rtmp://64.191.80.10/live" -y "xtrem?id=390" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
-	SyFy) rtmpdump -m 200 -r "rtmp://108.59.14.229/stream" -y "Syfylacaja?id=89619" -W "http://www.liveflash.tv/resources/scripts/eplayer.swf" -p "http://www.liveflash.tv/embedplayer/Syfylacaja/1/670/400"  -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
+SyFy) NOT WORKING
+rtmpdump -m 200 -r "rtmp://108.59.14.229/stream" -y "Syfylacaja?id=89619" -W "http://www.liveflash.tv/resources/scripts/eplayer.swf" -p "http://www.liveflash.tv/embedplayer/Syfylacaja/1/670/400"  -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Cosmo) rtmpdump -m 200 -r "rtmp://64.191.80.10/live" -y "Cosmopolitan?id=389" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
+Cosmo) NOT TESTED
+rtmpdump -m 200 -r "rtmp://64.191.80.10/live" -y "Cosmopolitan?id=389" -W "http://www.ezcast.tv/static/scripts/eplayer.swf" -p "http://www.ezcast.tv/embedded/xtrem/1/670/400" -C S:OK -q -v > /tmp/$CANAL."$ID" & ;;
 
 	Canal_Extremadura) rtmpdump -m 200 -r "rtmp://canalextremaduralive.cdn.canalextremadura.es/canalextremaduralive-live/" -y "stream001" -W "http://www.canalextremadura.es/sites/all/modules/custom/slx_reproductor/js/mediaplayer-5.7/player.swf" -p "http://www.canalextremadura.es/alacarta/tv/directo" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -156,15 +164,12 @@ Divinity)
 
 	TVMelilla) rtmpdump -m 200 -r "rtmp://stream.tvmelilla.es:1935/tvmelilla" -y "live" -W "http://www.tvmelilla.es/jwplayer/player.swf" -p "http://www.tvmelilla.es/directo.html" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	EuroNews_ES) rtmpdump -m 200 -r "rtmp://fr-par-1.stream-relay.hexaglobe.net:1935/rtpeuronewslive" -y "es_video350_flash_all.sdp" -W "http://es.euronews.com/media/player_live_1_14.swf" -p "http://es.euronews.com/noticias/en-directo/" -q -v > /tmp/$CANAL."$ID" & ;;
+EuroNews_ES) NOT WORKING
+rtmpdump -m 200 -r "rtmp://fr-par-1.stream-relay.hexaglobe.net:1935/rtpeuronewslive" -y "es_video350_flash_all.sdp" -W "http://es.euronews.com/media/player_live_1_14.swf" -p "http://es.euronews.com/noticias/en-directo/" -q -v > /tmp/$CANAL."$ID" & ;;
 	
-	France24) rtmpdump -m 200 -r "rtmp://vipwowza.yacast.net/france24_live_en" -y "f24_liveen.stream" -W "http://www.france24.com/en/sites/all/modules/maison/aef_player/flash/player_new.swf" -p "http://www.france24.com" -q -v > /tmp/$CANAL."$ID"  & ;;
-
 	PressTV) rtmpdump -m 200 -r "rtmp://cp140005.live.edgefcs.net:80/live" -y "PressTV_RTMP_4@87306" -p "http://www.presstv.ir" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	VaughanTV) rtmpdump -m 200 -a "vaughantvlive-live/" -r "rtmp://vaughantvlivefs.fplive.net/vaughantvlive-live/" -y "vaughantv_1" -W "http://vaughantv.cdn.customers.overon.es/player/player.swf" -p "http://www.vaughanradio.com" -q -v > /tmp/$CANAL."$ID" & ;;
-
-	Russian_Today) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "russiantoday.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	TeleSur) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "telesur.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -206,9 +211,11 @@ Divinity)
 
 	DeluxeMusic) rtmpdump -m 200 -r "rtmp://flash.cdn.deluxemusic.tv/deluxemusic.tv-live/" -y "web_850.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	GoticaTV) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "gotica.stream" -q -v > /tmp/$CANAL."$ID" & ;;
+GoticaTV) NOT TESTED
+rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "gotica.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	LobasTV) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "lobas.stream" -q -v > /tmp/$CANAL."$ID" & ;;
+LobasTV) NOT TESTED
+rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "lobas.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	PartyTV) rtmpdump -m 200 -r "rtmp://149.11.34.6/live" -y "partytv.stream" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -232,9 +239,6 @@ Divinity)
 
 	Hispan_TV) rtmpdump -m 200 -r "rtmp://mtv.fms-01.visionip.tv/live" -y "mtv-m_tv-live-25f-4x3-SDh" -W "http://embeddedplayer.visionip.tv/data/swf/8f44869de82046.059e9bf6e623ee1d54965/player.swf" -p "http://www.hispantv.com" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	Aljazeera_Eng) rtmpdump -m 200 -r "rtmp://aljazeeraflashlivefs.fplive.net:1935/aljazeeraflashlive-live" -y "aljazeera_eng_high" -W "http://admin.brightcove.com/viewer/us20121113.1511/federatedVideoUI/BrightcovePlayer.swf" -p "http://www.aljazeera.com/watch_now/" -q -v > /tmp/$CANAL."$ID" & ;;
-
-	NASA) rtmpdump -a "ustreamCdn/flash94/6540154" -r "rtmp://flash59.gblx.tcdn.ustream.tv:1935/ustreamCdn/flash94/6540154" -y "streams/live_1" -W "http://static-cdn1.ustream.tv/swf/live/viewer.rsl:360.swf" -p "http://www.ustream.tv" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	Esne_TV) rtmpdump -m 200 -r "rtmp://69.60.121.166/live" -y "esne2" -W "http://elsembradorministries.com/esne/ESNE-TV/files/player.swf" -p "http://elsembradorministries.com/esne/ESNE-TV/esnetvenvivo.html" -q -v > /tmp/$CANAL."$ID" & ;;
 
@@ -242,9 +246,11 @@ Divinity)
 
 	Ondamex) rtmpdump -m 200 -r "rtmp://stream.visualnetworks.es:1935/str063" -y "live" -W "http://ondamex.com/ondamex.swf" -p "http://ondamex.com" -q -v > /tmp/$CANAL."$ID" & ;;
 
-	CubaVision) mplayer -really-quiet -dumpstream -dumpfile /tmp/$CANAL."$ID"  mms://cubavision.cubasi.cu/Tvcubana > /dev/null 2>&1 & mplayer_conf_change ;;
+	
+CubaVision) mplayer -really-quiet -dumpstream -dumpfile /tmp/$CANAL."$ID"  mms://cubavision.cubasi.cu/Tvcubana > /dev/null 2>&1 & mplayer_conf_change ;;
 
-	Panamericana) rtmpdump -m 200 -r "rtmp://demo5.iblups.com/demo" -y "nm5esQgmkT"  -W "http://iblups.com/playertvlive123456789panamericanatv.swf" -p "http://iblups.com/e_panamericanatv-490-320" -q -v > /tmp/$CANAL."$ID" & ;;
+	
+    Panamericana) rtmpdump -m 200 -r "rtmp://demo5.iblups.com/demo" -y "nm5esQgmkT"  -W "http://iblups.com/playertvlive123456789panamericanatv.swf" -p "http://iblups.com/e_panamericanatv-490-320" -q -v > /tmp/$CANAL."$ID" & ;;
 
 	Global_TV) rtmpdump -m 200 -r "rtmp://demo13.iblups.com/demo" -y "hTWNttHSsq" -W "http://iblups.com/playertvlive123456789globaltv.swf" -p "http://iblups.com/e_globaltv-490-33" -q -v > /tmp/$CANAL."$ID" & ;;
 
