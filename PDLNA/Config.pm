@@ -62,8 +62,6 @@ our %CONFIG = (
 	'BUFFER_SIZE' => 32768, # 32 kB
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
-	'CHECK_UPDATES' => 1,
-	'CHECK_UPDATES_NOTIFICATION' => 1,
 	'ENABLE_GENERAL_STATISTICS' => 1,
 	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
@@ -366,16 +364,7 @@ sub parse_config
 	#
 	$CONFIG{'SPECIFIC_VIEWS'} = eval_binary_value($cfg->get('SpecificViews')) if defined($cfg->get('SpecificViews'));
 
-	#
-	# CHECK FOR UPDATES
-	#
-	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
-
-	#
-	# CHECK_UPDATES_NOTIFICATION
-	#
-	$CONFIG{'CHECK_UPDATES_NOTIFICATION'} = eval_binary_value($cfg->get('Check4UpdatesNotification')) if defined($cfg->get('Check4UpdatesNotification'));
-
+	
 	#
 	# ENABLE_GENERAL_STATISTICS
 	#

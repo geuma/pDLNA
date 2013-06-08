@@ -69,11 +69,7 @@ my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting 
 $thread2->detach();
 
 
-if ($CONFIG{'CHECK_UPDATES'})
-{
-	my $thread3 = threads->create('PDLNA::Status::check_update_periodic');
-	$thread3->detach();
-}
+
 
 if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
 {
