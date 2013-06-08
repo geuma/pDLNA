@@ -198,7 +198,6 @@ sub initialize_db
 				"NAME"				VARCHAR(2048),
 				"PATH"				VARCHAR(2048),
 				"DIRNAME"			VARCHAR(2048),
-
 				"ROOT"				INTEGER,
 				"TYPE"				INTEGER
 			);'
