@@ -77,10 +77,10 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.65.2',
+	'PROGRAM_VERSION' => '0.65.4',
 	'PROGRAM_DATE' => '2013-xx-xx',
 	'PROGRAM_BETA' => 1,
-	'PROGRAM_DBVERSION' => '1.5',
+	'PROGRAM_DBVERSION' => '2.0',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
