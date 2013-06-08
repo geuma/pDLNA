@@ -167,7 +167,6 @@ sub initialize_db
 				"EXTERNAL"			INTEGER DEFAULT 0,
 				"ROOT"				INTEGER,
 				"SEQUENCE"			BIGINT,
-				"VALID"				INTEGER DEFAULT 1,
 				"WIDTH"				INTEGER,
 				"HEIGHT"			INTEGER,
 				"DURATION"			INTEGER DEFAULT 0,
@@ -741,42 +740,7 @@ sub files_get_external_files
 }
 #----------
 
-
-
-#--- To swith on and off the valid flag of a file
-sub files_set_invalid
-{
- my $file_id = shift;
- 
-            my $dbh = PDLNA::Database::connect();
-            PDLNA::Database::update_db(
-              $dbh,
-              {
-               'query' => 'UPDATE "FILES" SET "VALID" = 0 WHERE "ID" = ?;',
-               'parameters' => [ $file_id, ],
-              },
-            );
-           PDLNA::Database::disconnect($dbh);
-                                                                                                                                                                                                                                                                    
-}
-
-
-
-sub files_set_valid
-{
- my $file_id = shift;
   
-               my $dbh = PDLNA::Database::connect();
-               PDLNA::Database::update_db(
-                    $dbh,
-                    {
-                    'query' => 'UPDATE "FILES" SET "VALID" = 1 WHERE "ID" = ?;',
-                    'parameters' => [ $file_id, ],
-                    },
-               );
-               PDLNA::Database::disconnect($dbh);
-               
-}   
  
 sub files_get_all_valid_records
 {
@@ -785,7 +749,7 @@ sub files_get_all_valid_records
         PDLNA::Database::select_db(
              $dbh,
              {
-             'query' => 'SELECT * FROM "FILES" WHERE "VALID" = 1',
+             'query' => 'SELECT * FROM "FILES" WHERE "TYPE" is not NULL and "MIME_TYPE" != \'unknown\' and "MIME_TYPE" is not NULL',
              'parameters' => [ ],
              },
              \@results,

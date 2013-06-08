@@ -321,7 +321,6 @@ sub add_file_to_db
             my %info = ();
 			PDLNA::Media::get_media_info(     $results->{FULLNAME}, \%info);
 			PDLNA::Database::files_update(    $results->{ID}, \%info );
-            PDLNA::Database::files_set_valid( $results->{ID});
             
 
 		}
@@ -336,7 +335,7 @@ sub add_file_to_db
             my %info = ();
 			PDLNA::Media::get_media_info($results->{FULLNAME}, \%info);
 			PDLNA::Database::files_update( $results->{ID}, \%info );
-            PDLNA::Database::files_set_valid( $results->{ID});
+    
 		
 	}
 
