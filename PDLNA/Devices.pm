@@ -162,7 +162,7 @@ sub delete_expired_devices
 {
 
 	# delete expired DEVICE_NTS entries
-        PDLNA::Database::device_nts_delete_expired();
+    PDLNA::Database::device_nts_delete_expired();
         
 	# delete DEVICE_UDN entries with no NTS entries
 	PDLNA::Database::device_udn_delete_without_nts();

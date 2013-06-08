@@ -50,13 +50,6 @@ sub new
 	$self->{PROTO} = 'udp';
 	$self->{MULTICAST_GROUP} = '239.255.255.250';
 
-	bless($self, $class);
-	return $self;
-}
-
-sub add_send_socket
-{
-	my $self = shift;
 
 	PDLNA::Log::log('Creating SSDP sending socket.', 1, 'discovery');
 	$self->{MULTICAST_SEND_SOCKET} = IO::Socket::INET->new(
@@ -67,11 +60,7 @@ sub add_send_socket
 		Blocking => 0,
 		#ReuseAddr => 1,
 	) || PDLNA::Log::fatal('Cannot bind to SSDP sending socket: '.$!);
-}
 
-sub add_receive_socket
-{
-	my $self = shift;
 
 	PDLNA::Log::log('Creating SSDP listening socket (bind '.$self->{PROTO}.' '.$self->{MULTICAST_GROUP}.':'.$self->{PORT}.').', 1, 'discovery');
 	# socket for listening to M-SEARCH messages
@@ -86,7 +75,13 @@ sub add_receive_socket
 		$self->{MULTICAST_GROUP},
 		$CONFIG{'LISTEN_INTERFACE'}
 	) || PDLNA::Log::fatal('Cannot bind to SSDP listening socket: '.$!);
+    
+
+	bless($self, $class);
+	return $self;
 }
+
+
 
 sub send_byebye
 {
@@ -175,45 +170,7 @@ sub send_announce
 	}
 }
 
-sub start_sending_periodic_alive_messages_thread
-{
-	my $self = shift;
 
-	PDLNA::Log::log('Starting thread for sending periodic SSDP alive messages.', 1, 'discovery');
-	my $thread = threads->create(
-		sub
-		{
-			$self->send_periodic_alive_messages();
-		}
-	);
-	$thread->detach();
-}
-
-sub send_periodic_alive_messages
-{
-	my $self = shift;
-
-	while(1)
-	{
-		$self->send_alive(2);
-		PDLNA::Devices::delete_expired_devices();
-		sleeper($CONFIG{'CACHE_CONTROL'});
-	}
-}
-
-sub start_listening_thread
-{
-	my $self = shift;
-
-	PDLNA::Log::log('Starting SSDP messages receiver thread.', 1, 'discovery');
-	my $thread = threads->create(
-		sub
-		{
-			$self->receive_messages();
-		}
-	);
-	$thread->detach();
-}
 
 sub parse_ssdp_message
 {
@@ -277,8 +234,7 @@ sub receive_messages
 {
 	my $self = shift;
 
-	while(1)
-	{
+	
 		my $data = undef;
 
 		my $peeraddr = $self->{MULTICAST_LISTEN_SOCKET}->recv($data,1024);
@@ -302,14 +258,14 @@ sub receive_messages
 		else
 		{
 			PDLNA::Log::log('Ignoring SSDP message from NOT allowed client IP '.$peer_ip_addr.'.', 2, 'discovery');
-			next;
+			return;
 		}
 
 		my %message = ();
 		unless(parse_ssdp_message($data, \%message))
 		{
 			PDLNA::Log::log('Error while parsing SSDP message from client IP '.$peer_ip_addr.'. Ignoring message.', 1, 'discovery');
-			next;
+			return;
 		}
 
 		if ($message{'TYPE'} eq 'NOTIFY')
@@ -318,7 +274,7 @@ sub receive_messages
 			if ($peer_ip_addr eq $CONFIG{'LOCAL_IPADDR'} && $message{'USN'} eq $CONFIG{'UUID'})
 			{
 				PDLNA::Log::log('Ignore SSDP message from allowed client IP '.$peer_ip_addr.', because the message came from this running '.$CONFIG{'PROGRAM_NAME'}.' installation.', 2, 'discovery');
-				next;
+				return;
 			}
 
 			if ($message{'NTS'} eq 'ssdp:alive' && defined($message{'NT'}))
@@ -358,7 +314,7 @@ sub receive_messages
 				$self->send_announce($peer_ip_addr, $peer_src_port, $message{'ST'}, $message{'MX'});
 			}
 		}
-	}
+	
 }
 
 sub ssdp_message

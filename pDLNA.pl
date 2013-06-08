@@ -68,12 +68,6 @@ PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interfa
 my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
 $thread2->detach();
 
-$ssdp->add_send_socket(); # add the socket for sending SSDP messages
-$ssdp->add_receive_socket(); # add the socket for receiving SSDP messages
-$ssdp->send_byebye(2); # send some byebye messages
-$ssdp->start_listening_thread(); # start to listen for SEARCH messages in a thread
-$ssdp->send_alive(6); # and now we are joing the group
-$ssdp->start_sending_periodic_alive_messages_thread(); # start to send out periodic alive messages in a thread
 
 if ($CONFIG{'CHECK_UPDATES'})
 {
@@ -89,5 +83,7 @@ if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
 
 while(1)
 {
-	sleep(100);
+    $ssdp->send_alive(2);
+    $ssdp->receive_messages();
+	
 }
