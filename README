@@ -10,6 +10,8 @@ INTRODUCTION
 ------------
 Lombix PDLNA is a perl UPnp and DLNA server, forked from the pDLNA project created and mantained by Stefan Heumader.
 
+
+See http://www.pdlna.com the original pDLNA project this project is forked from
 See http://www.perl.org for more details on Perl
 and http://www.upnp.org/ for more details on UPnP
 and http://www.dlna.org/ for mode details on DLNA.
