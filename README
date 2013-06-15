@@ -1,31 +1,37 @@
-pDLNA
-(c) 2010-2013 Stefan Heumader
-email: stefan@heumader.at
-webpage: http://www.pdlna.com
+Lombix DLNA
 
-Licened under GPLv3 (see LICENSE file)
+(c) 2013 Cesar Lombao Stefan Heumader
+email: lombao@lombix.com
+webpage: http://lombix.com/lombix-pdlna
+
+Licensed under GPLv3 (see LICENSE file)
 
 INTRODUCTION
 ------------
-pDLNA is an UPnP and DLNA service which serves multimedia
-content to compatible clients on the network and is written
-in Perl.
+Lombix PDLNA is a perl UPnp and DLNA server, forked from the pDLNA project created and mantained by Stefan Heumader.
 
 See http://www.perl.org for more details on Perl
 and http://www.upnp.org/ for more details on UPnP
 and http://www.dlna.org/ for mode details on DLNA.
 
+
+REQUISITES
+-----------
+To be completed
+
 INSTALLATION
--------------------------
-For the installation see the INSTALL file or the
-'pDLNA Installation, Configuration and Debugging Guide'
-available under http://www.pdlna.com/cgi-bin/index.pl?menu=source&download_install
-
-BUGS & FEATURES
----------------
-Email me or contact me on GitHub if you find bugs
-or if you have some ideas for improvements.
-<stefan@heumader.at>
+-------------
+Unpack the tarball into a directory ( e.g /usr/local/lombix-pdlna ). 
+Check you have all the needed perl modules ( To be completed )
 
 
-Stefan Heumader
+QUICK INTRODUCTION
+--------------------
+Copy the pdlna.conf into /etc and modify it following your needs
+Setup the database if you want to use Postgresql or MariaDB/Mysql 
+Execute pDLNA.pl script
+( To be completed )
+
+
+
+Cesar Lombao
