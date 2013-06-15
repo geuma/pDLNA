@@ -1,3 +1,4 @@
+- Improve a bit more the database layer to consolidate more things
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)
 - enable/disable webui (is it useful?)
@@ -15,4 +16,4 @@
 - random music directory
 - more playlist support: Windows Media Player Playlist
 - set bookmark soap action (X_SetBookmark) - started, but tv does not send the requests ???
-- ReuseAddr parameter for both SSDP sockets (working depends on installed modules and Perl version) - How to handle it?
+- Change the SSDP server to use unicast answers to M-SEARCH requests
