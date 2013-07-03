@@ -1,4 +1,11 @@
-package PDLNA::Utils;
+package LDLNA::Utils;
+#
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -24,8 +31,8 @@ use Digest::SHA1;
 use LWP::UserAgent;
 use Time::HiRes qw(gettimeofday);
 
-use PDLNA::Config;
-use PDLNA::Log;
+use LDLNA::Config;
+use LDLNA::Log;
 
 sub http_date
 {
@@ -135,17 +142,17 @@ sub fetch_http
 	my $url = shift;
 
 	my $ua = LWP::UserAgent->new();
-	$ua->agent($CONFIG{'PROGRAM_NAME'}."/".PDLNA::Config::print_version());
+	$ua->agent($CONFIG{'PROGRAM_NAME'}."/".LDLNA::Config::print_version());
 	my $request = HTTP::Request->new(GET => $url);
 	my $response = $ua->request($request);
 	if ($response->is_success())
 	{
-		PDLNA::Log::log('Fetching URL '.$url.' was successful.', 3, 'httpgeneric');
+		LDLNA::Log::log('Fetching URL '.$url.' was successful.', 3, 'httpgeneric');
 		return $response->content();
 	}
 	else
 	{
-		PDLNA::Log::log('Fetching URL '.$url.' was NOT successful ('.$response->status_line().').', 3, 'httpgeneric');
+		LDLNA::Log::log('Fetching URL '.$url.' was NOT successful ('.$response->status_line().').', 3, 'httpgeneric');
 	}
 	return undef;
 }

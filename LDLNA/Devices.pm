@@ -1,4 +1,8 @@
-package PDLNA::Devices;
+package LDLNA::Devices;
+
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -24,8 +28,8 @@ use File::Basename;
 use URI::Split qw(uri_split uri_join);
 use XML::Simple;
 
-use PDLNA::Config;
-use PDLNA::Database;
+use LDLNA::Config;
+use LDLNA::Database;
 
 sub add_device
 {
@@ -34,7 +38,7 @@ sub add_device
 	#
 	# BEGIN OF IP
 	#
-	my $device_ip_id = PDLNA::Database::device_ip_touch($$params{'ip'}, $$params{'http_useragent'} );
+	my $device_ip_id = LDLNA::Database::device_ip_touch($$params{'ip'}, $$params{'http_useragent'} );
 
 	#
 	# BEGIN OF UDN
@@ -44,7 +48,7 @@ sub add_device
 	return 0 unless defined($$params{'device_description_location'});
 
     my $device_udn_id;
-	my @results = PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
+	my @results = LDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
 	
 	if (@results)
 	{
@@ -63,14 +67,14 @@ sub add_device
 			$device_udn_rela_url = uri_join($scheme, $auth, dirname($path));
 			$device_udn_rela_url = substr($device_udn_rela_url, 0, -1) if $device_udn_rela_url =~ /\/$/; # remove / at the end (if any)
 
-			my $response = PDLNA::Utils::fetch_http($$params{'device_description_location'});
+			my $response = LDLNA::Utils::fetch_http($$params{'device_description_location'});
 			if ($response)
 			{
 				my $xs = XML::Simple->new();
 				my $xml = eval { $xs->XMLin($response) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::Devices: '.$@, 3, 'discovery');
+					LDLNA::Log::log('Error parsing XML Device Description in LDLNA::Devices: '.$@, 3, 'discovery');
 				}
 				else
 				{
@@ -127,15 +131,15 @@ sub add_device
 
 		if (defined($device_udn_modelname) && defined($device_udn_friendlyname))
 		{
-            PDLNA::Database::device_udn_insert($device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname);
-			my @results = PDLNA::Database::get_records_by("DEVICE_UDN",{ DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
+            LDLNA::Database::device_udn_insert($device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname);
+			my @results = LDLNA::Database::get_records_by("DEVICE_UDN",{ DEVICE_IP_REF => $device_ip_id, UDN => $$params{'udn'}});
             $device_udn_id = $results[0]->{ID};
 			# create the DEVICE_SERVICE entries
 			foreach my $service (keys %services)
 			{
 				if (defined($services{$service}->{'serviceId'}) && defined($services{$service}->{'controlURL'}) && defined($services{$service}->{'eventSubURL'}) && defined($services{$service}->{'SCPDURL'}))
 				{
-                                        PDLNA::Database::device_service_insert( $device_udn_id, $services{$service}->{'serviceId'}, $services{$service}->{'serviceType'}, $services{$service}->{'controlURL'}, $services{$service}->{'eventSubURL'}, $services{$service}->{'SCPDURL'});
+                                        LDLNA::Database::device_service_insert( $device_udn_id, $services{$service}->{'serviceId'}, $services{$service}->{'serviceType'}, $services{$service}->{'controlURL'}, $services{$service}->{'eventSubURL'}, $services{$service}->{'SCPDURL'});
 										
 				}
 			}
@@ -152,7 +156,7 @@ sub add_device
 	return 0 unless defined($$params{'nt_time_of_expire'});
 
 
-    PDLNA::Database::device_nts_touch($device_udn_id,$$params{'nt'},$$params{'nt_time_of_expire'});
+    LDLNA::Database::device_nts_touch($device_udn_id,$$params{'nt'},$$params{'nt_time_of_expire'});
 	#
 	# END OF NTS
 	#
@@ -162,10 +166,10 @@ sub delete_expired_devices
 {
 
 	# delete expired DEVICE_NTS entries
-    PDLNA::Database::device_nts_delete_expired();
+    LDLNA::Database::device_nts_delete_expired();
         
 	# delete DEVICE_UDN entries with no NTS entries
-	PDLNA::Database::device_udn_delete_without_nts();
+	LDLNA::Database::device_udn_delete_without_nts();
 }
 
 sub delete_device
@@ -176,16 +180,16 @@ sub delete_device
 	return 0 if !defined($$params{'udn'});
 	return 0 if !defined($$params{'nt'});
 
-	my $device_ip  = PDLNA::Database::device_ip_get_id($$params{'ip'});
-	my $device_udn_id = (PDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip->{ID}, UDN => $$params{'udn'}}))[0]->{ID} if defined($device_ip);
-    my $device_nts_id = PDLNA::Database::device_nts_get_id($device_udn_id, $$params{'nt'}) if defined($device_udn_id);
+	my $device_ip  = LDLNA::Database::device_ip_get_id($$params{'ip'});
+	my $device_udn_id = (LDLNA::Database::get_records_by("DEVICE_UDN", { DEVICE_IP_REF => $device_ip->{ID}, UDN => $$params{'udn'}}))[0]->{ID} if defined($device_ip);
+    my $device_nts_id = LDLNA::Database::device_nts_get_id($device_udn_id, $$params{'nt'}) if defined($device_udn_id);
 
-	PDLNA::Database::device_nts_delete($device_nts_id) if defined($device_nts_id);
+	LDLNA::Database::device_nts_delete($device_nts_id) if defined($device_nts_id);
 
 	if (defined($device_udn_id))
 	{
-		my $device_nts_amount = PDLNA::Database::device_nts_amount($device_udn_id);
-		PDLNA::Database::device_udn_delete_by_id($device_udn_id) if $device_nts_amount == 0;
+		my $device_nts_amount = LDLNA::Database::device_nts_amount($device_udn_id);
+		LDLNA::Database::device_udn_delete_by_id($device_udn_id) if $device_nts_amount == 0;
 	}
 }
 
@@ -194,8 +198,8 @@ sub get_modelname_by_devicetype
 	my $ip = shift;
 	my $devicetype = shift;
 	
-	my @modelnames = PDLNA::Database::device_udn_get_modelname($ip);
-        my @device_udns = PDLNA::Database::device_nts_device_udn_ref($devicetype);	
+	my @modelnames = LDLNA::Database::device_udn_get_modelname($ip);
+        my @device_udns = LDLNA::Database::device_nts_device_udn_ref($devicetype);	
 	foreach my $modelname (@modelnames)
 	{
 	  

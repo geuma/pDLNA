@@ -1,4 +1,10 @@
-package PDLNA::SOAPClient;
+package LDLNA::SOAPClient;
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -23,7 +29,7 @@ use warnings;
 use SOAP::Lite;
 use XML::Simple;
 
-use PDLNA::Log;
+use LDLNA::Log;
 
 # constructor
 sub new
@@ -68,20 +74,20 @@ sub send
 		uri => $self->{URI},
 	);
 
-	PDLNA::Log::log('Doing request to '.$self->{PROXY}.' with method '.$self->{METHOD}.'.', 1, 'soap');
+	LDLNA::Log::log('Doing request to '.$self->{PROXY}.' with method '.$self->{METHOD}.'.', 1, 'soap');
 
 	my $response = undef;
 	eval { $response = $request->call($self->{METHOD} => $self->{ARGUMENTS}) };
 	if ($@)
 	{
-		PDLNA::Log::log('Error: '.$@, 1, 'soap');
+		LDLNA::Log::log('Error: '.$@, 1, 'soap');
 	}
 	else
 	{
-		PDLNA::Log::log('HTTP status code: '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_status'}, 2, 'soap');
+		LDLNA::Log::log('HTTP status code: '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_status'}, 2, 'soap');
 		if ($response->{'_context'}->{'_transport'}->{'_proxy'}->{'_is_success'})
 		{
-			PDLNA::Log::log('HTTP response: '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_http_response'}->{'_content'}, 3, 'soap');
+			LDLNA::Log::log('HTTP response: '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_http_response'}->{'_content'}, 3, 'soap');
 			if ($$params{'return_value'})
 			{
 				my $xmlsimple = XML::Simple->new();
@@ -89,12 +95,12 @@ sub send
 				eval { $xml = $xmlsimple->XMLin($response->{'_context'}->{'_transport'}->{'_proxy'}->{'_http_response'}->{'_content'}) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error converting response with XML::Simple: '.$@, 3, 'soap');
+					LDLNA::Log::log('Error converting response with XML::Simple: '.$@, 3, 'soap');
 				}
 				else
 				{
-					PDLNA::Log::log('Finished converting response with XML::Simple.', 3, 'soap');
-					PDLNA::Log::log('Return value in response: '.$xml->{'s:Body'}->{'u:'.$self->{METHOD}.'Response'}->{$$params{'return_value'}}, 3, 'soap');
+					LDLNA::Log::log('Finished converting response with XML::Simple.', 3, 'soap');
+					LDLNA::Log::log('Return value in response: '.$xml->{'s:Body'}->{'u:'.$self->{METHOD}.'Response'}->{$$params{'return_value'}}, 3, 'soap');
 					return $xml->{'s:Body'}->{'u:'.$self->{METHOD}.'Response'}->{$$params{'return_value'}};
 				}
 			}
@@ -105,7 +111,7 @@ sub send
 		}
 		else
 		{
-			PDLNA::Log::log('Error while doing request (unknwon _is_success value): '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_is_success'}, 1, 'soap');
+			LDLNA::Log::log('Error while doing request (unknwon _is_success value): '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_is_success'}, 1, 'soap');
 		}
 	}
 	return 0;

@@ -1,4 +1,9 @@
-package PDLNA::Config;
+package LDLNA::Config;
+#
+
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -49,10 +54,10 @@ our %CONFIG = (
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
 	'CACHE_CONTROL' => 1800,
-	'PIDFILE' => '/var/run/pdlna.pid',
+	'PIDFILE' => '/run/ldlna.pid',
 	'ALLOWED_CLIENTS' => [],
 	'DB_TYPE' => 'SQLITE3',
-	'DB_NAME' => '/tmp/pdlna.db',
+	'DB_NAME' => '/var/db/ldlna.db',
 	'DB_USER' => undef,
 	'DB_PASS' => undef,
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
@@ -62,29 +67,27 @@ our %CONFIG = (
 	'BUFFER_SIZE' => 32768, # 32 kB
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
-	'ENABLE_GENERAL_STATISTICS' => 1,
 	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'LOW_RESOURCE_MODE' => 0,
-	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
-    'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
+        'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
-	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.65.4',
+	'PROGRAM_NAME' => 'Lombix DLNA',
+	'PROGRAM_VERSION' => '0.70.0',
 	'PROGRAM_DATE' => '2013-xx-xx',
 	'PROGRAM_BETA' => 1,
 	'PROGRAM_DBVERSION' => '2.0',
-	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
-	'PROGRAM_AUTHOR' => 'Stefan Heumader',
+	'PROGRAM_WEBSITE' => 'http://lombix.com',
+	'PROGRAM_AUTHOR' => 'Cesar Lombao',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
-	'AUTHOR_WEBSITE' => 'http://www.urandom.at',
+	'AUTHOR_WEBSITE' => 'http://lombix.com',
 	'PROGRAM_SERIAL' => 1337,
 	# arrays holding supported codec
 	'AUDIO_CODECS_ENCODE' => [],
@@ -97,9 +100,9 @@ our %CONFIG = (
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 );
-$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+$CONFIG{'FRIENDLY_NAME'} = 'Lombix DLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
 
-use PDLNA::Media;
+use LDLNA::Media;
 
 
 
@@ -365,10 +368,6 @@ sub parse_config
 	$CONFIG{'SPECIFIC_VIEWS'} = eval_binary_value($cfg->get('SpecificViews')) if defined($cfg->get('SpecificViews'));
 
 	
-	#
-	# ENABLE_GENERAL_STATISTICS
-	#
-	$CONFIG{'ENABLE_GENERAL_STATISTICS'} = eval_binary_value($cfg->get('EnableGeneralStatistics')) if defined($cfg->get('EnableGeneralStatistics'));
 
 	#
 	# RESCAN_MEDIA
@@ -407,34 +406,6 @@ sub parse_config
 	#
 	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
 
-	#
-	# MPlayerBinaryPath
-	#
-	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
-	{
-		if (-x $CONFIG{'MPLAYER_BIN'})
-		{
-			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
-			my @output = <CMD>;
-			close(CMD);
-
-			my $found = 0;
-			foreach my $line (@output)
-			{
-				$found = 1 if $line =~ /^MPlayer\s+(.+)\s+\(/;
-			}
-
-			unless ($found)
-			{
-				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
-			}
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
-		}
-	}
 
 	#
 	# FFmpegBinaryPath
@@ -443,11 +414,11 @@ sub parse_config
 	my $ffmpeg_error_message = undef;
 	if (-x $CONFIG{'FFMPEG_BIN'})
 	{
-		unless (PDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
+		unless (LDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
-		unless (PDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
+		unless (LDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
@@ -582,7 +553,7 @@ sub parse_config
 			if (defined($block->get('StreamingURL')))
 			{
 				$external{'streamurl'} = $block->get('StreamingURL');
-				unless (PDLNA::Media::is_supported_stream($external{'streamurl'}))
+				unless (LDLNA::Media::is_supported_stream($external{'streamurl'}))
 				{
 					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Not a valid streaming URL.');
 				}
@@ -661,8 +632,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
 						#
 						my $ffmpeg_codec = undef;
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$ffmpeg_codec = LDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$ffmpeg_codec = LDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 						if (defined($ffmpeg_codec))
 						{
 							my $tmp_string = 'AUDIO_CODECS_DECODE';
@@ -690,8 +661,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE FORMATS
 						#
 						my $format = undef;
-						$format = PDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$format = PDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$format = LDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$format = LDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 
 						if (defined($format))
 						{

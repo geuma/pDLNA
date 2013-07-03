@@ -1,4 +1,8 @@
-package PDLNA::Database;
+package LDLNA::Database;
+
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -23,8 +27,8 @@ use Encode;
 
 use DBI;
 
-use PDLNA::Config;
-use PDLNA::Log;
+use LDLNA::Config;
+use LDLNA::Log;
 
 my %SQL_TABLES;
 $SQL_TABLES{SQLITE3} = "SELECT name FROM sqlite_master WHERE type = 'table'";
@@ -44,16 +48,16 @@ sub connect
 	my $dbh = undef;
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','') || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','') || LDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
 	}
 	elsif ($CONFIG{'DB_TYPE'} eq 'PGSQL')
 	{
-                $dbh = DBI->connect('dbi:Pg:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+                $dbh = DBI->connect('dbi:Pg:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || LDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
 	              
 	}
 	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
 	{
-                $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+                $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'},$CONFIG{'DB_USER'},$CONFIG{'DB_PASS'}) || LDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
 	} 
 	return $dbh;
 }
@@ -66,7 +70,7 @@ sub disconnect
 
 sub initialize_db
 {
-	my $dbh = PDLNA::Database::connect();
+	my $dbh = LDLNA::Database::connect();
 
 	my @tables = select_db_tables($dbh);
 	if (grep(/^METADATA$/i, @tables))
@@ -97,7 +101,7 @@ sub initialize_db
 				$dbh,
 				{
 					'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
-					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
+					'parameters' => [ 'VERSION', LDLNA::Config::print_version(), ],
 				},
 			);
 			insert_db(
@@ -116,8 +120,6 @@ sub initialize_db
 			$dbh->do('DROP TABLE "DEVICE_UDN";') if grep(/^DEVICE_UDN$/, @tables);
 			$dbh->do('DROP TABLE "DEVICE_NTS";') if grep(/^DEVICE_NTS$/, @tables);
 			$dbh->do('DROP TABLE "DEVICE_SERVICE";') if grep(/^DEVICE_SERVICE$/, @tables);
-			$dbh->do('DROP TABLE "STAT_MEM";') if grep(/^STAT_MEM$/, @tables);
-			$dbh->do('DROP TABLE "STAT_ITEMS";') if grep(/^STAT_ITEMS$/, @tables);
 			@tables = ();
 		}
 	}
@@ -140,7 +142,7 @@ sub initialize_db
 			$dbh,
 			{
 				'query' => 'INSERT INTO "METADATA" ("KEY", "VALUE") VALUES (?,?)',
-				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
+				'parameters' => [ 'VERSION', LDLNA::Config::print_version(), ],
 			},
 		);
 		insert_db(
@@ -283,31 +285,8 @@ sub initialize_db
 		);
 	}
 
-	unless (grep(/^STAT_MEM$/, @tables))
-	{
-		$dbh->do('CREATE TABLE "STAT_MEM" (
-				"DATE"				BIGINT PRIMARY KEY,
-				"VMS"				BIGINT,
-				"RSS"				BIGINT
-			);'
-		);
-	}
 
-	unless (grep(/^STAT_ITEMS$/, @tables))
-	{
-		$dbh->do('CREATE TABLE "STAT_ITEMS" (
-				"DATE"				BIGINT PRIMARY KEY,
-				"AUDIO"				INTEGER,
-				"AUDIO_SIZE"			BIGINT,
-				"VIDEO"				INTEGER,
-				"VIDEO_SIZE"			BIGINT,
-				"IMAGE"				INTEGER,
-				"IMAGE_SIZE"			BIGINT
-			);'
-		);
-	}
-
-	PDLNA::Database::disconnect($dbh);
+	LDLNA::Database::disconnect($dbh);
 }
 
 sub select_db_tables
@@ -334,7 +313,7 @@ sub select_db_array
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
@@ -343,20 +322,20 @@ sub select_db_array
 		push(@{$result}, $data);
 	}
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 }
 
 sub select_db_field_int
 {
 	my $dbh = shift;
 	my $params = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
 	my $result = $sth->fetchrow_array();
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 	return $result || 0;
 }
 
@@ -365,7 +344,7 @@ sub select_db
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
     
     my $sth;
 	#_log_query($params);
@@ -382,14 +361,14 @@ sub select_db
 		push(@{$result}, $data);
 	}
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 }
 
 sub insert_db
 {
 	my $dbh = shift;
 	my $params = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
 
     my @sanitized_params;
     foreach my $p (@{$$params{'parameters'}}) {
@@ -399,14 +378,14 @@ sub insert_db
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@sanitized_params) or die "Query: ".$$params{'query'}. " [  @sanitized_params ]  with error ==> ". $sth->errstr;
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 }
 
 sub update_db
 {
 	my $dbh = shift;
 	my $params = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
     
     my @sanitized_params;
     foreach my $p (@{$$params{'parameters'}}) {
@@ -416,14 +395,14 @@ sub update_db
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@sanitized_params) or die "Query: ".$$params{'query'}. " [ @sanitized_params ]  with error ==> ". $sth->errstr;
     
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 }
 
 sub delete_db
 {
 	my $dbh = shift;
 	my $params = shift;
-	my $starttime = PDLNA::Utils::get_timestamp_ms();
+	my $starttime = LDLNA::Utils::get_timestamp_ms();
 
     my @sanitized_params;
     foreach my $p (@{$$params{'parameters'}}) {
@@ -433,7 +412,7 @@ sub delete_db
 	my $sth = $dbh->prepare($$params{'query'});
 	$sth->execute(@sanitized_params) or die $sth->errstr;;
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($params, $starttime, LDLNA::Utils::get_timestamp_ms());
 }
 
 #
@@ -462,7 +441,7 @@ sub _log_query
 
 	my $time = $endtime - $starttime;
 
-	PDLNA::Log::log('(Query took '.$time.'ms): '. $$params{'query'}.' - '.$parameters, 1, 'database');
+	LDLNA::Log::log('(Query took '.$time.'ms): '. $$params{'query'}.' - '.$parameters, 1, 'database');
 }
 
 
@@ -506,8 +485,8 @@ sub get_records_by
         $sql = $sql . join(' AND ',@setarray) ; 
         } # end if
                  
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
              $dbh,
              {
              'query' => $sql,
@@ -515,7 +494,7 @@ sub get_records_by
              },
             \@records
          );
-         PDLNA::Database::disconnect($dbh);                  
+         LDLNA::Database::disconnect($dbh);                  
 
   return @records;
 }
@@ -531,76 +510,6 @@ sub get_records_by
 ##
 
 
-#
-# STATS TABLE
-# 
-sub stats_insert_mem
-{
- my $time = shift;
- my $vmsize = shift;
- my $rssize = shift; 
- 
-
-   my $dbh = PDLNA::Database::connect();           
-   PDLNA::Database::insert_db(
-                $dbh,
-                {
-                'query' => 'INSERT INTO "STAT_MEM" ("DATE", "VMS", "RSS") VALUES (?,?,?)',
-                'parameters' => [ $time, $vmsize, $rssize, ]
-                }               
-   );
-   PDLNA::Database::disconnect($dbh);	        
-}                                                                                                                                                                                        
-
-
-
-sub stats_insert_media
-{ 
- my $time = shift;
- my $audio_amount = shift;
- my $audio_size   = shift;
- my $image_amount = shift;
- my $image_size   = shift;
- my $video_amount = shift;
- my $video_size   = shift;
- 
-   my $dbh = PDLNA::Database::connect();
-   PDLNA::Database::insert_db(
-           $dbh,
-           {
-           'query' => 'INSERT INTO "STAT_ITEMS" ("DATE", "AUDIO", "AUDIO_SIZE", "IMAGE", "IMAGE_SIZE", "VIDEO", "VIDEO_SIZE") VALUES (?,?,?,?,?,?,?)', 
-           'parameters' => [ $time, $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ], 
-            },
-   );
-   PDLNA::Database::disconnect($dbh);                        
-}
-
-
-sub stats_getdata
-{
- my $dateformatstring = shift;
- my $dbtable          = shift;
- my $period           = shift;
- my @dbfields         = @_;
-
-        my @results = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
-              $dbh,
-               {
-                'query' =>  "SELECT strftime('".$dateformatstring."',datetime(\"DATE\", 'unixepoch', 'localtime')) AS DATETIME,
-                                     " .join(', ', @dbfields).  "
-                              FROM ".$dbtable. " 
-                              WHERE \"DATE\" > strftime('%s', 'now', 'start of ".$period."', 'utc') 
-                              GROUP BY DATETIME",
-                        'parameters' => [ ]
-                },
-                \@results,
-        );
-        PDLNA::Database::disconnect($dbh);
-    return @results;
-}
-
 
 ##
 ## FILES TABLE
@@ -613,15 +522,15 @@ sub files_delete
 {
  my $file_id = shift;
  
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::delete_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::delete_db(
             $dbh,
             {
              'query' => 'DELETE FROM "FILES" WHERE "ID" = ?',
              'parameters' => [ $file_id, ],
             },
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
                                                                                                                  
 }
 
@@ -646,15 +555,15 @@ sub files_update
         $sql = $sql . join(',',@setarray) . " WHERE \"ID\" = ?"; 
         push @paramsarray, $id;
                 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::update_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::update_db(
              $dbh,
              {
              'query' => $sql,
              'parameters' => \@paramsarray
              },
          );
-         PDLNA::Database::disconnect($dbh);                  
+         LDLNA::Database::disconnect($dbh);                  
 }
 
 
@@ -663,7 +572,7 @@ sub files_get_all_size
 {
   my $type = shift || undef;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT", SUM("SIZE") AS "SIZE" FROM "FILES"';
         my @sql_param = ();
         if (defined($type))
@@ -673,7 +582,7 @@ sub files_get_all_size
         }
 
         my @result = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => $sql_query,
@@ -681,22 +590,22 @@ sub files_get_all_size
                 },
                 \@result,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
    return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
 sub files_get_all_duration
 {
-        my $dbh = PDLNA::Database::connect();
-        my $duration = PDLNA::Database::select_db_field_int(
+        my $dbh = LDLNA::Database::connect();
+        my $duration = LDLNA::Database::select_db_field_int(
                   $dbh,
                   {
                    'query' => 'SELECT SUM("DURATION") AS "SUMDURATION" FROM "FILES"',
                    'parameters' => [ ],
                    },
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
   return $duration;
 }
@@ -706,8 +615,8 @@ sub files_get_non_external_files
 {
 
         my @files = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
               $dbh,
               {
                'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = 0',
@@ -715,7 +624,7 @@ sub files_get_non_external_files
                },
               \@files,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
    return @files;
 }
@@ -724,8 +633,8 @@ sub files_get_external_files
 {
 
         my @files = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
               $dbh,
               {
                'query' => 'SELECT "ID", "FULLNAME" FROM "FILES" WHERE "EXTERNAL" = 1',
@@ -733,7 +642,7 @@ sub files_get_external_files
                },
               \@files,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
    return @files;
 }
@@ -744,8 +653,8 @@ sub files_get_external_files
 sub files_get_all_valid_records
 {
         my @results = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
              $dbh,
              {
              'query' => 'SELECT * FROM "FILES" WHERE "TYPE" is not NULL and "MIME_TYPE" != \'unknown\' and "MIME_TYPE" is not NULL',
@@ -753,7 +662,7 @@ sub files_get_all_valid_records
              },
              \@results,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
    
  return @results;
 
@@ -768,8 +677,8 @@ sub files_insert_returning_record
 {
  my $params = shift;
  
-            my $dbh = PDLNA::Database::connect();                        
-            PDLNA::Database::insert_db(
+            my $dbh = LDLNA::Database::connect();                        
+            LDLNA::Database::insert_db(
                        $dbh,
                        {
                        'query' => 'INSERT INTO "FILES" ("NAME", "PATH", "FULLNAME", "FILE_EXTENSION", "DATE", "SIZE", "MIME_TYPE", "TYPE", "EXTERNAL", "ROOT", "SEQUENCE") VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
@@ -778,7 +687,7 @@ sub files_insert_returning_record
             );    
 
             my @records = get_records_by("FILES", { FULLNAME => $$params{'element'},PATH => $$params{'element_dirname'}});
-            PDLNA::Database::disconnect($dbh);
+            LDLNA::Database::disconnect($dbh);
             
        return $records[0];                         
 }
@@ -800,15 +709,15 @@ sub files_insert
  my $sequence         = shift;
      
            # insert file to db
-           my $dbh = PDLNA::Database::connect();
-           PDLNA::Database::insert_db(
+           my $dbh = LDLNA::Database::connect();
+           LDLNA::Database::insert_db(
                      $dbh,
                      {
                      'query' => 'INSERT INTO "FILES" ("NAME", "PATH", "FULLNAME", "FILE_EXTENSION", "DATE", "SIZE", "MIME_TYPE", "TYPE", "EXTERNAL", "ROOT", "SEQUENCE") VALUES (?,?,?,?,?,?,?,?,?,?,?)',  
                      'parameters' => [ $element_basename, $element_dirname, $element, $file_extension, $date, $size,  $mime_type, $type, $external, $root, $sequence, ],
                      },
            );
-           PDLNA::Database::disconnect($dbh);                                                                                                                                                                             
+           LDLNA::Database::disconnect($dbh);                                                                                                                                                                             
 }
 
 
@@ -823,15 +732,15 @@ sub device_ip_delete_by_id
  {
   my $device_ip_id = shift;
 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::delete_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::delete_db(
                 $dbh,
                 {
                  'query' => 'DELETE FROM "DEVICE_IP" WHERE "ID" = ?',
                  'parameters' => [ $device_ip_id, ],
                 },
         );
-       PDLNA::Database::disconnect($dbh);
+       LDLNA::Database::disconnect($dbh);
 }
 
 #
@@ -846,12 +755,12 @@ sub device_ip_get_id
         if (!defined $ip)              # We only pass one param 
         {                              # when we want this function to make
          $ip = $dbh;                   # its own database connection 
-         $dbh = PDLNA::Database::connect();
+         $dbh = LDLNA::Database::connect();
          $flag = 1;
         }
         
         my @devices = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                        $dbh,
                        {
                         'query' => 'SELECT "ID", "IP", "USER_AGENT", "LAST_SEEN"  FROM "DEVICE_IP" WHERE "IP" = ?',
@@ -860,7 +769,7 @@ sub device_ip_get_id
                       \@devices,
                      );
                      
-        PDLNA::Database::disconnect($dbh) if $flag;
+        LDLNA::Database::disconnect($dbh) if $flag;
         return $devices[0];
 }
 
@@ -877,20 +786,20 @@ sub  device_ip_touch
   my $params;
   my @result;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my $time = time ();
 
-        my $device_ip =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+        my $device_ip =  LDLNA::Database::device_ip_get_id($dbh,$ip); 
         if (!defined($device_ip)) 
          {
-           PDLNA::Database::insert_db(
+           LDLNA::Database::insert_db(
                         $dbh,
                         {
                            'query' => 'INSERT INTO "DEVICE_IP" ("IP") VALUES (?)',
                            'parameters' => [ $ip ],
                         },
                 );
-           $device_ip =  PDLNA::Database::device_ip_get_id($dbh,$ip); 
+           $device_ip =  LDLNA::Database::device_ip_get_id($dbh,$ip); 
          }
 
         if (defined($useragent)) 
@@ -904,7 +813,7 @@ sub  device_ip_touch
           $params = [ $time,$device_ip->{ID} ];
          }
 
-         PDLNA::Database::update_db(
+         LDLNA::Database::update_db(
                      $dbh,
                        {
                         'query' => $sql, 
@@ -912,7 +821,7 @@ sub  device_ip_touch
                         },
                 );
 
-         PDLNA::Database::disconnect($dbh);
+         LDLNA::Database::disconnect($dbh);
          
          return $device_ip->{ID};
 }
@@ -932,15 +841,15 @@ sub device_udn_insert
   my $dev_udn_modelname  = shift;
   my $dev_udn_friendlyname = shift;
 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::insert_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::insert_db(
                  $dbh,
                   {
            'query' => 'INSERT INTO "DEVICE_UDN" ("DEVICE_IP_REF", "UDN", "SSDP_BANNER", "DESC_URL", "RELA_URL", "BASE_URL", "TYPE", "MODEL_NAME", "FRIENDLY_NAME") VALUES (?,?,?,?,?,?,?,?,?)',
            'parameters' => [ $device_ip_id, $udn, $ssdp_banner, $dev_desc_loc, $dev_udn_base_url, $dev_udn_rela_url, $dev_udn_devicetype, $dev_udn_modelname, $dev_udn_friendlyname, ],
                    },
          );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
 }
 
@@ -950,8 +859,8 @@ sub device_udn_get_modelname
   my $ip = shift;
 
         my @modelnames = ();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                   'query' => 'SELECT "ID", "MODEL_NAME" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" IN (SELECT "ID" FROM "DEVICE_IP" WHERE "IP" = ?)',
@@ -959,7 +868,7 @@ sub device_udn_get_modelname
                 },
                 \@modelnames,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
         return @modelnames;
 }
 
@@ -972,11 +881,11 @@ sub device_udn_delete_by_id
         if (!defined $device_udn_id)   # We only pass one param 
         {                              # when we want this function to make
          $device_udn_id = $dbh;        # its own database connection 
-         $dbh = PDLNA::Database::connect();
+         $dbh = LDLNA::Database::connect();
          $flag = 1;
         }
 
-        PDLNA::Database::delete_db(
+        LDLNA::Database::delete_db(
                 $dbh,
                 {
                         'query' => 'DELETE FROM "DEVICE_UDN" WHERE "ID" = ?',
@@ -985,9 +894,9 @@ sub device_udn_delete_by_id
         );
 
         # delete the DEVICE_SERVICE entries
-        PDLNA::Database::device_service_delete($device_udn_id);
+        LDLNA::Database::device_service_delete($device_udn_id);
         
-        PDLNA::Database::disconnect($dbh) if $flag;
+        LDLNA::Database::disconnect($dbh) if $flag;
 
 }
 
@@ -997,9 +906,9 @@ sub device_udn_delete_by_id
 sub device_udn_delete_without_nts
 {
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my @device_udn = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                  'query' => 'SELECT "ID" FROM "DEVICE_UDN"',
@@ -1009,13 +918,13 @@ sub device_udn_delete_without_nts
         );
         foreach my $udn (@device_udn)
         {
-                my @device_nts_amount = PDLNA::Database::device_nts_amount($udn->{ID});
+                my @device_nts_amount = LDLNA::Database::device_nts_amount($udn->{ID});
                 if ($device_nts_amount[0]->{AMOUNT} == 0)
                 {
-                       PDLNA::Database::device_udn_delete_by_id($dbh, $udn->{ID});
+                       LDLNA::Database::device_udn_delete_by_id($dbh, $udn->{ID});
                 }
         }
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
 }
 
@@ -1025,8 +934,8 @@ sub  device_udn_select_by_ip
   my $device_ip_id = shift;
 
                 my @devices_udn = ();
-                my $dbh = PDLNA::Database::connect();
-                PDLNA::Database::select_db(
+                my $dbh = LDLNA::Database::connect();
+                LDLNA::Database::select_db(
                         $dbh,
                         {
                                 'query' => 'SELECT "ID", "UDN" FROM "DEVICE_UDN" WHERE "DEVICE_IP_REF" = ?',
@@ -1034,7 +943,7 @@ sub  device_udn_select_by_ip
                         },
                         \@devices_udn,
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
 
        return @devices_udn;
 }
@@ -1052,15 +961,15 @@ sub device_service_insert
   my $eventSubURL   = shift;
   my $scpdURL       = shift;
 
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::insert_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::insert_db(
            $dbh,
             {
             'query' => 'INSERT INTO "DEVICE_SERVICE" ("DEVICE_UDN_REF", "SERVICE_ID", "TYPE", "CONTROL_URL", "EVENT_URL", "SCPD_URL") VALUES (?,?,?,?,?,?)',
             'parameters' => [ $device_udn_id, $serviceId, $serviceType, $controlURL, $eventSubURL, $scpdURL ],
              }
         );
-       PDLNA::Database::disconnect($dbh);
+       LDLNA::Database::disconnect($dbh);
 
 }
 
@@ -1075,17 +984,17 @@ sub device_service_delete
              if (!defined $device_udn_id)       # We only pass one param 
              {                                  # when we want this function to make
               $device_udn_id = $dbh;            # its own database connection
-              $dbh = PDLNA::Database::connect();
+              $dbh = LDLNA::Database::connect();
               $flag = 1;
              }
-            PDLNA::Database::delete_db(
+            LDLNA::Database::delete_db(
             $dbh, 
                {
                     'query' => 'DELETE FROM "DEVICE_SERVICE" WHERE "DEVICE_UDN_REF" = ?',
                         'parameters' => [ $device_udn_id, ],
                },
             );
-            PDLNA::Database::disconnect($dbh) if $flag;
+            LDLNA::Database::disconnect($dbh) if $flag;
 
 }
 
@@ -1093,9 +1002,9 @@ sub device_service_get_records_by_serviceid
 {
  my $service_id = shift;
 
-                my $dbh = PDLNA::Database::connect();
+                my $dbh = LDLNA::Database::connect();
                 my @device_services = ();
-                PDLNA::Database::select_db(
+                LDLNA::Database::select_db(
                       $dbh,
                       {
                        'query' => 'SELECT "TYPE", "CONTROL_URL" FROM "DEVICE_SERVICE" WHERE "SERVICE_ID" = ?', 
@@ -1103,7 +1012,7 @@ sub device_service_get_records_by_serviceid
                       },
                       \@device_services,
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
 
     return @device_services;
 }  
@@ -1124,12 +1033,12 @@ sub  device_nts_amount
         if (!defined $device_udn_id)   # We only pass one param 
         {                              # when we want this function to make
          $device_udn_id = $dbh;        # its own database connection 
-         $dbh = PDLNA::Database::connect();
+         $dbh = LDLNA::Database::connect();
          $flag = 1;
         }
 
          my @device_nts_amount = ();
-         PDLNA::Database::select_db(
+         LDLNA::Database::select_db(
                $dbh,
                {
                 'query' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ?',
@@ -1137,7 +1046,7 @@ sub  device_nts_amount
                 },
                \@device_nts_amount,
          );
-         PDLNA::Database::disconnect($dbh) if ($flag);
+         LDLNA::Database::disconnect($dbh) if ($flag);
          return @device_nts_amount;
 
 }
@@ -1147,10 +1056,10 @@ sub device_nts_get_records
 {
  my $device_udn_ref = shift;
 
-                my $dbh = PDLNA::Database::connect();
+                my $dbh = LDLNA::Database::connect();
 
                 my @device_nts = ();
-                PDLNA::Database::select_db(
+                LDLNA::Database::select_db(
                         $dbh,
                         {
                          'query' => 'SELECT "TYPE", "EXPIRE" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ?',
@@ -1158,7 +1067,7 @@ sub device_nts_get_records
                         },
                        \@device_nts,
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
 
           return @device_nts;
 }
@@ -1169,8 +1078,8 @@ sub device_nts_device_udn_ref
   my $devicetype = shift;
  
                 my @device_udns = (); 
-                my $dbh = PDLNA::Database::connect();
-                PDLNA::Database::select_db(
+                my $dbh = LDLNA::Database::connect();
+                LDLNA::Database::select_db(
                         $dbh,
                         {
                                 'query' => 'SELECT "DEVICE_UDN_REF" FROM "DEVICE_NTS" WHERE "TYPE" = ?',
@@ -1178,7 +1087,7 @@ sub device_nts_device_udn_ref
                         },
                         \@device_udns,
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
 
                 return @device_udns;
 }
@@ -1197,12 +1106,12 @@ sub device_nts_get_id
         {                                     # when we want this function to make
          $device_nts_type = $device_udn_id;   # its own database connection
          $device_udn_id   = $dbh; 
-         $dbh = PDLNA::Database::connect();
+         $dbh = LDLNA::Database::connect();
          $flag = 1;
         }
 
         my @device_nts = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => 'SELECT "ID" FROM "DEVICE_NTS" WHERE "DEVICE_UDN_REF" = ? AND "TYPE" = ?',
@@ -1210,7 +1119,7 @@ sub device_nts_get_id
                 },
                 \@device_nts,
         );
-        PDLNA::Database::disconnect($dbh) if $flag;
+        LDLNA::Database::disconnect($dbh) if $flag;
 
         return $device_nts[0]->{ID};
 }
@@ -1226,18 +1135,18 @@ sub device_nts_delete
             if (!defined $nts_id)        # We only pass one param 
             {                                     # when we want this function to make
              $nts_id = $dbh;   # its own database connection
-             $dbh = PDLNA::Database::connect();
+             $dbh = LDLNA::Database::connect();
              $flag = 1;
             }
                                                                     
-            PDLNA::Database::delete_db(
+            LDLNA::Database::delete_db(
             $dbh,
                {
                 'query' => 'DELETE FROM "DEVICE_NTS" WHERE "ID" = ?',
                 'parameters' => [ $nts_id ],
                },
             );
-            PDLNA::Database::disconnect($dbh) if $flag;
+            LDLNA::Database::disconnect($dbh) if $flag;
 }
 
 
@@ -1248,11 +1157,11 @@ sub device_nts_touch
  my $nt            = shift;
  my $nt_time_of_expire = shift;
 
-        my $dbh = PDLNA::Database::connect();
-        my $device_nts_id = PDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
+        my $dbh = LDLNA::Database::connect();
+        my $device_nts_id = LDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
         if (defined($device_nts_id))
         {
-                PDLNA::Database::update_db(
+                LDLNA::Database::update_db(
                         $dbh,
                         {
                                 'query' => 'UPDATE "DEVICE_NTS" SET "EXPIRE" = ? WHERE "ID" = ? AND "TYPE" = ?',
@@ -1262,16 +1171,16 @@ sub device_nts_touch
         }
         else
         {
-                PDLNA::Database::insert_db(
+                LDLNA::Database::insert_db(
                         $dbh,
                         {
                                 'query' => 'INSERT INTO "DEVICE_NTS" ("DEVICE_UDN_REF", "TYPE", "EXPIRE") VALUES (?,?,?)',
                                 'parameters' => [ $device_udn_id, $nt, $nt_time_of_expire ],
                         },
                 );
-                $device_nts_id = PDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
+                $device_nts_id = LDLNA::Database::device_nts_get_id($dbh, $device_udn_id, $nt);
         }
-       PDLNA::Database::disconnect($dbh);
+       LDLNA::Database::disconnect($dbh);
         
     return  $device_nts_id;
      
@@ -1283,8 +1192,8 @@ sub device_nts_delete_expired
   my @device_nts = ();
 
         my $time = time();
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => 'SELECT "ID", "EXPIRE" FROM "DEVICE_NTS"',
@@ -1296,10 +1205,10 @@ sub device_nts_delete_expired
         {
                 if ($nts->{EXPIRE} < $time)
                 {
-                  PDLNA::Database::device_nts_delete($dbh,$nts->{ID});
+                  LDLNA::Database::device_nts_delete($dbh,$nts->{ID});
                 }
         }
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
 }
                  
@@ -1309,15 +1218,15 @@ sub metadata_get_value
 {
   my $key = shift; 
 
-                 my $dbh = PDLNA::Database::connect();
-                 my $val = PDLNA::Database::select_db_field_int(
+                 my $dbh = LDLNA::Database::connect();
+                 my $val = LDLNA::Database::select_db_field_int(
                      $dbh,
                         {
                         'query' => 'SELECT "VALUE" FROM "METADATA" WHERE "KEY" = ?',
                         'parameters' => [ $key, ],
                         },
                  );
-                 PDLNA::Database::disconnect($dbh);
+                 LDLNA::Database::disconnect($dbh);
 
 
     return $val;
@@ -1328,15 +1237,15 @@ sub metadata_update_value
      my $value = shift;
      my $key   = shift;
      
-            my $dbh = PDLNA::Database::connect();
-    		PDLNA::Database::update_db(
+            my $dbh = LDLNA::Database::connect();
+    		LDLNA::Database::update_db(
 			$dbh,
 			{
 				'query' => 'UPDATE "METADATA" SET "VALUE" = ? WHERE "KEY" = ?',
 				'parameters' => [ $value,$key ],
 			},
             );
-            PDLNA::Database::disconnect($dbh);
+            LDLNA::Database::disconnect($dbh);
 }
 
 
@@ -1349,15 +1258,15 @@ sub device_bm_get_posseconds
     my $item_id      = shift;
     my $device_ip_id = shift;
     
-        my $dbh = PDLNA::Database::connect();
-	my $bookmark = PDLNA::Database::select_db_field_int(
+        my $dbh = LDLNA::Database::connect();
+	my $bookmark = LDLNA::Database::select_db_field_int(
 		$dbh,
 		{
 		 'query' => 'SELECT "POS_SECONDS" FROM "DEVICE_BM" WHERE "FILE_ID_REF" = ? AND "DEVICE_IP_REF" = ?',
 		 'parameters' => [ $item_id, $device_ip_id, ],
 		},
 		);
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
                 
         return $bookmark;
 }
@@ -1370,15 +1279,15 @@ sub device_bm_update_posseconds
     my $device_ip_id = shift;
     
     
-                my $dbh = PDLNA::Database::connect();
-				PDLNA::Database::update_db(
+                my $dbh = LDLNA::Database::connect();
+				LDLNA::Database::update_db(
 					$dbh,
 					{
 					'query' => 'UPDATE "DEVICE_BM" SET "POS_SECONDS" = ? WHERE "FILE_ID_REF" = ? AND "DEVICE_IP_REF" = ?',
 					'parameters' => [ $seconds, $item_id, $device_ip_id, ],
 					}
 				);
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
             
  
 }
@@ -1389,15 +1298,15 @@ sub device_bm_insert_posseconds
     my $device_ip_id = shift;
     my $seconds      = shift;
       
-                my $dbh = PDLNA::Database::connect(); 
-    			PDLNA::Database::insert_db(
+                my $dbh = LDLNA::Database::connect(); 
+    			LDLNA::Database::insert_db(
                     $dbh,
 					{
 					'query' => 'INSERT INTO "DEVICE_BM" ("FILE_ID_REF", "DEVICE_IP_REF", "POS_SECONDS") VALUES (?,?,?)',
 					'parameters' => [ $item_id, $device_ip_id, $seconds ],
 					}
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
                 
 }
 
@@ -1411,15 +1320,15 @@ sub subtitles_update
   my $size  = shift;
   my $file_id = shift;
   
-                my $dbh = PDLNA::Database::connect();
-                PDLNA::Database::update_db(
+                my $dbh = LDLNA::Database::connect();
+                LDLNA::Database::update_db(
                     $dbh,
                     {
                     'query' => 'UPDATE "SUBTITLES" SET "DATE" = ?, "SIZE" = ?, WHERE "ID" = ?;',
                     'parameters' => [ $date, $size, $file_id, ],
                     },
                 );
-                PDLNA::Database::disconnect($dbh);                                                                                                                                                                                                                                                       
+                LDLNA::Database::disconnect($dbh);                                                                                                                                                                                                                                                       
 }
 
 
@@ -1433,15 +1342,15 @@ sub subtitles_insert
  my $date          = shift;
  my $size          = shift;
   
-                my $dbh = PDLNA::Database::connect();
-                PDLNA::Database::insert_db(
+                my $dbh = LDLNA::Database::connect();
+                LDLNA::Database::insert_db(
                     $dbh,
                     {
                      'query' => 'INSERT INTO "SUBTITLES" ("FILEID_REF", "FULLNAME", "NAME", "TYPE", "MIME_TYPE", "DATE", "SIZE") VALUES (?,?,?,?,?,?,?)',
                      'parameters' => [ $file_id, $path, $basename_path, $type, $mimetype, $date, $size, ], 
                     },
                 );
-               PDLNA::Database::disconnect($dbh);
+               LDLNA::Database::disconnect($dbh);
                                                                                                                                                                         
 }
 
@@ -1450,15 +1359,15 @@ sub subtitles_delete
 {
  my $sub_id = shift;
  
-             my $dbh = PDLNA::Database::connect();
-             PDLNA::Database::delete_db(
+             my $dbh = LDLNA::Database::connect();
+             LDLNA::Database::delete_db(
                  $dbh,
                  {
                  'query' => 'DELETE FROM "SUBTITLES" WHERE "ID" = ?',
                  'parameters' => [ $sub_id, ],
                  },
              );
-             PDLNA::Database::disconnect($dbh);
+             LDLNA::Database::disconnect($dbh);
              
 }
 
@@ -1467,15 +1376,15 @@ sub subtitles_delete_by_fileid
 {
  my $file_id = shift;
  
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::delete_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::delete_db(
             $dbh,
             {
             'query' => 'DELETE FROM "SUBTITLES" WHERE "FILEID_REF" = ?',
             'parameters' => [ $file_id, ],
             },
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
                                                                                                                          
 }
 
@@ -1489,8 +1398,8 @@ sub directories_get_records
      my $object_id = shift;
      
         my @directories = ();
-        my $dbh = PDLNA::Database::connect();
-    	PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+    	LDLNA::Database::select_db(
             $dbh,
             {
             'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "DIRNAME" FROM "DIRECTORIES" WHERE "ID" = ? );',
@@ -1498,7 +1407,7 @@ sub directories_get_records
             },
 			\@directories,
 		);
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
     
     return $directories[0];
 }
@@ -1513,15 +1422,15 @@ sub directories_insert
  my $rootdir       = shift;
  my $type          = shift;
  
-                my $dbh = PDLNA::Database::connect();
-                PDLNA::Database::insert_db(
+                my $dbh = LDLNA::Database::connect();
+                LDLNA::Database::insert_db(
                          $dbh,
                           {
                            'query' => 'INSERT INTO "DIRECTORIES" ("NAME", "PATH", "DIRNAME", "ROOT", "TYPE") VALUES (?,?,?,?,?)',
                            'parameters' => [ $basename_path, $path, $dirname_path, $rootdir, $type ],
                           },
                 );
-                PDLNA::Database::disconnect($dbh);
+                LDLNA::Database::disconnect($dbh);
 }
 
 
@@ -1529,15 +1438,15 @@ sub directories_delete
 {
  my $directory_id = shift;
  
-        my $dbh = PDLNA::Database::connect();
-        PDLNA::Database::delete_db(
+        my $dbh = LDLNA::Database::connect();
+        LDLNA::Database::delete_db(
                   $dbh,
                   {
                   'query' => 'DELETE FROM "DIRECTORIES" WHERE "ID" = ?',
                   'parameters' => [ $directory_id, ],
                   },
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
         
                                                                                                                                                                                                                             
 }
@@ -1553,7 +1462,7 @@ sub get_subdirectories_by_id
  my $requested_count = shift;   
  my $directory_elements = shift;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
 
 
         my $sql_query = 'SELECT "ID", "NAME", "PATH" FROM "DIRECTORIES" WHERE ';
@@ -1586,7 +1495,7 @@ sub get_subdirectories_by_id
 	
         }
 
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => $sql_query,
@@ -1595,7 +1504,7 @@ sub get_subdirectories_by_id
                 $directory_elements,
         );
 
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
 }
 
@@ -1608,7 +1517,7 @@ sub get_subfiles_by_id
   my $file_elements = shift;  
 
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my $sql_query = 'SELECT "ID", "NAME", "SIZE", "DATE" FROM "FILES" WHERE ';
         my @sql_param = ();
 
@@ -1636,7 +1545,7 @@ sub get_subfiles_by_id
             }
         }
 
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => $sql_query,
@@ -1645,7 +1554,7 @@ sub get_subfiles_by_id
                 $file_elements,
         );
 
-      PDLNA::Database::disconnect($dbh);
+      LDLNA::Database::disconnect($dbh);
 
 }
 
@@ -1654,9 +1563,9 @@ sub get_subfiles_size_by_id
 {
  my $object_id = shift;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my @result = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                  'query' => 'SELECT SUM("SIZE") AS "FULLSIZE" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? )',
@@ -1664,7 +1573,7 @@ sub get_subfiles_size_by_id
                 },
                 \@result,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
         return $result[0]->{FULLSIZE};
 }
 
@@ -1676,7 +1585,7 @@ sub get_amount_subdirectories_by_id
  my $object_id = shift;
 
         my @directory_amount = ();
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
 
         my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT" FROM "DIRECTORIES" WHERE ';
         my @sql_param = ();
@@ -1690,7 +1599,7 @@ sub get_amount_subdirectories_by_id
                 push(@sql_param, $object_id);
         }
 
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => $sql_query,
@@ -1698,7 +1607,7 @@ sub get_amount_subdirectories_by_id
                 },
                 \@directory_amount,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
 
         return $directory_amount[0]->{AMOUNT};
@@ -1708,12 +1617,12 @@ sub get_amount_subfiles_by_id
 {
  my $object_id = shift;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my @files_amount = ();
 
         my $sql_query = 'SELECT COUNT("ID") AS "AMOUNT" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ?)';
         my @sql_param = ( $object_id, );
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => $sql_query,
@@ -1721,7 +1630,7 @@ sub get_amount_subfiles_by_id
                 },
                 \@files_amount,
         );
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
         return $files_amount[0]->{AMOUNT};
 }
@@ -1731,9 +1640,9 @@ sub get_parent_of_directory_by_id
 {
  my $object_id = shift;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my @directory_parent = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                 'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "DIRNAME" FROM "DIRECTORIES" WHERE "ID" = ? )',
@@ -1742,7 +1651,7 @@ sub get_parent_of_directory_by_id
                 \@directory_parent,
         );
         $directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
         return $directory_parent[0]->{ID};
 }
@@ -1751,9 +1660,9 @@ sub get_parent_of_item_by_id
 {
  my $object_id = shift;
 
-        my $dbh = PDLNA::Database::connect();
+        my $dbh = LDLNA::Database::connect();
         my @item_parent = ();
-        PDLNA::Database::select_db(
+        LDLNA::Database::select_db(
                 $dbh,
                 {
                         'query' => 'SELECT "ID" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "ID" = ? )',
@@ -1762,7 +1671,7 @@ sub get_parent_of_item_by_id
                 \@item_parent,
         );
         $item_parent[0]->{ID} = 0 if !defined($item_parent[0]->{ID});
-        PDLNA::Database::disconnect($dbh);
+        LDLNA::Database::disconnect($dbh);
 
         return $item_parent[0]->{ID};
 }

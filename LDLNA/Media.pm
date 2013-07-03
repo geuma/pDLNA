@@ -1,4 +1,10 @@
-package PDLNA::Media;
+package LDLNA::Media;
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -24,7 +30,7 @@ use warnings;
 use Fcntl;
 use XML::Simple;
 
-use PDLNA::Config;
+use LDLNA::Config;
 
 my %MIME_TYPES = (
 	'image/jpeg' => 'jpeg',
@@ -372,7 +378,7 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.', VideoCodec:'.$video_codec.'.', 1, 'library');
+			LDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.', VideoCodec:'.$video_codec.'.', 1, 'library');
 		}
 	}
 	elsif ($container && $audio_codec)
@@ -383,12 +389,12 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.'.', 1, 'library');
+			LDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.'.', 1, 'library');
 		}
 	}
 	else
 	{
-		PDLNA::Log::log('FFMPEG was unable to determine MediaInformation.', 1, 'library');
+		LDLNA::Log::log('FFMPEG was unable to determine MediaInformation.', 1, 'library');
 	}
 	return undef;
 }
@@ -522,8 +528,8 @@ sub get_media_info
 
  
     $$info{DURATION} = 0;
-    my $ffmpegbin = PDLNA::Config::get_ffmpeg();
-    my $rtmpdumpbin = PDLNA::Config::get_rtmpdump();
+    my $ffmpegbin = LDLNA::Config::get_ffmpeg();
+    my $rtmpdumpbin = LDLNA::Config::get_rtmpdump();
     
     my $cmd;
     if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -m 200 -r $file -q | $ffmpegbin -i pipe:0 2>&1 "; }
@@ -531,7 +537,7 @@ sub get_media_info
     
 
     
-    open(CMD,"$cmd |") or PDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
+    open(CMD,"$cmd |") or LDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
     while(<CMD>) 
     {
         if (/Duration: (\d\d):(\d\d):(\d\d).(\d+), /)
@@ -608,11 +614,11 @@ sub get_media_info
 
 	if (defined($$info{MIME_TYPE}) && defined($$info{TYPE}) && defined($$info{FILE_EXTENSION}))
 	{
-		PDLNA::Log::log('PDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
+		LDLNA::Log::log('LDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
 	}
 	else
 	{
-		PDLNA::Log::log('PDLNA::Media::details() was unable to determine details for '.$file.'.', 3, 'library');
+		LDLNA::Log::log('LDLNA::Media::details() was unable to determine details for '.$file.'.', 3, 'library');
 	}
 
 	return 1;

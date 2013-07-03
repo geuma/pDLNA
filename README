@@ -2,36 +2,92 @@ Lombix DLNA
 
 (c) 2013 Cesar Lombao
 email: lombao@lombix.com
-webpage: http://lombix.com/lombix-pdlna
+webpage: http://lombix.com/lombix-dlna
 
 Licensed under GPLv3 (see LICENSE file)
 
 INTRODUCTION
 ------------
-Lombix PDLNA is a perl UPnp and DLNA server, forked from the pDLNA project created and mantained by Stefan Heumader.
+Lombix DLNA is a perl UPnp and DLNA server, forked from the pDLNA project created and mantained by Stefan Heumader.
 
 
 See http://www.pdlna.com the original pDLNA project this project is forked from
 See http://www.perl.org for more details on Perl
 and http://www.upnp.org/ for more details on UPnP
 and http://www.dlna.org/ for mode details on DLNA.
-
+and http://lombix.com/content/lombix-dlna home web page of Lombix DLNA
 
 REQUISITES
 -----------
-To be completed
+Perl 5.X
+SQLite 3.X or PostgreSQL ( > 8.0 )
+
+PERL MODULES
+------------
+use Config;
+use Config::ApacheFormat;
+use Digest::MD5;
+use Digest::SHA1;
+use File::Basename;
+use File::MimeInfo;
+use IO::Socket;
+use IO::Interface qw(if_addr);
+use Net::Address::Ethernet qw(get_addresses);
+use Net::Interface;
+use Net::IP;
+use Net::Netmask;
+use Sys::Hostname qw(hostname);
+use DBI;
+use URI::Split qw(uri_split uri_join);
+use XML::Simple; 
+use threads;
+use threads::shared;
+use Getopt::Long::Descriptive;
+use DBI;
+use Date::Format;
+use File::Basename;
+use File::Glob qw(bsd_glob);
+use File::MimeInfo; 
+use Date::Format;  
+use GD::Graph::area;
+use LWP::UserAgent;
+use XML::Simple;  
+use Fcntl;
+use Data::Dumper;
+use Date::Format;
+use GD;
+use IO::Select;
+use Socket;
+use threads;
+use threads::shared;
+use XML::Simple;
+use SOAP::Lite;
+use XML::Simple;
+use Date::Format; 
+use IO::Socket::INET;
+use IO::Socket::Multicast;
+use Fcntl;
+use XML::Simple;  
+use Date::Format;
+use Fcntl ':flock';
+use Sys::Syslog qw(:standard :macros);
+use Digest::SHA1;
+use LWP::UserAgent;
+use Time::HiRes qw(gettimeofday);
+
+
 
 INSTALLATION
 -------------
-Unpack the tarball into a directory ( e.g /usr/local/lombix-pdlna ). 
+Unpack the tarball into a directory ( e.g /usr/local/lombix-dlna ). 
 Check you have all the needed perl modules ( To be completed )
 
 
 QUICK INTRODUCTION
 --------------------
-Copy the pdlna.conf into /etc and modify it following your needs
+Copy the ldlna.conf into /etc and modify it following your needs
 Setup the database if you want to use Postgresql or MariaDB/Mysql 
-Execute pDLNA.pl script
+Execute ldnla.pl script
 ( To be completed )
 
 

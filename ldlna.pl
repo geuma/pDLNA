@@ -1,5 +1,10 @@
 #!/usr/bin/perl
 #
+# lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
@@ -22,15 +27,15 @@ use threads::shared;
 use Getopt::Long::Descriptive;
 
 use lib ('./');
-use PDLNA::Config;
-use PDLNA::ContentLibrary;
-use PDLNA::Daemon;
-use PDLNA::Database;
-use PDLNA::HTTPServer;
-use PDLNA::Log;
-use PDLNA::SSDP;
-use PDLNA::Statistics;
-use PDLNA::Status;
+use LDLNA::Config;
+use LDLNA::ContentLibrary;
+use LDLNA::Daemon;
+use LDLNA::Database;
+use LDLNA::HTTPServer;
+use LDLNA::Log;
+use LDLNA::SSDP;
+use LDLNA::Statistics;
+use LDLNA::Status;
 
 #
 # STARTUP PARAMETERS
@@ -38,44 +43,34 @@ use PDLNA::Status;
 
 my ($opt, $usage) = describe_options(
 	'%c %o ',
-	[ 'config|f:s', 'path to the configuration file', { default => '/etc/pdlna.conf' }, ],
+	[ 'config|f:s', 'path to the configuration file', { default => '/etc/ldlna.conf' }, ],
 	[], # just an empty line for the usage message
 	[ 'help|h',	'print usage method and exit' ],
 );
 print($usage->text), exit if $opt->help();
 my @config_file_error = ();
-unless (PDLNA::Config::parse_config($opt->config, \@config_file_error))
+unless (LDLNA::Config::parse_config($opt->config, \@config_file_error))
 {
-	PDLNA::Log::fatal(join("\n", @config_file_error))
+	LDLNA::Log::fatal(join("\n", @config_file_error))
 }
 
-PDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
-
-PDLNA::Database::initialize_db();
-
-my $ssdp = PDLNA::SSDP->new(); # initialize SSDP object
+LDLNA::Log::log("Starting $CONFIG{'PROGRAM_NAME'}/v".LDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' with UUID $CONFIG{'UUID'}.", 0, 'default');
+LDLNA::Database::initialize_db();
+my $ssdp = LDLNA::SSDP->new(); # initialize SSDP object
 
 # forking
-PDLNA::Daemon::daemonize(\%SIG, \$ssdp);
-PDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
+LDLNA::Daemon::daemonize(\%SIG, \$ssdp);
+LDLNA::Daemon::write_pidfile($CONFIG{'PIDFILE'}, $$);
 
 # starting thread to periodically index the configured media directories
-my $thread1 = threads->create('PDLNA::ContentLibrary::index_directories_thread');
+my $thread1 = threads->create('LDLNA::ContentLibrary::index_directories_thread');
 $thread1->detach();
 
 # starting up
-PDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
-my $thread2 = threads->create('PDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
+LDLNA::Log::log("Server is going to listen on $CONFIG{'LOCAL_IPADDR'} on interface $CONFIG{'LISTEN_INTERFACE'}.", 1, 'default');
+my $thread2 = threads->create('LDLNA::HTTPServer::start_webserver'); # starting the HTTP server in a thread
 $thread2->detach();
 
-
-
-
-if ($CONFIG{'ENABLE_GENERAL_STATISTICS'})
-{
-	my $thread4 = threads->create('PDLNA::Statistics::write_statistics_periodic');
-	$thread4->detach();
-}
 
 while(1)
 {

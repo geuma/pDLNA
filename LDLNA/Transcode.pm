@@ -1,4 +1,4 @@
-package PDLNA::Transcode;
+package LDLNA::Transcode;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -20,9 +20,9 @@ package PDLNA::Transcode;
 use strict;
 use warnings;
 
-use PDLNA::Config;
-use PDLNA::Media;
-use PDLNA::Log;
+use LDLNA::Config;
+use LDLNA::Media;
+use LDLNA::Log;
 
 # this represents the beatuiful codec names and their internal (in the db) possible values
 my %AUDIO_CODECS = (
@@ -149,7 +149,7 @@ sub shall_we_transcode
 		return 0;
 	}
 
-	PDLNA::Log::log('Looking for a matching Transcoding Profile for Container: '.$$media_data{'container'}.'.', 2, 'transcoding');
+	LDLNA::Log::log('Looking for a matching Transcoding Profile for Container: '.$$media_data{'container'}.'.', 2, 'transcoding');
 
 	foreach my $profile (@{$CONFIG{'TRANSCODING_PROFILES'}})
 	{
@@ -182,13 +182,13 @@ sub shall_we_transcode
 
 		if ($$media_data{'media_type'} eq 'audio')
 		{
-			PDLNA::Log::log('Found a matching Transcoding Profile with Name: '.$profile->{'Name'}.'.', 2, 'transcoding');
+			LDLNA::Log::log('Found a matching Transcoding Profile with Name: '.$profile->{'Name'}.'.', 2, 'transcoding');
 
 			$$media_data{'audio_codec'} = $AUDIO_CODECS{$profile->{'AudioCodecOut'}}->[0];
 			$$media_data{'container'} = $AUDIO_CONTAINERS{$profile->{'AudioCodecOut'}};
-			$$media_data{'file_extension'} = PDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'FileExtension');
-			$$media_data{'mime_type'} = PDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'MimeType');
-			PDLNA::Log::log("$$media_data{'container'}, $$media_data{'audio_codec'}, $$media_data{'file_extension'}, $$media_data{'mime_type'}", 3, 'transcoding');
+			$$media_data{'file_extension'} = LDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'FileExtension');
+			$$media_data{'mime_type'} = LDLNA::Media::details($$media_data{'container'}, undef, $$media_data{'audio_codec'}, 'MimeType');
+			LDLNA::Log::log("$$media_data{'container'}, $$media_data{'audio_codec'}, $$media_data{'file_extension'}, $$media_data{'mime_type'}", 3, 'transcoding');
 
 			$$media_data{'command'} = get_transcode_command($media_data, $profile->{'AudioCodecOut'});
 
@@ -212,7 +212,7 @@ sub get_transcode_command
 	$command .= ' -f '.$FFMPEG_ENCODE_FORMATS{$audio_codec};
 	$command .= ' pipe: 2>/dev/null';
 
-	PDLNA::Log::log('Command for Transcoding Profile: '.$command.'.', 3, 'transcoding');
+	LDLNA::Log::log('Command for Transcoding Profile: '.$command.'.', 3, 'transcoding');
 
 	return $command;
 }
@@ -286,7 +286,7 @@ sub get_ffmpeg_codecs
 
 			if (substr($support, 2, 1) eq 'A') # audio codecs
 			{
-				# $codec = PDLNA::Media::audio_codec_by_beautiful_name($codec);
+				# $codec = LDLNA::Media::audio_codec_by_beautiful_name($codec);
 				# next unless defined($codec);
 
 				if (substr($support, 0, 1) eq 'D')
