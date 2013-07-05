@@ -1,31 +1,108 @@
-pDLNA
-(c) 2010-2013 Stefan Heumader
-email: stefan@heumader.at
-webpage: http://www.pdlna.com
+Lombix DLNA
 
-Licened under GPLv3 (see LICENSE file)
+(c) 2013 Cesar Lombao
+email: lombao@lombix.com
+webpage: http://lombix.com/lombix-dlna
+
+Licensed under GPLv3 (see LICENSE file)
 
 INTRODUCTION
 ------------
-pDLNA is an UPnP and DLNA service which serves multimedia
-content to compatible clients on the network and is written
-in Perl.
+Lombix DLNA is a perl UPnp and DLNA server, forked from the pDLNA project created and mantained by Stefan Heumader.
 
+
+See http://www.pdlna.com the original pDLNA project this project is forked from
 See http://www.perl.org for more details on Perl
 and http://www.upnp.org/ for more details on UPnP
 and http://www.dlna.org/ for mode details on DLNA.
+and http://lombix.com/content/lombix-dlna home web page of Lombix DLNA
+
+REQUISITES
+-----------
+* Perl 5.X
+* One out of :
+    - SQLite 3.X or PostgreSQL ( > 8.0 )
+    - Postgres ( >= 8.X )
+    - Mysql/MariaDB ( Untested )
+
+* uuidgen ( In Linux systems comes with util-linux package )
+* ffmpeg
+
+- OPTIONAL -
+
+* rtmpdump ( If rtmp support required )
+
+
+PERL MODULES
+------------
+Lombix DLNA requires All these perl modules, some of them will be available
+by default in most of standard perl installations. For those required to be
+installed in most cases there will be a package for your distro ( rpm or
+deb ). Only as a last resort you can use cpan to install just a few.
+
+ - CORE MODULES ( If you have perl, most likely you already got it )
+   * use Time::HiRes qw(gettimeofday);
+   * use Config;
+   * use File::Basename;
+   * use File::Glob qw(bsd_glob);
+   * use IO::Socket;
+   * use IO::Select;
+   * use IO::Socket::INET;
+   * use Sys::Hostname qw(hostname);
+   * use Sys::Syslog qw(:standard :macros);
+   * use Socket;
+   * use Fcntl;
+
+ - NOT CORE but almost ( again, most likely you already have it )
+
+   * use threads;
+   * use threads::shared;
+
+
+ - ADDITIONAL MODULES (These are the ones most likely you will have to install)
+
+   * use Config::ApacheFormat;
+   * use File::MimeInfo;
+   * use IO::Interface qw(if_addr);
+   * use IO::Socket::Multicast;
+   * use Net::IP;
+   * use Net::Netmask;
+   * use URI::Split qw(uri_split uri_join);
+   * use XML::Simple; 
+   * use Getopt::Long::Descriptive;
+   * use DBI;
+   * use Date::Format;   
+   * use GD;
+   * use Data::Dumper;
+   * use SOAP::Lite;
+   * use LWP::UserAgent;
+
+ - OPTIONAL MODULES ( You might need them depending on the options choosen )
+
+   * DBD::Pg ( Only if used postgresql )
+   * DBD::Sqlite ( If you use SQLite )
+   
+
+
+
+
+
+
+
 
 INSTALLATION
--------------------------
-For the installation see the INSTALL file or the
-'pDLNA Installation, Configuration and Debugging Guide'
-available under http://www.pdlna.com/cgi-bin/index.pl?menu=source&download_install
-
-BUGS & FEATURES
----------------
-Email me or contact me on GitHub if you find bugs
-or if you have some ideas for improvements.
-<stefan@heumader.at>
+-------------
+Unpack the tarball into a directory ( e.g /usr/local/lombix-dlna ). 
+Check you have all the needed perl modules ( To be completed )
 
 
-Stefan Heumader
+QUICK INTRODUCTION
+--------------------
+Copy the ldlna.conf into /etc and modify it following your needs
+Setup the database if you want to use Postgresql or MariaDB/Mysql 
+Execute ldnla.pl script
+( To be completed )
+
+
+
+Cesar Lombao

@@ -1,4 +1,4 @@
-package PDLNA::Daemon;
+package LDLNA::Daemon;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -23,14 +23,14 @@ use warnings;
 use POSIX qw(setsid);
 use Fcntl ':flock';
 
-use PDLNA::Config;
-use PDLNA::Log;
-use PDLNA::SSDP;
+use LDLNA::Config;
+use LDLNA::Log;
+use LDLNA::SSDP;
 
 sub daemonize
 {
 	my $SIG = shift;
-	PDLNA::Log::log('Calling PDLNA::Daemon::daemonize().', 3, 'default');
+	LDLNA::Log::log('Calling LDLNA::Daemon::daemonize().', 3, 'default');
 	my $ssdp = shift; # ugly, but works for now
 
 	#
@@ -38,7 +38,7 @@ sub daemonize
 	#
 	$SIG{'INT'} = sub
 	{
-		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
+		LDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".LDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
@@ -52,7 +52,7 @@ sub daemonize
 #	$SIG{'TERM'} = \&exit_daemon();
 	$SIG{'TERM'} = sub
 	{
-		PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
+		LDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".LDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 		$$ssdp->send_byebye(4);
 		remove_pidfile($CONFIG{'PIDFILE'});
 		exit(1);
@@ -66,7 +66,7 @@ sub daemonize
 
 sub exit_daemon
 {
-	PDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".PDLNA::Config::print_version().". It may take some time ...", 0, 'default');
+	LDLNA::Log::log("Shutting down $CONFIG{'PROGRAM_NAME'} v".LDLNA::Config::print_version().". It may take some time ...", 0, 'default');
 #	$$ssdp->send_byebye(4);
 	remove_pidfile($CONFIG{'PIDFILE'});
 	exit(1);

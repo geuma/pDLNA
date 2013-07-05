@@ -1,4 +1,4 @@
-package PDLNA::Log;
+package LDLNA::Log;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -24,7 +24,7 @@ use Date::Format;
 use Fcntl ':flock';
 use Sys::Syslog qw(:standard :macros);
 
-use PDLNA::Config;
+use LDLNA::Config;
 
 sub log
 {
@@ -47,7 +47,7 @@ sub fatal
 	my $message = shift;
 
 	print STDERR $message."\n";
-	print STDERR "Going to terminate $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' ...\n";
+	print STDERR "Going to terminate $CONFIG{'PROGRAM_NAME'}/v".LDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' ...\n";
 
 	exit 1;
 }

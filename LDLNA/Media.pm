@@ -1,4 +1,10 @@
-package PDLNA::Media;
+package LDLNA::Media;
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -20,21 +26,16 @@ package PDLNA::Media;
 use strict;
 use warnings;
 
-use Audio::FLAC::Header;
-use Audio::Wav;
-use Audio::WMA;
+
 use Fcntl;
-use Image::Info qw(image_info dim image_type);
-use Movie::Info;
-use MP3::Info;
-use MP4::Info;
-use Ogg::Vorbis::Header;
 use XML::Simple;
+
+use LDLNA::Config;
 
 my %MIME_TYPES = (
 	'image/jpeg' => 'jpeg',
 	'image/gif' => 'gif',
-
+    'image/png' => 'png',
 	'audio/mpeg' => 'mp3',
 	'audio/mp4' => 'mp4',
 	'audio/x-ms-wma' => 'wma',
@@ -43,7 +44,6 @@ my %MIME_TYPES = (
 	'video/x-theora+ogg' => 'ogg',
 	'audio/ac3' => 'ac3',
 	'audio/x-aiff' => 'lpcm',
-
 	'video/x-msvideo' => 'avi',
 	'video/x-matroska' => 'mkv',
 	'video/mp4' => 'mp4',
@@ -72,6 +72,7 @@ my %AUDIO_CODECS = (
 	'mp3' => 'mp3',
 	'ffvorbis' => 'vorbis',
 	'pcm' => 'wav',
+    'pcm_s16le' => 'wav',
 	'ffwmav1' => 'wmav1',
 	'ffwmav2' => 'wmav2',
 	'ffmp3float' => 'mp3',
@@ -88,19 +89,19 @@ my %VIDEO_CODECS = (
 
 my %CONTAINER = (
 	'audio' => {
-		'AudioCodecs' => ['mp3', 'ffflac', 'pcm', 'ffmp3float'],
+		'AudioCodecs' => ['mp3', 'flac', 'pcm', 'mp3float'],
 		'VideoCodecs' => [],
 		'mp3' => {
 			'MimeType' => 'audio/mpeg',
 			'FileExtension' => 'mp3',
 			'MediaType' => 'audio',
 		},
-		'ffmp3float' => {
+		'mp3float' => {
 			'MimeType' => 'audio/mpeg',
 			'FileExtension' => 'mp3',
 			'MediaType' => 'audio',
 		},
-		'ffflac' => {
+		'flac' => {
 			'MimeType' => 'audio/x-flac',
 			'FileExtension' => 'flac',
 			'MediaType' => 'audio',
@@ -111,134 +112,121 @@ my %CONTAINER = (
 			'MediaType' => 'audio',
 		},
 	},
-	'asf' => {
-		'AudioCodecs' => ['ffwmav2', 'ffwmav1', ],
+    'wav' => {
+		'AudioCodecs' => ['mp3', 'pcm_s16le'],
 		'VideoCodecs' => [],
-		'ffwmav1' => {
+		'mp3' => {
+			'MimeType' => 'audio/mpeg',
+			'FileExtension' => 'mp3',
+			'MediaType' => 'audio',
+		},
+		'pcm_s16le' => {
+			'MimeType' => 'audio/x-wav',
+			'FileExtension' => 'wav',
+			'MediaType' => 'audio',
+		},
+	},
+    'mp3' => {
+		'AudioCodecs' => ['mp3'],
+		'VideoCodecs' => [],
+		'mp3' => {
+			'MimeType' => 'audio/mpeg',
+			'FileExtension' => 'mp3',
+			'MediaType' => 'audio',
+		},
+	},
+	'asf' => {
+		'AudioCodecs' => ['wmav2', 'wmav1', ],
+		'VideoCodecs' => [],
+		'wmav1' => {
 			'MimeType' => 'audio/x-ms-wma',
 			'FileExtension' => 'wma',
 			'MediaType' => 'audio',
 		},
-		'ffwmav2' => {
+		'wmav2' => {
 			'MimeType' => 'audio/x-ms-wma',
 			'FileExtension' => 'wma',
 			'MediaType' => 'audio',
 		},
-		'ffwmv3' => {
+		'wmv3' => {
 			'MimeType' => 'audio/x-ms-wmv',
 			'FileExtension' => 'wmv',
 			'MediaType' => 'video',
 		},
 	},
 	'avi' => {
-		'AudioCodecs' => ['mp3', 'a52', ],
-		'VideoCodecs' => ['ffodivx', 'ffdivx', ],
-		'ffodivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+		'AudioCodecs' => ['mp3', 'a52', 'pcm_s16le'],
+		'VideoCodecs' => ['xdiv', 'divx', 'mpeg4','msmpeg4v3', 'h264','msmpeg4v1'],
+		'xvid' => {
+			'MimeType' => 'video/x-divx', # video/avi, video/msvideo
 			'FileExtension' => 'avi',
 			'MediaType' => 'video',
 		},
-		'ffdivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
+		'divx' => {
+			'MimeType' => 'video/x-divx', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+        'mpeg4' => {
+			'MimeType' => 'video/mp4', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+        'msmpeg4v3' => {
+			'MimeType' => 'video/mp4', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+        'msmpeg4v1' => {
+			'MimeType' => 'video/mp4', # video/avi, video/msvideo
+			'FileExtension' => 'avi',
+			'MediaType' => 'video',
+		},
+        'h264' => {
+			'MimeType' => 'video/mp4', # video/avi, video/msvideo
 			'FileExtension' => 'avi',
 			'MediaType' => 'video',
 		},
 	},
-	'avini' => {
-		'AudioCodecs' => ['mp3', 'a52', ],
-		'VideoCodecs' => ['ffodivx', 'ffdivx', ],
-		'ffodivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-		'ffdivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-	},
-	'lavf' => {
-		'AudioCodecs' => ['a52', 'pcm', 'ffac3', ],
-		'VideoCodecs' => [],
-		'a52' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-		'pcm' => {
-			'MimeType' => 'audio/x-aiff',
-			'FileExtension' => 'aif',
-			'MediaType' => 'audio',
-		},
-		'ffac3' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-	},
-	'lavfpref' => {
-		'AudioCodecs' => ['faad', 'ffaac'],
-		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f', 'ffvorbis', ],
-		'ffh264' => {
-			'MimeType' => 'video/x-flv',
-			'FileExtension' => 'flv',
-			'MediaType' => 'video',
-		},
-		'faad' => {
-			'MimeType' => 'audio/mp4',
-			'FileExtension' => 'mp4', # m4a
-			'MediaType' => 'audio',
-		},
-		'ffaac' => {
-			'MimeType' => 'audio/mp4',
-			'FileExtension' => 'mp4', # m4a
-			'MediaType' => 'audio',
-		},
-		'ffodivx' => {
-			'MimeType' => 'video/mp4',
-			'FileExtension' => 'mp4',
-			'MediaType' => 'video',
-		},
-		'ffvp6f' => {
-			'MimeType' => 'video/x-flv',
-			'FileExtension' => 'flv',
-			'MediaType' => 'video',
-		},
-		'ffvorbis' => {
-			'MimeType' => 'video/x-theora+ogg',
-			'FileExtension' => 'ogg',
-			'MediaType' => 'audio',
-		},
-	},
-	'mkv' => {
+
+	'matroska' => {
 		'AudioCodecs' => ['a52', ],
-		'VideoCodecs' => ['ffh264', 'ffodivx', ],
-		'ffh264' => {
+		'VideoCodecs' => ['h264', 'divx', ],
+		'h264' => {
 			'MimeType' => 'video/x-matroska',
 			'FileExtension' => 'mkv',
 			'MediaType' => 'video',
 		},
-		'ffodivx' => {
+		'divx' => {
 			'MimeType' => 'video/x-matroska',
 			'FileExtension' => 'mkv',
 			'MediaType' => 'video',
 		},
 	},
 	'mov' => {
-		'AudioCodecs' => ['faad', ],
-		'VideoCodecs' => ['ffodivx', 'ffh264', ],
+		'AudioCodecs' => ['faad','aac' ],
+		'VideoCodecs' => ['divx', 'h264','mpeg4' ],
 		'faad' => {
 			'MimeType' => 'audio/mp4',
 			'FileExtension' => 'mp4', # m4a
 			'MediaType' => 'audio',
 		},
-		'ffodivx' => {
+        'aac' => {
+			'MimeType' => 'audio/mp4',
+			'FileExtension' => 'mp4', # m4a
+			'MediaType' => 'audio',
+		},
+		'divx' => {
 			'MimeType' => 'video/mp4',
 			'FileExtension' => 'mp4',
 			'MediaType' => 'video',
 		},
-		'ffh264' => {
+		'h264' => {
+			'MimeType' => 'video/mp4',
+			'FileExtension' => 'mp4',
+			'MediaType' => 'video',
+		},
+        'mpeg4' => {
 			'MimeType' => 'video/mp4',
 			'FileExtension' => 'mp4',
 			'MediaType' => 'video',
@@ -253,15 +241,68 @@ my %CONTAINER = (
 			'MediaType' => 'video',
 		},
 	},
+    'mpeg' => {
+		'AudioCodecs' => ['mp2', 'pcm_s16be'],
+		'VideoCodecs' => ['mpeg2video', 'mpeg1video' ],
+		'mpeg2video' => {
+			'MimeType' => 'video/mpeg',
+			'FileExtension' => 'mpg',
+			'MediaType' => 'video',
+		},
+        'mpeg1video' => {
+			'MimeType' => 'video/mpeg',
+			'FileExtension' => 'mpg',
+			'MediaType' => 'video',
+		},
+	},
 	'ogg' => {
-		'AudioCodecs' => ['ffvorbis', ],
-		'VideoCodecs' => [],
-		'ffvorbis' => {
+		'AudioCodecs' => ['vorbis', ],
+		'VideoCodecs' => ['mpeg4', 'xvid'],
+		'vorbis' => {
 			'MimeType' => 'video/x-theora+ogg',
 			'FileExtension' => 'ogg',
 			'MediaType' => 'audio',
 		},
+        'mpeg4' => {
+			'MimeType' => 'video/mp4',
+			'FileExtension' => 'mp4',
+			'MediaType' => 'video',
+		},
+        'xvid' => {
+			'MimeType' => 'video/mp4',
+			'FileExtension' => 'mp4',
+			'MediaType' => 'video',
+		},
+    },
+    'flv' => {
+		'AudioCodecs' => ['aac', 'mp3'],
+		'VideoCodecs' => ['h264',  ],
+		'h264' => {
+			'MimeType' => 'video/x-flv',
+			'FileExtension' => 'flv',
+			'MediaType' => 'video',
+		},
+
 	},
+   'image2' => {
+		'AudioCodecs' => [ ],
+		'VideoCodecs' => ['mjpeg','png'  ],
+		'mjpeg' => {
+			'MimeType' => 'image/jpeg',
+			'FileExtension' => 'jpg',
+			'MediaType' => 'image',
+		},
+        'png' => {
+			'MimeType' => 'image/png',
+			'FileExtension' => 'png',
+			'MediaType' => 'image',
+		},
+
+	},
+    
+        
+        
+	
 );
 
 sub audio_codec_by_beautiful_name
@@ -337,7 +378,7 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.', VideoCodec:'.$video_codec.'.', 1, 'library');
+			LDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.', VideoCodec:'.$video_codec.'.', 1, 'library');
 		}
 	}
 	elsif ($container && $audio_codec)
@@ -348,12 +389,12 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.'.', 1, 'library');
+			LDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.'.', 1, 'library');
 		}
 	}
 	else
 	{
-		PDLNA::Log::log('MPlayer was unable to determine MediaInformation.', 1, 'library');
+		LDLNA::Log::log('FFMPEG was unable to determine MediaInformation.', 1, 'library');
 	}
 	return undef;
 }
@@ -386,7 +427,7 @@ sub is_supported_stream
 {
 	my $url = shift || '';
 
-	return 1 if $url =~ /^(http|mms):\/\//;
+	return 1 if $url =~ /^(http|mms|rtmp):\/\//;
 	return 0;
 }
 
@@ -401,7 +442,6 @@ sub return_type_by_mimetype
 sub get_dlnacontentfeatures
 {
 	my $item = shift;
-	my $transcode = shift;
 	my $type = shift;
 
 	my $contentfeatures = '';
@@ -431,10 +471,6 @@ sub get_dlnacontentfeatures
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for images
 		}
-		elsif ($transcode)
-		{
-			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for transcoded media items
-		}
 		elsif ($item->{EXTERNAL})
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for external media items
@@ -453,7 +489,7 @@ sub get_dlnacontentfeatures
 	# TODO
 
 	# DLNA.ORG_CI - for transcoded media items it is set to 1
-	$contentfeatures .= 'DLNA.ORG_CI='.$transcode.';';
+	# $contentfeatures .= 'DLNA.ORG_CI='.$transcode.';';
 
 	# DLNA.ORG_FLAGS - binary flags with device parameters
 	if (defined($item))
@@ -479,116 +515,107 @@ sub get_dlnacontentfeatures
 	return $contentfeatures;
 }
 
-sub get_image_fileinfo
-{
-	my $path = shift;
 
-	my $info = image_info($path);
-	return dim($info);
-}
-
-sub get_mplayer_info
+sub get_media_info
 {
 	my $file = shift;
 	my $info = shift;
 
-	my $movie_info = Movie::Info->new();
-	unless (defined($movie_info))
-	{
-		PDLNA::Log::fatal('Unable to find MPlayer.');
-	}
+ 
+    $$info{DURATION} = 0;
+    my $ffmpegbin = LDLNA::Config::get_ffmpeg();
+    my $rtmpdumpbin = LDLNA::Config::get_rtmpdump();
+    
+    my $cmd;
+    if ($file =~ /^rtmp:\/\//) { $cmd = "$rtmpdumpbin -m 200 -r $file -q | $ffmpegbin -i pipe:0 2>&1 "; }
+    else                       { $cmd = "$ffmpegbin -i \"$file\" 2>&1"; }
+    
 
-	my %mplayer = $movie_info->info($file);
-	$$info{DURATION} = 0;
-	if (defined($mplayer{'length'}))
-	{
-		$$info{DURATION} = $1 if $mplayer{'length'} =~ /^(\d+)/; # ignore milliseconds
-	}
-	$$info{BITRATE} = $mplayer{'audio_bitrate'} || 0;
-	$$info{HZ} = $mplayer{'audio_rate'} || 0;
-	$$info{WIDTH} = $mplayer{'width'} || 0;
-	$$info{HEIGHT} = $mplayer{'height'} || 0;
+    
+    open(CMD,"$cmd |") or LDLNA::Log::fatal('Unable to find the FFMPEG binary:'.$ffmpegbin);
+    while(<CMD>) 
+    {
+        if (/Duration: (\d\d):(\d\d):(\d\d).(\d+), /)
+        {
+          $$info{DURATION} = 3600*$1+60*$2+$3; # ignore miliseconds
+        }
+        if (/Stream .+: Audio: ([\w|\d|_]+) .+, (\d+) Hz, .+, (\d+) kb\/s/)
+        {
 
-	$$info{AUDIO_CODEC} = $mplayer{'audio_codec'} || '';
-	$$info{VIDEO_CODEC} = $mplayer{'codec'} || '';
-	$$info{CONTAINER} = $mplayer{'demuxer'} || '';
-
+         $$info{AUDIO_CODEC} = $1;
+         $$info{BITRATE}     = $3*1000;
+        }
+        elsif (/Stream .+: Audio: ([\w|\d|_]+), (\d+) Hz, .+, (\d+) kb\/s/)
+        {
+  
+         $$info{AUDIO_CODEC} = $1;
+         $$info{BITRATE}     = $3*1000;
+        }
+        elsif (/Stream .+ Video: ([\w|\d]+) .+, (\d+)x(\d+)/)
+        {         
+         $$info{VIDEO_CODEC} = $1;
+         $$info{WIDTH}       = $2;
+         $$info{HEIGHT}      = $3;
+         if (/XVID/ ) { $$info{VIDEO_CODEC} = "xvid"; }
+        }
+        elsif (/Stream .+ Video: ([\w|\d]+), .+, (\d+)x(\d+)/)
+        {         
+         $$info{VIDEO_CODEC} = $1;
+         $$info{WIDTH}       = $2;
+         $$info{HEIGHT}      = $3;
+         if (/XVID/ ) { $$info{VIDEO_CODEC} = "xvid"; }
+        }
+        elsif (/TITLE\S:\S(.+)$/i)
+        {
+         $$info{TITLE} = $1;
+        }
+        elsif (/ARTIST\S:\S(.+)$/i)
+        {
+         $$info{ARTIST} = $1;
+        }
+        elsif (/ALBUM\S:\S(.+)$/i)
+        {
+         $$info{ALBUM} = $1;
+        }
+        elsif (/TRACK\S:\S(\d+)$/i)
+        {
+         $$info{TRACKNUM} = $1;
+        }
+        elsif (/GENRE\S:\S(.+)$/i)
+        {
+         $$info{GENRE} = $1;
+        }
+        elsif (/DATE\S:\S(\d\d\d\d)$/i)
+        {
+         $$info{DATE} = $1;
+        }
+        elsif (/Input .+, ([\w|\d|,]+), from /)
+        {
+         my $ctn = $1;
+         if ($ctn =~ /,/) { $$info{CONTAINER} = ((split(/,/,$ctn))[0]); } 
+         else             { $$info{CONTAINER} = $ctn; }   
+        }
+    }
+    close(CMD);
+    
+    if ($file =~ /.mp3$/) {  $$info{VIDEO_CODEC} = undef; }
+    if ($file =~ /.wav$/) {  $$info{VIDEO_CODEC} = undef; }
+    
+ 
+    
 	$$info{MIME_TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 	$$info{TYPE} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
 	$$info{FILE_EXTENSION} = details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'FileExtension');
 
 	if (defined($$info{MIME_TYPE}) && defined($$info{TYPE}) && defined($$info{FILE_EXTENSION}))
 	{
-		PDLNA::Log::log('PDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
+		LDLNA::Log::log('LDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
 	}
 	else
 	{
-		PDLNA::Log::log('PDLNA::Media::details() was unable to determine details for '.$file.'.', 3, 'library');
+		LDLNA::Log::log('LDLNA::Media::details() was unable to determine details for '.$file.'.', 3, 'library');
 	}
 
-	return 1;
-}
-
-sub get_audio_fileinfo
-{
-	my $file = shift;
-	my $audio_codec = shift;
-	my $info = shift;
-
-	if ($audio_codec eq 'mp3' || $audio_codec eq 'ffmp3float')
-	{
-		my $tag = get_mp3tag($file);
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'faad' || $audio_codec eq 'ffaac')
-	{
-		my $tag = get_mp4tag($file);
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if length($tag->{'ARTIST'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUM'} if length($tag->{'ALBUM'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUM'} if length($tag->{'TRACKNUM'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'ffwmav2')
-	{
-		my $wma = Audio::WMA->new($file);
-		my $tag = $wma->tags();
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'AUTHOR'} if length($tag->{'AUTHOR'}) > 0;
-			$$info{ALBUM} = $tag->{'ALBUMTITLE'} if length($tag->{'ALBUMTITLE'}) > 0;
-			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if length($tag->{'TRACKNUMBER'}) > 0;
-			$$info{TITLE} = $tag->{'TITLE'} if length($tag->{'TITLE'}) > 0;
-			$$info{GENRE} = $tag->{'GENRE'} if length($tag->{'GENRE'}) > 0;
-			$$info{YEAR} = $tag->{'YEAR'} if length($tag->{'YEAR'}) > 0;
-		}
-	}
-	elsif ($audio_codec eq 'ffflac')
-	{
-		my $flac = Audio::FLAC::Header->new($file);
-		my $tag = $flac->tags();
-		if (keys %{$tag})
-		{
-			$$info{ARTIST} = $tag->{'ARTIST'} if defined($tag->{'ARTIST'});
-			$$info{ALBUM} = $tag->{'ALBUM'} if defined($tag->{'ALBUM'});
-			$$info{TRACKNUM} = $tag->{'TRACKNUMBER'} if defined($tag->{'TRACKNUMBER'});
-			$$info{TITLE} = $tag->{'TITLE'} if defined($tag->{'TITLE'});
-			$$info{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
-			$$info{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
-		}
-	}
 	return 1;
 }
 

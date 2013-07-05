@@ -1,4 +1,4 @@
-package PDLNA::DeviceServiceAction;
+package LDLNA::DeviceServiceAction;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -93,7 +93,7 @@ sub print_object
 	my $self = shift;
 
 	my $string = '';
-	$string .= "\t\t\t\t\tObject PDLNA::DeviceServiceAction\n";
+	$string .= "\t\t\t\t\tObject LDLNA::DeviceServiceAction\n";
 	$string .= "\t\t\t\t\t\tAction:      ".$self->{ACTION}."\n" if defined($self->{ACTION});
 	$string .= "\t\t\t\t\t\tParameters:  \n";
 	foreach my $parameter (keys %{$self->{PARAMETERS}})
@@ -123,7 +123,7 @@ sub print_object
 			}
 		}
 	}
-	$string .= "\t\t\t\t\tObject PDLNA::DeviceServiceAction END\n";
+	$string .= "\t\t\t\t\tObject LDLNA::DeviceServiceAction END\n";
 
 	return $string;
 }

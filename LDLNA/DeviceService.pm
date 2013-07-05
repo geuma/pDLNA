@@ -1,4 +1,10 @@
-package PDLNA::DeviceService;
+package LDLNA::DeviceService;
+#
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -25,8 +31,8 @@ use threads::shared;
 
 use XML::Simple;
 
-use PDLNA::DeviceServiceAction;
-use PDLNA::Utils;
+use LDLNA::DeviceServiceAction;
+use LDLNA::Utils;
 
 # constructor
 sub new
@@ -43,14 +49,14 @@ sub new
 	);
 
 	my %actions : shared = ();
-	my $response = PDLNA::Utils::fetch_http($self{SCPD_URL});
+	my $response = LDLNA::Utils::fetch_http($self{SCPD_URL});
 	if ($response)
 	{
 		my $xs = XML::Simple->new();
 		my $xml = eval { $xs->XMLin($response) };
 		if ($@)
 		{
-			PDLNA::Log::log('Error parsing XML Service Description in PDLNA::DeviceService:'.$@, 3, 'discovery');
+			LDLNA::Log::log('Error parsing XML Service Description in LDLNA::DeviceService:'.$@, 3, 'discovery');
 		}
 		else
 		{
@@ -87,7 +93,7 @@ sub new
 							}
 						}
 					}
-					$actions{$action} = PDLNA::DeviceServiceAction->new(\%action_definition);
+					$actions{$action} = LDLNA::DeviceServiceAction->new(\%action_definition);
 				}
 			}
 		}
@@ -104,7 +110,7 @@ sub print_object
 	my $self = shift;
 
 	my $string = '';
-	$string .= "\t\t\t\tObject PDLNA::DeviceService\n";
+	$string .= "\t\t\t\tObject LDLNA::DeviceService\n";
 	$string .= "\t\t\t\t\tID:            ".$self->{ID}."\n" if defined($self->{ID});
 	$string .= "\t\t\t\t\tType:          ".$self->{TYPE}."\n" if defined($self->{ID});
 	$string .= "\t\t\t\t\tControlURL:    ".$self->{CONTROL_URL}."\n" if defined($self->{ID});
@@ -114,7 +120,7 @@ sub print_object
 	{
 		$string .= $self->{ACTIONS}{$action}->print_object();;
 	}
-	$string .= "\t\t\t\tObject PDLNA::DeviceService END\n";
+	$string .= "\t\t\t\tObject LDLNA::DeviceService END\n";
 
 	return $string;
 }

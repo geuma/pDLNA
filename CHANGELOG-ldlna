@@ -1,0 +1,19 @@
+ldlna CHANGELOG
+(c) 2013- Cesar Lombao
+email: lombao@lombix.com
+webpage: http://lombix.com/content/lombix-dlna
+
+Licensed under GPLv3 (see LICENSE file)
+
+-----------------------------------------
+
+Version 0.70.0
+30-06-2013
+- Support of PostgreSQL and mysql
+- Fix problems with some Android dlna clients
+- Database code rebuild
+- Change of the startup process
+- Add support to RTMP streams
+- Removal many perl module dependencies
+
+

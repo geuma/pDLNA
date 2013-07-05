@@ -1,4 +1,4 @@
-package PDLNA::SpecificViews;
+package LDLNA::SpecificViews;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -20,8 +20,9 @@ package PDLNA::SpecificViews;
 use strict;
 use warnings;
 
-use PDLNA::Database;
-use PDLNA::Utils;
+use LDLNA::Database;
+use LDLNA::Utils;
+use LDLNA::Config;
 
 our %SPECIFICVIEWS = (
 	'A' =>  {
@@ -46,10 +47,10 @@ our %SPECIFICVIEWS = (
 
 our %SPECIFICVIEW_QUERIES = (
 	'folder' => {
-		'group_amount' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE TYPE = ? )',
-		'group_elements' => 'SELECT ID, NAME, PATH FROM DIRECTORIES WHERE PATH IN ( SELECT PATH FROM FILES WHERE TYPE = ? ) ORDER BY NAME',
-		'item_amount' => 'SELECT COUNT(ID) AS AMOUNT FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? ) AND TYPE = ?',
-		'item_elements' => 'SELECT ID FROM FILES WHERE PATH IN ( SELECT PATH FROM DIRECTORIES WHERE ID = ? ) AND TYPE = ?',
+		'group_amount' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "TYPE" = ? )',
+		'group_elements' => 'SELECT "ID", "NAME", "PATH" FROM "DIRECTORIES" WHERE "PATH" IN ( SELECT "PATH" FROM "FILES" WHERE "TYPE" = ? ) ORDER BY "NAME"',
+		'item_amount' => 'SELECT COUNT("ID") AS "AMOUNT" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? ) AND "TYPE" = ?',
+		'item_elements' => 'SELECT "ID" FROM "FILES" WHERE "PATH" IN ( SELECT "PATH" FROM "DIRECTORIES" WHERE "ID" = ? ) AND "TYPE" = ?',
 	},
 );
 
@@ -67,20 +68,30 @@ sub supported_request
 
 sub get_groups
 {
-	my $dbh = shift;
 	my $media_type = shift;
 	my $group_type = shift;
 	my $starting_index = shift;
 	my $requested_count = shift;
 	my $group_elements = shift;
 
+
+    my $dbh = LDLNA::Database::connect();
 	my $sql_query = $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'group_elements'};
     if (defined($starting_index) && defined($requested_count))
 	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+		if ($CONFIG{DB_TYPE} eq "PGSQL") 
+        {
+         $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+        
+        }
+        else
+        {
+		  $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
+	
 	}
 
-	PDLNA::Database::select_db(
+	LDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $sql_query,
@@ -88,30 +99,31 @@ sub get_groups
 		},
 		$group_elements,
 	);
+	LDLNA::Database::disconnect($dbh);
 }
 
 sub get_amount_of_groups
 {
-	my $dbh = shift;
 	my $media_type = shift;
 	my $group_type = shift;
 
-    my @group_amount = ();
-	PDLNA::Database::select_db(
+        my $dbh = LDLNA::Database::connect();
+        my @group_amount = ();
+        LDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'group_amount'},
 			'parameters' => [ $SPECIFICVIEWS{$media_type}->{'MediaType'}, ],
 		},
 		\@group_amount,
-	);
+        );
 
+        LDLNA::Database::disconnect($dbh);
 	return $group_amount[0]->{AMOUNT};
 }
 
 sub get_items
 {
-	my $dbh = shift;
 	my $media_type = shift;
 	my $group_type = shift;
 	my $group_id = shift;
@@ -119,13 +131,22 @@ sub get_items
 	my $requested_count = shift;
 	my $item_elements = shift;
 
+        my $dbh = LDLNA::Database::connect();
 	my $sql_query = $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'item_elements'};
     if (defined($starting_index) && defined($requested_count))
 	{
-		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        if ($CONFIG{DB_TYPE} eq "PGSQL") 
+        {
+         $sql_query .= ' OFFSET '.$starting_index.' LIMIT '.$requested_count;
+        
+        }
+        else
+        {
+		  $sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+        }
 	}
 
-	PDLNA::Database::select_db(
+	LDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $sql_query,
@@ -133,17 +154,19 @@ sub get_items
 		},
 		$item_elements,
 	);
+        LDLNA::Database::disconnect($dbh);
+         
 }
 
 sub get_amount_of_items
 {
-	my $dbh = shift;
 	my $media_type = shift;
 	my $group_type = shift;
 	my $group_id = shift;
 
-    my @item_amount = ();
-	PDLNA::Database::select_db(
+        my @item_amount = ();
+        my $dbh = LDLNA::Database::connect();
+	LDLNA::Database::select_db(
 		$dbh,
 		{
 			'query' => $SPECIFICVIEW_QUERIES{$SPECIFICVIEWS{$media_type}->{'GroupType'}->{$group_type}}->{'item_amount'},
@@ -151,7 +174,7 @@ sub get_amount_of_items
 		},
 		\@item_amount,
 	);
-
+        LDLNA::Database::disconnect($dbh);
 	return $item_amount[0]->{AMOUNT};
 }
 

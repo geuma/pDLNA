@@ -1,5 +1,10 @@
 #!/bin/sh
 #
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
+#
+#
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
 #
@@ -17,18 +22,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DIR="./"
-BIN="pDLNA.pl"
-PRG="pDLNA"
 
-CFGFILE="/etc/pdlna.conf"
+DIR="./"
+BIN="ldnla.pl"
+PRG="Lombix DLNA"
+
+CFGFILE="/etc/ldlna.conf"
 if [ "x$CFGFILE" = "x" ]; then
-	CFGFILE="/etc/pdlna.conf"
+	CFGFILE="/etc/ldlna.conf"
 fi
 
 PIDFILE=`grep ^PIDFile $CFGFILE | awk {'print $2'}`
 if [ "x$PIDFILE" = "x" ]; then
-	PIDFILE="/var/run/pdlna.pid"
+	PIDFILE="/var/run/ldlna.pid"
 fi
 
 start() {

@@ -1,4 +1,9 @@
-package PDLNA::Config;
+package LDLNA::Config;
+#
+
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -25,21 +30,19 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
+
+
+
 use Config qw();
 use Config::ApacheFormat;
-use Digest::MD5;
-use Digest::SHA1;
 use File::Basename;
 use File::MimeInfo;
 use IO::Socket;
 use IO::Interface qw(if_addr);
-use Net::Address::Ethernet qw(get_addresses);
-use Net::Interface;
 use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
 
-use PDLNA::Media;
 
 our %CONFIG = (
 	# values which can be modified by configuration file
@@ -47,10 +50,10 @@ our %CONFIG = (
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
 	'CACHE_CONTROL' => 1800,
-	'PIDFILE' => '/var/run/pdlna.pid',
+	'PIDFILE' => '/run/ldlna.pid',
 	'ALLOWED_CLIENTS' => [],
 	'DB_TYPE' => 'SQLITE3',
-	'DB_NAME' => '/tmp/pdlna.db',
+	'DB_NAME' => '/var/db/ldlna.db',
 	'DB_USER' => undef,
 	'DB_PASS' => undef,
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
@@ -60,30 +63,26 @@ our %CONFIG = (
 	'BUFFER_SIZE' => 32768, # 32 kB
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
-	'CHECK_UPDATES' => 1,
-	'CHECK_UPDATES_NOTIFICATION' => 1,
-	'ENABLE_GENERAL_STATISTICS' => 1,
 	'RESCAN_MEDIA' => 86400,
-	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'LOW_RESOURCE_MODE' => 0,
-	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
+        'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
+        'UUIDGEN_BIN'  => '/usr/bin/uuidgen',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
-	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
-	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.63.0',
+	'PROGRAM_NAME' => 'Lombix DLNA',
+	'PROGRAM_VERSION' => '0.70.0',
 	'PROGRAM_DATE' => '2013-xx-xx',
 	'PROGRAM_BETA' => 1,
-	'PROGRAM_DBVERSION' => '1.5',
-	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
-	'PROGRAM_AUTHOR' => 'Stefan Heumader',
+	'PROGRAM_DBVERSION' => '2.0',
+	'PROGRAM_WEBSITE' => 'http://lombix.com',
+	'PROGRAM_AUTHOR' => 'Cesar Lombao',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
-	'AUTHOR_WEBSITE' => 'http://www.urandom.at',
+	'AUTHOR_WEBSITE' => 'http://lombix.com',
 	'PROGRAM_SERIAL' => 1337,
 	# arrays holding supported codec
 	'AUDIO_CODECS_ENCODE' => [],
@@ -96,7 +95,11 @@ our %CONFIG = (
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 );
-$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+$CONFIG{'FRIENDLY_NAME'} = 'Lombix DLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+
+use LDLNA::Media;
+
+
 
 sub print_version
 {
@@ -128,7 +131,7 @@ sub parse_config
 	}
 
 	my $cfg = Config::ApacheFormat->new(
-		valid_blocks => [qw(Directory External Transcode)],
+		valid_blocks => [qw(Directory External)],
 	);
 	unless ($cfg->read($file))
 	{
@@ -225,6 +228,8 @@ sub parse_config
 		foreach my $ip_subnet (split(/\s*,\s*/, $cfg->get('AllowedClients')))
 		{
 			# We still need to use Net::IP as it validates that the ip/subnet is valid
+			# Net::Netmask::new2 constructor also validates but I think is weird, so for
+			# the time being I'll stick with Net::IP
 			if (Net::IP->new($ip_subnet))
 			{
 				push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));
@@ -237,29 +242,29 @@ sub parse_config
 	}
 	else # AllowedClients is not defined, so take the local subnet
 	{
-		my $interface = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
-		if (defined($interface))
-		{
-			push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
-		}
-		else
-		{
-			push(@{$errormsg}, 'Unable to autodetect AllowedClient configuration parameter. Please specify it in the configuration file.');
-		}
+          push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.( $socket_obj->if_netmask($CONFIG{'LISTEN_INTERFACE'})  ) ));
 	}
+
+
+	# TODO parsing and defining them in configuration file - for MySQL and so on
+	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
+	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
+
+
 
 	#
 	# DATABASE PARSING
 	#
+    $CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
+    
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
-	unless ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	unless (($CONFIG{'DB_TYPE'} eq 'SQLITE3') or ($CONFIG{'DB_TYPE'} eq 'PGSQL') or ($CONFIG{'DB_TYPE'} eq 'MYSQL'))
 	{
-		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3, PGSQL, MYSQL]');
 	}
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName') if defined($cfg->get('DatabaseName'));
 		if (-f $CONFIG{'DB_NAME'})
 		{
 			unless (mimetype($CONFIG{'DB_NAME'}) eq 'application/octet-stream') # TODO better check if it is a valid database
@@ -275,10 +280,12 @@ sub parse_config
 			}
 		}
 	}
-	# TODO parsing and defining them in configuration file - for MySQL and so on
-#	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
-#	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
-
+	else # TODO, to verify in case is a PGSQL or MYSQL 
+	{    # that the database ( using the DB_NAME DB_USER and DB_PASS ) is actually available
+	}
+	
+	
+	
 	#
 	# LOG FILE PARSING
 	#
@@ -321,9 +328,9 @@ sub parse_config
 		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
 		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
 		{
-			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap)$/)
+			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|soap)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|soap]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
@@ -349,20 +356,7 @@ sub parse_config
 	#
 	$CONFIG{'SPECIFIC_VIEWS'} = eval_binary_value($cfg->get('SpecificViews')) if defined($cfg->get('SpecificViews'));
 
-	#
-	# CHECK FOR UPDATES
-	#
-	$CONFIG{'CHECK_UPDATES'} = eval_binary_value($cfg->get('Check4Updates')) if defined($cfg->get('Check4Updates'));
-
-	#
-	# CHECK_UPDATES_NOTIFICATION
-	#
-	$CONFIG{'CHECK_UPDATES_NOTIFICATION'} = eval_binary_value($cfg->get('Check4UpdatesNotification')) if defined($cfg->get('Check4UpdatesNotification'));
-
-	#
-	# ENABLE_GENERAL_STATISTICS
-	#
-	$CONFIG{'ENABLE_GENERAL_STATISTICS'} = eval_binary_value($cfg->get('EnableGeneralStatistics')) if defined($cfg->get('EnableGeneralStatistics'));
+	
 
 	#
 	# RESCAN_MEDIA
@@ -397,56 +391,11 @@ sub parse_config
 	$CONFIG{'VIDEO_THUMBNAILS'} = eval_binary_value($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
 
 	#
-	# LowResourceMode
-	#
-	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
-
-	#
-	# MPlayerBinaryPath
-	#
-	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
-	{
-		if (-x $CONFIG{'MPLAYER_BIN'})
-		{
-			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
-			my @output = <CMD>;
-			close(CMD);
-
-			my $found = 0;
-			foreach my $line (@output)
-			{
-				$found = 1 if $line =~ /^MPlayer\s+(.+)\s+\(/;
-			}
-
-			unless ($found)
-			{
-				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
-			}
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
-		}
-	}
-
-	#
 	# FFmpegBinaryPath
 	#
 	$CONFIG{'FFMPEG_BIN'} = $cfg->get('FFmpegBinaryPath') if defined($cfg->get('FFmpegBinaryPath'));
 	my $ffmpeg_error_message = undef;
-	if (-x $CONFIG{'FFMPEG_BIN'})
-	{
-		unless (PDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
-		{
-			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
-		}
-		unless (PDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
-		{
-			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
-		}
-	}
-	else
+	if (! -x $CONFIG{'FFMPEG_BIN'})
 	{
 		$ffmpeg_error_message = 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.';
 	}
@@ -454,58 +403,25 @@ sub parse_config
 	#
 	# UUID
 	#
-	# some of the marked code lines are taken from UUID::Tiny perl module,
-	# which is not working
-	# IMPORTANT NOTE: NOT compliant to RFC 4122
+	# There is a lot to improve here. First of all I doubt this be portable, 
+	#  second I have to implement some resilience and error checking
 	my $mac = undef;
-	$CONFIG{'UUID'} = $cfg->get('UUID') if defined($cfg->get('UUID'));
-	if ($CONFIG{'UUID'} eq 'Version3')
-	{
-		my $md5 = Digest::MD5->new;
-		$md5->add($CONFIG{'HOSTNAME'});
-		$CONFIG{'UUID'} = substr($md5->digest(), 0, 16);
-		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
-	}
-	elsif ($CONFIG{'UUID'} eq 'Version4' || $CONFIG{'UUID'} eq 'Version4MAC')
-	{
-		if ($CONFIG{'UUID'} eq 'Version4MAC') # determine the MAC address of our listening interfae
-		{
-			my @addresses = get_addresses();
-			foreach my $obj (@addresses)
-			{
-				$mac = lc($obj->{'sEthernet'}) if $obj->{'sAdapter'} eq $CONFIG{'LISTEN_INTERFACE'};
-			}
-		}
+	open(CMD,"$CONFIG{UUIDGEN_BIN} 2>/dev/null|");
+	 $CONFIG{'UUID'} = <CMD>;
+	close(CMD);
+	
+         # This piece of code might not be portable and highly dependent on output from ip command.
+	 # To be improved
+	 open(CMD,"ip link show | grep ether |");
+	 my $line = <CMD>; $line =~ / link\/ether ([\d|\w|:]+) /; $mac = $1;  
+	 close(CMD);		   
 
-		my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
-		$CONFIG{'UUID'} = '';
-		while (length($CONFIG{'UUID'}) < 36)
-		{
-			$CONFIG{'UUID'} .= $chars[int(rand(@chars))];
-			$CONFIG{'UUID'} .= '-' if length($CONFIG{'UUID'}) =~ /^(8|13|18|23)$/;
-		}
-
-		if (defined($mac))
-		{
-			$mac =~ s/://g;
-			$CONFIG{'UUID'} = substr($CONFIG{'UUID'}, 0, 24).$mac;
-		}
-	}
-	elsif ($CONFIG{'UUID'} eq 'Version5')
-	{
-		my $sha1 = Digest::SHA1->new;
-		$sha1->add($CONFIG{'HOSTNAME'});
-		$CONFIG{'UUID'} = substr($sha1->digest(), 0, 16);
-		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
-	}
-	elsif ($CONFIG{'UUID'} =~ /^[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}$/i)
-	{
-	}
-	else
-	{
-		push(@{$errormsg}, 'Invalid type for UUID: Available options [Version3|Version4|Version4MAC|Version5|<staticUUID>]');
-	}
-	$CONFIG{'UUID'} = 'uuid:'.$CONFIG{'UUID'};
+	if (defined($mac))
+ 	 {
+           $mac =~ s/://g;
+	   $CONFIG{'UUID'} = substr($CONFIG{'UUID'}, 0, 24).$mac;	
+	 }
+        $CONFIG{'UUID'} = 'uuid:'.$CONFIG{'UUID'};
 
 	#
 	# MEDIA DIRECTORY PARSING
@@ -562,8 +478,6 @@ sub parse_config
     #
     # EXTERNAL SOURCES PARSING
     #
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore External configured media when LowResourceMode is enabled
-	{
 	    foreach my $external_block ($cfg->get('External'))
 	    {
 	        my $block = $cfg->block(External => $external_block->[1]);
@@ -576,7 +490,7 @@ sub parse_config
 			if (defined($block->get('StreamingURL')))
 			{
 				$external{'streamurl'} = $block->get('StreamingURL');
-				unless (PDLNA::Media::is_supported_stream($external{'streamurl'}))
+				unless (LDLNA::Media::is_supported_stream($external{'streamurl'}))
 				{
 					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Not a valid streaming URL.');
 				}
@@ -606,142 +520,20 @@ sub parse_config
 				push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Please define Executable or StreamingURL.');
 			}
 			push(@{$CONFIG{'EXTERNALS'}}, \%external);
-    	}
-	}
-
-	#
-	# TRANSCODING PROFILES
-	#
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore Transcoding when LowResourceMode is enabled
-	{
-		foreach my $transcode_block ($cfg->get('Transcode'))
-		{
-			if (defined($ffmpeg_error_message))
-			{
-				push(@{$errormsg}, $ffmpeg_error_message);
-				last;
-			}
-
-			my $block = $cfg->block(Transcode => $transcode_block->[1]);
-			my %transcode = (
-				'Name' => $transcode_block->[1],
-			);
-			my $transcode_error_msg = 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ';
-
-			if (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio)$/)
-			{
-				$transcode{'MediaType'} = $block->get('MediaType');
-			}
-			else
-			{
-				push(@{$errormsg}, $transcode_error_msg.'Invalid MediaType.');
-			}
-
-			my @types = ('AudioCodec');
-			foreach my $type (@types)
-			{
-				foreach my $direction ('In', 'Out')
-				{
-					# since $block->get returns 1 if keyword is defined
-					unless (defined($block->get($type.$direction)) && $block->get($type.$direction) ne '1')
-					{
-						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is not defined.');
-						next;
-					}
-
-					if ($type eq 'AudioCodec')
-					{
-						#
-						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
-						#
-						my $ffmpeg_codec = undef;
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
-						if (defined($ffmpeg_codec))
-						{
-							my $tmp_string = 'AUDIO_CODECS_DECODE';
-							$tmp_string = 'AUDIO_CODECS_ENCODE' if $direction eq 'Out';
-
-							if (grep/^$ffmpeg_codec$/, @{$CONFIG{$tmp_string}})
-							{
-								$transcode{$type.$direction} = lc($block->get($type.$direction));
-							}
-							else
-							{
-								my $tmp_msg = $transcode_error_msg.$type.$direction.' '.$block->get($type.$direction).' ';
-								$tmp_msg .= 'for transcoding is NOT supported by your FFmpeg installation';
-								push(@{$errormsg}, $tmp_msg);
-							}
-						}
-						else
-						{
-							my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
-							$tmp_msg .= ' is not a supported '.$type.' for '.$type.$direction.' yet.';
-							push(@{$errormsg}, $tmp_msg);
-						}
-
-						#
-						# CHECK IF FFMPEG SUPPORTS THE FORMATS
-						#
-						my $format = undef;
-						$format = PDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$format = PDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
-
-						if (defined($format))
-						{
-							my $tmp_string = 'FORMATS_DECODE';
-							$tmp_string = 'FORMATS_ENCODE' if $direction eq 'Out';
-
-							unless (grep(/^$format$/, @{$CONFIG{$tmp_string}}))
-							{
-								my $tmp_msg = $transcode_error_msg;
-								$tmp_msg .= 'Decode' if $direction eq 'In';
-								$tmp_msg .= 'Encode' if $direction eq 'Out';
-								$tmp_msg .= 'Format '.$format.' for transcoding of ';
-								$tmp_msg .= $block->get($type.$direction).' is NOT supported by your FFmpeg installation';
-								push(@{$errormsg}, $tmp_msg);
-							}
-						}
-						else
-						{
-							my $tmp_msg = $transcode_error_msg;
-							$tmp_msg .= 'Decode' if $direction eq 'In';
-							$tmp_msg .= 'Encode' if $direction eq 'Out';
-							$tmp_msg .= 'Format of '.$type.$direction.' is not supported yet.';
-							push(@{$errormsg}, $tmp_msg);
-						}
-					}
-				}
-			}
-
-			my @clients = ();
-			if (defined($block->get('ClientIPs')) && $block->get('ClientIPs') ne '1')
-			{
-				foreach my $ip_subnet (split(/\s*,\s*/, $block->get('ClientIPs')))
-				{
-					# We still need to use Net::IP as it validates that the ip/subnet is valid
-					if (Net::IP->new($ip_subnet))
-					{
-						push(@clients, Net::Netmask->new($ip_subnet));
-					}
-					else
-					{
-						push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.Net::IP::Error().'.');
-					}
-				}
-			}
-			else
-			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure ClientIPs.');
-			}
-			$transcode{'ClientIPs'} = \@clients;
-
-			push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
-		}
-	}
+    	    }
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;
+}
+
+sub get_ffmpeg
+{
+    return $CONFIG{'FFMPEG_BIN'};
+}
+
+sub get_rtmpdump
+{
+    return $CONFIG{'RTMPDUMP_BIN'};
 }
 
 1;

@@ -1,4 +1,8 @@
-package PDLNA::SOAPMessages;
+package LDLNA::SOAPMessages;
+#
+# Lombix DLNA - a perl DLNA media server
+# Copyright (C) 2013 Cesar Lombao <lombao@lombix.com>
+#
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -22,8 +26,8 @@ use warnings;
 
 use Date::Format;
 
-use PDLNA::Config;
-use PDLNA::SOAPClient;
+use LDLNA::Config;
+use LDLNA::SOAPClient;
 
 sub send_sms
 {
@@ -69,7 +73,7 @@ sub _soapclient
 	my $service_type = shift;
 	my $service_url = shift;
 
-	my $client = PDLNA::SOAPClient->new(
+	my $client = LDLNA::SOAPClient->new(
 		{
 			'proxy' => $service_url,
 			'uri' => $service_type,
