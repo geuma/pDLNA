@@ -35,8 +35,6 @@ our @EXPORT = qw(%CONFIG);
 
 use Config qw();
 use Config::ApacheFormat;
-use Digest::MD5;
-use Digest::SHA1;
 use File::Basename;
 use File::MimeInfo;
 use IO::Socket;
@@ -67,13 +65,13 @@ our %CONFIG = (
 	'DEBUG' => 0,
 	'SPECIFIC_VIEWS' => 0,
 	'RESCAN_MEDIA' => 86400,
-	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'LOW_RESOURCE_MODE' => 0,
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
         'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
+        'UUIDGEN_BIN'  => '/usr/bin/uuidgen',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
 	# values which can be modified manually :P
@@ -412,58 +410,25 @@ sub parse_config
 	#
 	# UUID
 	#
-	# some of the marked code lines are taken from UUID::Tiny perl module,
-	# which is not working
-	# IMPORTANT NOTE: NOT compliant to RFC 4122
+	# There is a lot to improve here. First of all I doubt this be portable, 
+	#  second I have to implement some resilience and error checking
 	my $mac = undef;
-	$CONFIG{'UUID'} = $cfg->get('UUID') if defined($cfg->get('UUID'));
-	if ($CONFIG{'UUID'} eq 'Version3')
-	{
-		my $md5 = Digest::MD5->new;
-		$md5->add($CONFIG{'HOSTNAME'});
-		$CONFIG{'UUID'} = substr($md5->digest(), 0, 16);
-		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
-	}
-	elsif ($CONFIG{'UUID'} eq 'Version4' || $CONFIG{'UUID'} eq 'Version4MAC')
-	{
-		if ($CONFIG{'UUID'} eq 'Version4MAC') # determine the MAC address of our listening interfae
-		{
-		 # This piece of code might not be portable and highly dependent on output from ip command.
-		 # To be improved
-		 open(CMD,"ip link show | grep ether |");
-		 my $line = <CMD>; $line =~ / link\/ether ([\d|\w|:]+) /; $mac = $1;  
-		 close(CMD);		   
-		}
+	open(CMD,"$CONFIG{UUIDGEN_BIN} 2>/dev/null|");
+	 $CONFIG{'UUID'} = <CMD>;
+	close(CMD);
+	
+         # This piece of code might not be portable and highly dependent on output from ip command.
+	 # To be improved
+	 open(CMD,"ip link show | grep ether |");
+	 my $line = <CMD>; $line =~ / link\/ether ([\d|\w|:]+) /; $mac = $1;  
+	 close(CMD);		   
 
-		my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
-		$CONFIG{'UUID'} = '';
-		while (length($CONFIG{'UUID'}) < 36)
-		{
-			$CONFIG{'UUID'} .= $chars[int(rand(@chars))];
-			$CONFIG{'UUID'} .= '-' if length($CONFIG{'UUID'}) =~ /^(8|13|18|23)$/;
-		}
-
-		if (defined($mac))
-		{
-			$mac =~ s/://g;
-			$CONFIG{'UUID'} = substr($CONFIG{'UUID'}, 0, 24).$mac;
-		}
-	}
-	elsif ($CONFIG{'UUID'} eq 'Version5')
-	{
-		my $sha1 = Digest::SHA1->new;
-		$sha1->add($CONFIG{'HOSTNAME'});
-		$CONFIG{'UUID'} = substr($sha1->digest(), 0, 16);
-		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
-	}
-	elsif ($CONFIG{'UUID'} =~ /^[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}$/i)
-	{
-	}
-	else
-	{
-		push(@{$errormsg}, 'Invalid type for UUID: Available options [Version3|Version4|Version4MAC|Version5|<staticUUID>]');
-	}
-	$CONFIG{'UUID'} = 'uuid:'.$CONFIG{'UUID'};
+	if (defined($mac))
+ 	 {
+           $mac =~ s/://g;
+	   $CONFIG{'UUID'} = substr($CONFIG{'UUID'}, 0, 24).$mac;	
+	 }
+        $CONFIG{'UUID'} = 'uuid:'.$CONFIG{'UUID'};
 
 	#
 	# MEDIA DIRECTORY PARSING

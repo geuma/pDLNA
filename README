@@ -26,8 +26,6 @@ PERL MODULES
 ------------
 use Config;
 use Config::ApacheFormat;
-use Digest::MD5;
-use Digest::SHA1;
 use File::Basename;
 use File::MimeInfo;
 use File::Glob qw(bsd_glob);
