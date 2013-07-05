@@ -39,7 +39,6 @@ use File::Basename;
 use File::MimeInfo;
 use IO::Socket;
 use IO::Interface qw(if_addr);
-use Net::Interface;
 use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
@@ -241,15 +240,7 @@ sub parse_config
 	}
 	else # AllowedClients is not defined, so take the local subnet
 	{
-		my $interface = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
-		if (defined($interface))
-		{
-			push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
-		}
-		else
-		{
-			push(@{$errormsg}, 'Unable to autodetect AllowedClient configuration parameter. Please specify it in the configuration file.');
-		}
+          push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.( $socket_obj->if_netmask($CONFIG{'LISTEN_INTERFACE'})  ) ));
 	}
 
 
