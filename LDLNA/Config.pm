@@ -228,6 +228,8 @@ sub parse_config
 		foreach my $ip_subnet (split(/\s*,\s*/, $cfg->get('AllowedClients')))
 		{
 			# We still need to use Net::IP as it validates that the ip/subnet is valid
+			# Net::Netmask::new2 constructor also validates but I think is weird, so for
+			# the time being I'll stick with Net::IP
 			if (Net::IP->new($ip_subnet))
 			{
 				push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($ip_subnet));

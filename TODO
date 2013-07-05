@@ -1,3 +1,5 @@
+
+- Could we replace perl GD module by direct use of ffmpeg ???
 - Improve a bit more the database layer to consolidate more things
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)

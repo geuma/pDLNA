@@ -48,32 +48,45 @@ deb ). Only as a last resort you can use cpan to install just a few.
    * use IO::Socket;
    * use IO::Select;
    * use IO::Socket::INET;
+   * use Sys::Hostname qw(hostname);
+   * use Sys::Syslog qw(:standard :macros);
+   * use Socket;
+   * use Fcntl;
 
- - ADDITIONAL MODULES (These the ones most likely you will have to install)
+ - NOT CORE but almost ( again, most likely you already have it )
+
+   * use threads;
+   * use threads::shared;
+
+
+ - ADDITIONAL MODULES (These are the ones most likely you will have to install)
 
    * use Config::ApacheFormat;
    * use File::MimeInfo;
    * use IO::Interface qw(if_addr);
    * use IO::Socket::Multicast;
-use Net::IP;
-use Net::Netmask;
-use Sys::Hostname qw(hostname);
-use Sys::Syslog qw(:standard :macros);
-use URI::Split qw(uri_split uri_join);
-use XML::Simple; 
-use threads;
-use threads::shared;
-use Getopt::Long::Descriptive;
-use DBI;
-use DBD::Pg ( Only if used postgresql )
-use Date::Format;  
-use GD;
-use Data::Dumper;
-use Socket;
-use SOAP::Lite;
-use Fcntl;
-use LWP::UserAgent;
-use Time::HiRes qw(gettimeofday);
+   * use Net::IP;
+   * use Net::Netmask;
+   * use URI::Split qw(uri_split uri_join);
+   * use XML::Simple; 
+   * use Getopt::Long::Descriptive;
+   * use DBI;
+   * use Date::Format;   
+   * use GD;
+   * use Data::Dumper;
+   * use SOAP::Lite;
+   * use LWP::UserAgent;
+
+ - OPTIONAL MODULES ( You might need them depending on the options choosen )
+
+   * DBD::Pg ( Only if used postgresql )
+   * DBD::Sqlite ( If you use SQLite )
+   
+
+
+
+
+
 
 
 
