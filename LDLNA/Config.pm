@@ -41,7 +41,6 @@ use File::Basename;
 use File::MimeInfo;
 use IO::Socket;
 use IO::Interface qw(if_addr);
-use Net::Address::Ethernet qw(get_addresses);
 use Net::Interface;
 use Net::IP;
 use Net::Netmask;
@@ -77,7 +76,6 @@ our %CONFIG = (
         'RTMPDUMP_BIN' => '/usr/bin/rtmpdump',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
-	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'Lombix DLNA',
 	'PROGRAM_VERSION' => '0.70.0',
@@ -136,7 +134,7 @@ sub parse_config
 	}
 
 	my $cfg = Config::ApacheFormat->new(
-		valid_blocks => [qw(Directory External Transcode)],
+		valid_blocks => [qw(Directory External)],
 	);
 	unless ($cfg->read($file))
 	{
@@ -339,9 +337,9 @@ sub parse_config
 		@{$CONFIG{'LOG_CATEGORY'}} = split(',', $cfg->get('LogCategory'));
 		foreach my $category (@{$CONFIG{'LOG_CATEGORY'}})
 		{
-			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap)$/)
+			unless ($category =~ /^(discovery|httpdir|httpstream|library|httpgeneric|database|soap)$/)
 			{
-				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|transcoding|soap]');
+				push(@{$errormsg}, 'Invalid LogCategory: Available options [discovery|httpdir|httpstream|library|httpgeneric|database|soap]');
 			}
 		}
 		push(@{$CONFIG{'LOG_CATEGORY'}}, 'default');
@@ -402,28 +400,11 @@ sub parse_config
 	$CONFIG{'VIDEO_THUMBNAILS'} = eval_binary_value($cfg->get('EnableVideoThumbnails')) if defined($cfg->get('EnableVideoThumbnails'));
 
 	#
-	# LowResourceMode
-	#
-	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
-
-
-	#
 	# FFmpegBinaryPath
 	#
 	$CONFIG{'FFMPEG_BIN'} = $cfg->get('FFmpegBinaryPath') if defined($cfg->get('FFmpegBinaryPath'));
 	my $ffmpeg_error_message = undef;
-	if (-x $CONFIG{'FFMPEG_BIN'})
-	{
-		unless (LDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
-		{
-			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
-		}
-		unless (LDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
-		{
-			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
-		}
-	}
-	else
+	if (! -x $CONFIG{'FFMPEG_BIN'})
 	{
 		$ffmpeg_error_message = 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.';
 	}
@@ -447,11 +428,11 @@ sub parse_config
 	{
 		if ($CONFIG{'UUID'} eq 'Version4MAC') # determine the MAC address of our listening interfae
 		{
-			my @addresses = get_addresses();
-			foreach my $obj (@addresses)
-			{
-				$mac = lc($obj->{'sEthernet'}) if $obj->{'sAdapter'} eq $CONFIG{'LISTEN_INTERFACE'};
-			}
+		 # This piece of code might not be portable and highly dependent on output from ip command.
+		 # To be improved
+		 open(CMD,"ip link show | grep ether |");
+		 my $line = <CMD>; $line =~ / link\/ether ([\d|\w|:]+) /; $mac = $1;  
+		 close(CMD);		   
 		}
 
 		my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
@@ -539,8 +520,6 @@ sub parse_config
     #
     # EXTERNAL SOURCES PARSING
     #
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore External configured media when LowResourceMode is enabled
-	{
 	    foreach my $external_block ($cfg->get('External'))
 	    {
 	        my $block = $cfg->block(External => $external_block->[1]);
@@ -583,139 +562,7 @@ sub parse_config
 				push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Please define Executable or StreamingURL.');
 			}
 			push(@{$CONFIG{'EXTERNALS'}}, \%external);
-    	}
-	}
-
-	#
-	# TRANSCODING PROFILES
-	#
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # ignore Transcoding when LowResourceMode is enabled
-	{
-		foreach my $transcode_block ($cfg->get('Transcode'))
-		{
-			if (defined($ffmpeg_error_message))
-			{
-				push(@{$errormsg}, $ffmpeg_error_message);
-				last;
-			}
-
-			my $block = $cfg->block(Transcode => $transcode_block->[1]);
-			my %transcode = (
-				'Name' => $transcode_block->[1],
-			);
-			my $transcode_error_msg = 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': ';
-
-			if (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio)$/)
-			{
-				$transcode{'MediaType'} = $block->get('MediaType');
-			}
-			else
-			{
-				push(@{$errormsg}, $transcode_error_msg.'Invalid MediaType.');
-			}
-
-			my @types = ('AudioCodec');
-			foreach my $type (@types)
-			{
-				foreach my $direction ('In', 'Out')
-				{
-					# since $block->get returns 1 if keyword is defined
-					unless (defined($block->get($type.$direction)) && $block->get($type.$direction) ne '1')
-					{
-						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is not defined.');
-						next;
-					}
-
-					if ($type eq 'AudioCodec')
-					{
-						#
-						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
-						#
-						my $ffmpeg_codec = undef;
-						$ffmpeg_codec = LDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$ffmpeg_codec = LDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
-						if (defined($ffmpeg_codec))
-						{
-							my $tmp_string = 'AUDIO_CODECS_DECODE';
-							$tmp_string = 'AUDIO_CODECS_ENCODE' if $direction eq 'Out';
-
-							if (grep/^$ffmpeg_codec$/, @{$CONFIG{$tmp_string}})
-							{
-								$transcode{$type.$direction} = lc($block->get($type.$direction));
-							}
-							else
-							{
-								my $tmp_msg = $transcode_error_msg.$type.$direction.' '.$block->get($type.$direction).' ';
-								$tmp_msg .= 'for transcoding is NOT supported by your FFmpeg installation';
-								push(@{$errormsg}, $tmp_msg);
-							}
-						}
-						else
-						{
-							my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
-							$tmp_msg .= ' is not a supported '.$type.' for '.$type.$direction.' yet.';
-							push(@{$errormsg}, $tmp_msg);
-						}
-
-						#
-						# CHECK IF FFMPEG SUPPORTS THE FORMATS
-						#
-						my $format = undef;
-						$format = LDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$format = LDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
-
-						if (defined($format))
-						{
-							my $tmp_string = 'FORMATS_DECODE';
-							$tmp_string = 'FORMATS_ENCODE' if $direction eq 'Out';
-
-							unless (grep(/^$format$/, @{$CONFIG{$tmp_string}}))
-							{
-								my $tmp_msg = $transcode_error_msg;
-								$tmp_msg .= 'Decode' if $direction eq 'In';
-								$tmp_msg .= 'Encode' if $direction eq 'Out';
-								$tmp_msg .= 'Format '.$format.' for transcoding of ';
-								$tmp_msg .= $block->get($type.$direction).' is NOT supported by your FFmpeg installation';
-								push(@{$errormsg}, $tmp_msg);
-							}
-						}
-						else
-						{
-							my $tmp_msg = $transcode_error_msg;
-							$tmp_msg .= 'Decode' if $direction eq 'In';
-							$tmp_msg .= 'Encode' if $direction eq 'Out';
-							$tmp_msg .= 'Format of '.$type.$direction.' is not supported yet.';
-							push(@{$errormsg}, $tmp_msg);
-						}
-					}
-				}
-			}
-
-			my @clients = ();
-			if (defined($block->get('ClientIPs')) && $block->get('ClientIPs') ne '1')
-			{
-				foreach my $ip_subnet (split(/\s*,\s*/, $block->get('ClientIPs')))
-				{
-					# We still need to use Net::IP as it validates that the ip/subnet is valid
-					if (Net::IP->new($ip_subnet))
-					{
-						push(@clients, Net::Netmask->new($ip_subnet));
-					}
-					else
-					{
-						push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': '.Net::IP::Error().'.');
-					}
-				}
-			}
-			else
-			{
-				push(@{$errormsg}, 'Invalid Transcoding Profile \''.$transcode_block->[1].'\': Please configure ClientIPs.');
-			}
-			$transcode{'ClientIPs'} = \@clients;
-
-			push(@{$CONFIG{'TRANSCODING_PROFILES'}}, \%transcode);
-		}
-	}
+    	    }
 
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;

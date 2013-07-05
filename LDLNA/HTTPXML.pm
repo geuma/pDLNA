@@ -25,7 +25,6 @@ use Date::Format;
 use LDLNA::Config;
 use LDLNA::Database;
 use LDLNA::SpecificViews;
-use LDLNA::Transcode;
 use LDLNA::Utils;
 
 sub get_browseresponse_header
@@ -179,34 +178,7 @@ sub get_browseresponse_item_detailed
 
 
 	#
-	# check if we need to transcode the content
 	#
-	my %media_data = (
-		'fullname' => $item->{FULLNAME},
-		'external' => $item->{EXTERNAL},
-		'media_type' => $item->{TYPE},
-		'container' => $item->{CONTAINER},
-		'audio_codec' => $item->{AUDIO_CODEC},
-		'video_codec' => $item->{VIDEO_CODEC},
-	);
-	my $transcode = 0;
-	if ($transcode = LDLNA::Transcode::shall_we_transcode(
-			\%media_data,
-			{
-				'ip' => $client_ip,
-				'user_agent' => $user_agent,
-			},
-		))
-	{
-		$item->{MIME_TYPE} = $media_data{'mime_type'};
-		$item->{CONTAINER} = $media_data{'container'};
-		$item->{AUDIO_CODEC} = $media_data{'audio_codec'};
-		$item->{VIDEO_CODEC} = $media_data{'video_codec'};
-		$item->{BITRATE} = 0;
-		$item->{VBR} = 0;
-	}
-	#
-	# end of checking for transcoding
 	#
 
 	if ($item->{TYPE} eq 'audio')
@@ -283,12 +255,12 @@ sub get_browseresponse_item_detailed
 	{
 		push(@{$xml}, 'resolution=&quot;'.$item->{WIDTH}.'x'.$item->{HEIGHT}.'&quot; ') if grep(/^res\@resolution$/, @{$filter});
 	}
-	if ($transcode == 0 || $item->{EXTERNAL} == 0) # just add the size attribute if file is local and not transcoded
+	if ($item->{EXTERNAL} == 0) # just add the size attribute if file is local 
 	{
 		push(@{$xml}, 'size=&quot;'.$item->{SIZE}.'&quot; ') if grep(/^res\@size$/, @{$filter});
 	}
   
-	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item->{MIME_TYPE}.':'.LDLNA::Media::get_dlnacontentfeatures($item, $transcode).'&quot; ');
+	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.$item->{MIME_TYPE}.':'.LDLNA::Media::get_dlnacontentfeatures($item).'&quot; ');
 	push(@{$xml}, '&gt;');
 	push(@{$xml}, 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$item_id.'.'.$item->{FILE_EXTENSION});
 	push(@{$xml}, '&lt;/res&gt;');

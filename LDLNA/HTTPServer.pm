@@ -43,7 +43,6 @@ use LDLNA::Devices;
 use LDLNA::HTTPXML;
 use LDLNA::Log;
 use LDLNA::SpecificViews;
-use LDLNA::Transcode;
 
 sub start_webserver
 {
@@ -808,27 +807,7 @@ sub stream_media
 		my @records = LDLNA::Database::get_records_by("FILES",{ID => $id});
         my $item = $records[0];
 		#
-		# check if we need to transcode
 		#
-		my %media_data = (
-			'fullname' => $item->{FULLNAME},
-			'external' => $item->{EXTERNAL},
-			'media_type' => $item->{TYPE},
-			'container' => $item->{CONTAINER},
-			'audio_codec' => $item->{AUDIO_CODEC},
-			'video_codec' => $item->{VIDEO_CODEC},
-		);
-		my $transcode = 0;
-		if ($transcode = LDLNA::Transcode::shall_we_transcode(
-				\%media_data,
-				{
-					'ip' => $client_ip,
-					'user_agent' => $user_agent,
-				},
-			))
-		{
-			$item->{MIME_TYPE} = $media_data{'mime_type'};
-		}
 
 		#
 		# sanity checks
@@ -883,7 +862,7 @@ sub stream_media
 		{
 			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
 		{
-				push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item, $transcode));
+				push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item));
 			}
 			else
 			{
@@ -914,7 +893,7 @@ sub stream_media
 
 				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 				{
-					push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item, $transcode));
+					push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item));
 				}
 			}
 			else
@@ -937,7 +916,7 @@ sub stream_media
 					push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$item->{DURATION}.'000;'); # in milliseconds
 					unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
 					{
-						push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item, $transcode));
+						push(@additional_header, 'contentFeatures.dlna.org: '.LDLNA::Media::get_dlnacontentfeatures($item));
 					}
 				}
 			}
@@ -995,8 +974,7 @@ sub stream_media
 					if (
 							defined($$CGI{'RANGE'}) &&						# if RANGE is defined as HTTP header
 							$$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/ &&		# if RANGE looks like
-							!$item->{EXTERNAL} &&						# if FILE is not external
-							!$transcode										# if TRANSCODING is not required
+							!$item->{EXTERNAL} 						# if FILE is not external
 						)
 					{
 						LDLNA::Log::log('Delivering content for: '.$item->{FULLNAME}.' with RANGE Request.', 1, 'httpstream');
@@ -1016,24 +994,20 @@ sub stream_media
 					#
 					# sending the response
 					#
-					if (!$item->{EXTERNAL} && !$transcode) # file on disk or TRANSFERMODE is NOT required
+					if (!$item->{EXTERNAL} ) # file on disk or TRANSFERMODE is NOT required
 					{
                         
 						sysopen(ITEM, $item->{FULLNAME}, O_RDONLY);
 						sysseek(ITEM, $lowrange, 0) if $lowrange;
 					}
-					else # streams, scripts, or transcoding
+					else # streams, scripts, 
 					{
 						my $command = '';
 						if (LDLNA::Media::is_supported_stream($item->{FULLNAME})) # if it is a supported stream
 						{
                             
                             if ($item->{FULLNAME} =~ /^rtmp/) { $command = " $CONFIG{'RTMPDUMP_BIN'} -r $item->{FULLNAME} -q -v 2>/dev/null"; }
-                            else {$command = $CONFIG{'MPLAYER_BIN'}.' '.$item->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null'; }
-						}
-						elsif ($transcode) # if TRANSCODING is required
-						{
-							$command = $media_data{'command'};
+                            else {$command = "$CONFIG{'FFMPEG_BIN'} -i $item->{FULLNAME} -vcodec copy -acodec copy -f avi pipe:1  2>/dev/null"; }
 						}
 						else # if it is a script
 						{
@@ -1122,7 +1096,7 @@ sub preview_media
 
 	
 		my @records = LDLNA::Database::get_records_by("FILES", {ID => $id});
-        my $item_info = $records[0];
+                my $item_info = $records[0];
 		if (defined($item_info->{FULLNAME}))
 		{
 			if (-f $item_info->{FULLNAME})
@@ -1158,18 +1132,24 @@ sub preview_media
 			my $path = $item_info->{FULLNAME};
 			if ($item_info->{TYPE} eq 'video') # we need to create the thumbnail
 			{
-				$randid = LDLNA::Utils::get_randid();
+    			  	LDLNA::Log::log('Delivering preview for Video Item is NOT supported yet.', 2, 'httpstream');
+			        return http_header({
+			                     'statuscode' => 501,
+			                     'content_type' => 'text/plain',
+			        });
+			                                                                                                                                                  
+				#$randid = LDLNA::Utils::get_randid();
 				# this way is a little bit ugly ... but works for me
-				system($CONFIG{'MPLAYER_BIN'}.' -vo jpeg:outdir='.$CONFIG{'TMP_DIR'}.'/'.$randid.'/ -frames 1 -ss 10 "'.$path.'" > /dev/null 2>&1');
-				$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
-				unless (defined($path))
-				{
-					LDLNA::Log::log('Problem creating temporary directory for Item Preview.', 2, 'httpstream');
-					return http_header({
-						'statuscode' => 404,
-						'content_type' => 'text/plain',
-					});
-				}
+				#system($CONFIG{'MPLAYER_BIN'}.' -vo jpeg:outdir='.$CONFIG{'TMP_DIR'}.'/'.$randid.'/ -frames 1 -ss 10 "'.$path.'" > /dev/null 2>&1');
+				#$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
+				#unless (defined($path))
+				#{
+				#	LDLNA::Log::log('Problem creating temporary directory for Item Preview.', 2, 'httpstream');
+				#	return http_header({
+				#		'statuscode' => 404,
+				#		'content_type' => 'text/plain',
+				#	});
+				#}
 			}
 
 			# image scaling stuff

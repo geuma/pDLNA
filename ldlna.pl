@@ -34,8 +34,6 @@ use LDLNA::Database;
 use LDLNA::HTTPServer;
 use LDLNA::Log;
 use LDLNA::SSDP;
-use LDLNA::Statistics;
-use LDLNA::Status;
 
 #
 # STARTUP PARAMETERS

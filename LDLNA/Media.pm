@@ -442,7 +442,6 @@ sub return_type_by_mimetype
 sub get_dlnacontentfeatures
 {
 	my $item = shift;
-	my $transcode = shift;
 	my $type = shift;
 
 	my $contentfeatures = '';
@@ -472,10 +471,6 @@ sub get_dlnacontentfeatures
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for images
 		}
-		elsif ($transcode)
-		{
-			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for transcoded media items
-		}
 		elsif ($item->{EXTERNAL})
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for external media items
@@ -494,7 +489,7 @@ sub get_dlnacontentfeatures
 	# TODO
 
 	# DLNA.ORG_CI - for transcoded media items it is set to 1
-	$contentfeatures .= 'DLNA.ORG_CI='.$transcode.';';
+	# $contentfeatures .= 'DLNA.ORG_CI='.$transcode.';';
 
 	# DLNA.ORG_FLAGS - binary flags with device parameters
 	if (defined($item))
