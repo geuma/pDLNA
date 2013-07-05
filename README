@@ -19,11 +19,27 @@ and http://lombix.com/content/lombix-dlna home web page of Lombix DLNA
 
 REQUISITES
 -----------
-Perl 5.X
-SQLite 3.X or PostgreSQL ( > 8.0 )
+* Perl 5.X
+* One out of :
+    - SQLite 3.X or PostgreSQL ( > 8.0 )
+    - Postgres ( >= 8.X )
+    - Mysql/MariaDB ( Untested )
+
+* uuidgen ( In Linux systems comes with util-linux package )
+* ffmpeg
+
+- OPTIONAL -
+
+* rtmpdump ( If rtmp support required )
+
 
 PERL MODULES
 ------------
+Lombix DLNA requires All these perl modules, some of them will be available
+by default in most of standard perl installations. For those required to be
+installed in most cases there will be a package for your distro ( rpm or
+deb ). Only as a last resort you can use cpan to install just a few.
+ 
 use Config;
 use Config::ApacheFormat;
 use File::Basename;
