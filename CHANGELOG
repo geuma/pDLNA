@@ -18,6 +18,8 @@ xx-xx-2013
 - error log messages will get LogLevel 0 and will always be logged (changed LogLevel in various error messages over some Perl Modules)
 - fixed a bug regarding the ConnectionManager HTTP response (thanks to lombao)
 - moved from Ogg::Vorbis::Header to Ogg::Vorbis::Header::PurePerl and finally added code for tags from ogg files
+- moved (again) from Net::Interface to IO::Interface (thx to shantanubhadoria) (issue #17)
+- removed usage of Net::Address::Ethernet (handled by IO::Interface too)
 
 Version 0.62.0
 05-05-2013

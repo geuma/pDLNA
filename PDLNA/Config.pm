@@ -31,10 +31,7 @@ use Digest::MD5;
 use Digest::SHA1;
 use File::Basename;
 use File::MimeInfo;
-use IO::Socket;
-use IO::Interface qw(if_addr);
-use Net::Address::Ethernet qw(get_addresses);
-use Net::Interface;
+use IO::Interface::Simple;
 use Net::IP;
 use Net::Netmask;
 use Sys::Hostname qw(hostname);
@@ -148,7 +145,7 @@ sub parse_config
 	#
 	# INTERFACE CONFIG PARSING
 	#
-	my $socket_obj = IO::Socket::INET->new(Proto => 'udp');
+	my @interfaces = IO::Interface::Simple->interfaces();
 	if ($cfg->get('ListenInterface'))
 	{
 		$CONFIG{'LISTEN_INTERFACE'} = $cfg->get('ListenInterface');
@@ -156,7 +153,7 @@ sub parse_config
 	# Get the first non lo interface
 	else
 	{
-		foreach my $interface ($socket_obj->if_list)
+		foreach my $interface (@interfaces)
 		{
 			next if $interface =~ /^lo/i;
 			$CONFIG{'LISTEN_INTERFACE'} = $interface;
@@ -164,14 +161,26 @@ sub parse_config
 		}
 	}
 
-	push (@{$errormsg}, 'Invalid ListenInterface: The given interface does not exist on your machine.') if (!$socket_obj->if_flags($CONFIG{'LISTEN_INTERFACE'}));
-
-	#
-	# IP ADDR CONFIG PARSING
-	#
-	$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress') ? $cfg->get('ListenIPAddress') : $socket_obj->if_addr($CONFIG{'LISTEN_INTERFACE'});
-
-	push(@{$errormsg}, 'Invalid ListenInterface: The given ListenIPAddress is not located on the given ListenInterface.') unless $CONFIG{'LISTEN_INTERFACE'} eq $socket_obj->addr_to_interface($CONFIG{'LOCAL_IPADDR'});
+	if (grep(/^$CONFIG{'LISTEN_INTERFACE'}$/, @interfaces))
+	{
+		my $interface = IO::Interface::Simple->new($CONFIG{'LISTEN_INTERFACE'});
+		if ($cfg->get('ListenIPAddress'))
+		{
+			$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress');
+			if ($CONFIG{'LOCAL_IPADDR'} ne $interface->address())
+			{
+				 push(@{$errormsg}, 'Invalid ListenInterface: The configured ListenIPAddress is not located on the configured ListenInterface '.$CONFIG{'LISTEN_INTERFACE'}.'.');
+			}
+		}
+		else
+		{
+			$CONFIG{'LOCAL_IPADDR'} = $interface->address();
+		}
+	}
+	else
+	{
+		 push (@{$errormsg}, 'Invalid ListenInterface: The configured interface does not exist on your machine.');
+	}
 
 	#
 	# HTTP PORT PARSING
@@ -237,10 +246,10 @@ sub parse_config
 	}
 	else # AllowedClients is not defined, so take the local subnet
 	{
-		my $interface = Net::Interface->new($CONFIG{'LISTEN_INTERFACE'});
+		my $interface = IO::Interface::Simple->new($CONFIG{'LISTEN_INTERFACE'});
 		if (defined($interface))
 		{
-			push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.inet_ntoa($interface->netmask())));
+			push(@{$CONFIG{'ALLOWED_CLIENTS'}}, Net::Netmask->new($CONFIG{'LOCAL_IPADDR'}.'/'.$interface->netmask()));
 		}
 		else
 		{
@@ -470,11 +479,8 @@ sub parse_config
 	{
 		if ($CONFIG{'UUID'} eq 'Version4MAC') # determine the MAC address of our listening interfae
 		{
-			my @addresses = get_addresses();
-			foreach my $obj (@addresses)
-			{
-				$mac = lc($obj->{'sEthernet'}) if $obj->{'sAdapter'} eq $CONFIG{'LISTEN_INTERFACE'};
-			}
+			my $interface = IO::Interface::Simple->new($CONFIG{'LISTEN_INTERFACE'});
+			$mac = lc($interface->hwaddr());
 		}
 
 		my @chars = qw(a b c d e f 0 1 2 3 4 5 6 7 8 9);
