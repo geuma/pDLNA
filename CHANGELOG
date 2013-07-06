@@ -15,7 +15,7 @@ xx-xx-2013
 - improved check to detect valid Mplayer installation (since Mplayer seems to change the location of the Mplayer string often) (thanks to lombao)
 - enabled EnableGeneralStatistics feature for FreeBSD and readded process information on FreeBSD in the WebUI
 - improved error handling in database module
-- error log messages will get LogLevel 0 and will always be logged
+- error log messages will get LogLevel 0 and will always be logged (changed LogLevel in various error messages over some Perl Modules)
 - fixed a bug regarding the ConnectionManager HTTP response (thanks to lombao)
 
 Version 0.62.0

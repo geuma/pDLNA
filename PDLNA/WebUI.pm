@@ -763,7 +763,7 @@ sub graph
 	# deliver the graph to the browser
 	#
 
-	my $image = $graph->plot(\@data) or die $graph->error;
+	my $image = $graph->plot(\@data) || PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
 	my $response = PDLNA::HTTPServer::http_header({
 		'statuscode' => 200,
 		'content_type' => 'image/png',

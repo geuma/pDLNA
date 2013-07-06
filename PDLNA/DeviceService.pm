@@ -50,7 +50,7 @@ sub new
 		my $xml = eval { $xs->XMLin($response) };
 		if ($@)
 		{
-			PDLNA::Log::log('Error parsing XML Service Description in PDLNA::DeviceService:'.$@, 3, 'discovery');
+			PDLNA::Log::log('ERROR: Unable to parse XML Service Description in PDLNA::DeviceService: '.$@, 0, 'discovery');
 		}
 		else
 		{

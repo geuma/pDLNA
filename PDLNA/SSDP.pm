@@ -308,7 +308,7 @@ sub receive_messages
 		my %message = ();
 		unless(parse_ssdp_message($data, \%message))
 		{
-			PDLNA::Log::log('Error while parsing SSDP message from client IP '.$peer_ip_addr.'. Ignoring message.', 1, 'discovery');
+			PDLNA::Log::log('ERROR: Unable to parse SSDP message from client IP '.$peer_ip_addr.'. Ignoring message.', 0, 'discovery');
 			next;
 		}
 

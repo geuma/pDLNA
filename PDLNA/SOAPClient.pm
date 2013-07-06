@@ -74,7 +74,7 @@ sub send
 	eval { $response = $request->call($self->{METHOD} => $self->{ARGUMENTS}) };
 	if ($@)
 	{
-		PDLNA::Log::log('Error: '.$@, 1, 'soap');
+		PDLNA::Log::log('ERROR: Unable to perform SOAP request: '.$@, 0, 'soap');
 	}
 	else
 	{
@@ -89,7 +89,7 @@ sub send
 				eval { $xml = $xmlsimple->XMLin($response->{'_context'}->{'_transport'}->{'_proxy'}->{'_http_response'}->{'_content'}) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error converting response with XML::Simple: '.$@, 3, 'soap');
+					PDLNA::Log::log('ERROR: Unable to convert response with XML::Simple: '.$@, 0, 'soap');
 				}
 				else
 				{
@@ -105,7 +105,7 @@ sub send
 		}
 		else
 		{
-			PDLNA::Log::log('Error while doing request (unknwon _is_success value): '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_is_success'}, 1, 'soap');
+			PDLNA::Log::log('ERROR: Unable to understand response (unknwon _is_success value): '.$response->{'_context'}->{'_transport'}->{'_proxy'}->{'_is_success'}, 0, 'soap');
 		}
 	}
 	return 0;

@@ -104,7 +104,7 @@ sub add_device
 				my $xml = eval { $xs->XMLin($response) };
 				if ($@)
 				{
-					PDLNA::Log::log('Error parsing XML Device Description in PDLNA::Devices: '.$@, 3, 'discovery');
+					PDLNA::Log::log('ERROR: Unable to parse XML Device Description in PDLNA::Devices: '.$@, 0, 'discovery');
 				}
 				else
 				{

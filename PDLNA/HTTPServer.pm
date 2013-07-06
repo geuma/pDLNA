@@ -144,7 +144,7 @@ sub handle_connection
 
 	if (!defined($ENV{'METHOD'}) || !defined($ENV{'OBJECT'}))
 	{
-		PDLNA::Log::log('Error parsing HTTP request from '.$peer_ip_addr.':'.$peer_src_port.'.', 2, 'httpstream');
+		PDLNA::Log::log('ERROR: Unable to parse HTTP request from '.$peer_ip_addr.':'.$peer_src_port.'.', 0, 'httpstream');
 		$response = http_header({
 			'statuscode' => 501,
 			'content_type' => 'text/plain',
@@ -183,7 +183,7 @@ sub handle_connection
 		eval { $post_xml = $xmlsimple->XMLin($CGI{'POSTDATA'}) };
 		if ($@)
 		{
-			PDLNA::Log::log('Error converting POSTDATA with XML::Simple for '.$peer_ip_addr.':'.$peer_src_port.': '.$@, 3, 'httpdir');
+			PDLNA::Log::log('ERROR: Unable to convert POSTDATA with XML::Simple for '.$peer_ip_addr.':'.$peer_src_port.': '.$@, 0, 'httpdir');
 		}
 		else
 		{
