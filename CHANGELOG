@@ -17,6 +17,7 @@ xx-xx-2013
 - improved error handling in database module
 - error log messages will get LogLevel 0 and will always be logged (changed LogLevel in various error messages over some Perl Modules)
 - fixed a bug regarding the ConnectionManager HTTP response (thanks to lombao)
+- moved from Ogg::Vorbis::Header to Ogg::Vorbis::Header::PurePerl and finally added code for tags from ogg files
 
 Version 0.62.0
 05-05-2013

@@ -82,7 +82,7 @@ use_ok ('Net::Interface');
 use_ok ('Net::IP');
 use_ok ('Net::Netmask');
 use_ok ('Movie::Info');
-use_ok ('Ogg::Vorbis::Header');
+use_ok ('Ogg::Vorbis::Header::PurePerl');
 use_ok ('POSIX');
 use_ok ('Proc::ProcessTable');
 use_ok ('SOAP::Lite');

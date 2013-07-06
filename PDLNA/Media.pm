@@ -28,7 +28,7 @@ use Image::Info qw(image_info dim image_type);
 use Movie::Info;
 use MP3::Info;
 use MP4::Info;
-use Ogg::Vorbis::Header;
+use Ogg::Vorbis::Header::PurePerl;
 use XML::Simple;
 
 my %MIME_TYPES = (
@@ -588,6 +588,16 @@ sub get_audio_fileinfo
 			$$info{GENRE} = $tag->{'GENRE'} if defined($tag->{'GENRE'});
 			$$info{YEAR} = $tag->{'DATE'} if defined($tag->{'DATE'});
 		}
+	}
+	elsif ($audio_codec eq 'ffvorbis')
+	{
+		my $ogg = Ogg::Vorbis::Header::PurePerl->new($file);
+		($$info{ARTIST}) = $ogg->comment('artist') if defined($ogg->comment('artist'));
+		($$info{ALBUM}) = $ogg->comment('album') if defined($ogg->comment('album'));
+		($$info{TRACKNUM}) = $ogg->comment('tracknumber') if defined($ogg->comment('tracknumber'));
+		($$info{TITLE}) = $ogg->comment('title') if defined($ogg->comment('title'));
+		($$info{GENRE}) = $ogg->comment('genre') if defined($ogg->comment('genre'));
+		($$info{YEAR}) = $ogg->comment('year') if defined($ogg->comment('year'));
 	}
 	return 1;
 }
