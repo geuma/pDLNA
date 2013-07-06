@@ -16,6 +16,7 @@ xx-xx-2013
 - enabled EnableGeneralStatistics feature for FreeBSD and readded process information on FreeBSD in the WebUI
 - improved error handling in database module
 - error log messages will get LogLevel 0 and will always be logged
+- fixed a bug regarding the ConnectionManager HTTP response (thanks to lombao)
 
 Version 0.62.0
 05-05-2013

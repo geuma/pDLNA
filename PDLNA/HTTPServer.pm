@@ -240,7 +240,7 @@ sub handle_connection
 			'Content-Type: text/xml; charset=utf8',
 			'Content-Length: '.length($xml),
 		);
-		my $response = http_header({
+		$response = http_header({
 			'statuscode' => 200,
 			'additional_header' => \@additional_header,
 		});
