@@ -592,12 +592,12 @@ sub get_audio_fileinfo
 	elsif ($audio_codec eq 'ffvorbis')
 	{
 		my $ogg = Ogg::Vorbis::Header::PurePerl->new($file);
-		($$info{ARTIST}) = $ogg->comment('artist') if defined($ogg->comment('artist'));
-		($$info{ALBUM}) = $ogg->comment('album') if defined($ogg->comment('album'));
-		($$info{TRACKNUM}) = $ogg->comment('tracknumber') if defined($ogg->comment('tracknumber'));
-		($$info{TITLE}) = $ogg->comment('title') if defined($ogg->comment('title'));
-		($$info{GENRE}) = $ogg->comment('genre') if defined($ogg->comment('genre'));
-		($$info{YEAR}) = $ogg->comment('year') if defined($ogg->comment('year'));
+		($$info{ARTIST}) = $ogg->comment('artist') if $ogg->comment('artist');
+		($$info{ALBUM}) = $ogg->comment('album') if $ogg->comment('album');
+		($$info{TRACKNUM}) = $ogg->comment('tracknumber') if $ogg->comment('tracknumber');
+		($$info{TITLE}) = $ogg->comment('title') if $ogg->comment('title');
+		($$info{GENRE}) = $ogg->comment('genre') if $ogg->comment('genre');
+		($$info{YEAR}) = $ogg->comment('year') if $ogg->comment('year');
 	}
 	return 1;
 }
