@@ -30,7 +30,10 @@ sub connect
 	my $dbh = undef;
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','') || PDLNA::Log::fatal('Cannot connect: '.$DBI::errstr);
+		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','', {
+			PrintError => 0,
+			RaiseError => 0,
+		},) || PDLNA::Log::fatal('Cannot connect to database: '.$DBI::errstr);
 	}
 	return $dbh;
 }
@@ -38,7 +41,7 @@ sub connect
 sub disconnect
 {
 	my $dbh = shift;
-	$dbh->disconnect();
+	$dbh->disconnect() || PDLNA::Log::log('ERROR: Unable to disconnect from database: '.$DBI::errstr, 0, 'database');
 }
 
 sub initialize_db
@@ -339,12 +342,13 @@ sub select_db_array
 	my $result = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 	while (my $data = $sth->fetchrow_array())
 	{
 		push(@{$result}, $data);
 	}
+	PDLNA::Log::log('ERROR: Data fetching terminated early by error: '.$DBI::errstr, 0, 'database') if $DBI::err;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -355,8 +359,8 @@ sub select_db_field_int
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 	my $result = $sth->fetchrow_array();
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
@@ -371,12 +375,13 @@ sub select_db
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	#_log_query($params);
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 	while (my $data = $sth->fetchrow_hashref)
 	{
 		push(@{$result}, $data);
 	}
+	PDLNA::Log::log('ERROR: Data fetching terminated early by error: '.$DBI::errstr, 0, 'database') if $DBI::err;
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -387,8 +392,8 @@ sub insert_db
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -399,8 +404,8 @@ sub update_db
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }
@@ -411,8 +416,8 @@ sub delete_db
 	my $params = shift;
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	my $sth = $dbh->prepare($$params{'query'});
-	$sth->execute(@{$$params{'parameters'}}) or die $sth->errstr;;
+	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
+	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
 	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
 }

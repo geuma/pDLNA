@@ -29,12 +29,15 @@ use PDLNA::Config;
 sub log
 {
 	my $message = shift;
-	my $debuglevel = shift;
+	my $debuglevel = shift || 0;
 	my $category = shift || undef;
 
 	if (
-		(!defined($debuglevel) || $debuglevel <= $CONFIG{'DEBUG'}) &&
-		(defined($category) && grep(/^$category$/, @{$CONFIG{'LOG_CATEGORY'}}))
+		$debuglevel == 0 ||
+		(
+			$debuglevel <= $CONFIG{'DEBUG'} &&
+			(defined($category) && grep(/^$category$/, @{$CONFIG{'LOG_CATEGORY'}}))
+		)
 	)
 	{
 		$message = add_message_info($message, $debuglevel, $category);

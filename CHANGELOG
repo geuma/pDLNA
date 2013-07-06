@@ -7,6 +7,16 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
+Version 0.63.x
+xx-xx-2013
+
+- removed Devel::Size Perl module from dependencies
+- added a new DBVERSION meta-information to database - it allows pDLNA to only recreate the database if a new version of pDLNA comes with a new database structure (not every time a new version of pDLNA is installed)
+- improved check to detect valid Mplayer installation (since Mplayer seems to change the location of the Mplayer string often) (thanks to lombao)
+- enabled EnableGeneralStatistics feature for FreeBSD and readded process information on FreeBSD in the WebUI
+- improved error handling in database module
+- error log messages will get LogLevel 0 and will always be logged
+
 Version 0.62.0
 05-05-2013
 
