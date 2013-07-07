@@ -20,7 +20,7 @@ package PDLNA::Utils;
 use strict;
 use warnings;
 
-use Digest::SHA1;
+use Digest::SHA;
 use LWP::UserAgent;
 use Time::HiRes qw(gettimeofday);
 
@@ -112,9 +112,9 @@ sub convert_duration
 # well, it is not real random ... but it's adequate
 sub get_randid
 {
-	my $sha1 = Digest::SHA1->new;
-	$sha1->add(time());
-	return $sha1->hexdigest;
+	my $sha = Digest::SHA->new();
+	$sha->add(get_timestamp_ms());
+	return $sha->hexdigest();
 }
 
 sub string_shortener

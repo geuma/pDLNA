@@ -60,7 +60,7 @@ use_ok ('Date::Format');
 use_ok ('DBD::SQLite');
 use_ok ('DBI');
 use_ok ('Digest::MD5');
-use_ok ('Digest::SHA1');
+use_ok ('Digest::SHA');
 use_ok ('Fcntl');
 use_ok ('File::Basename');
 use_ok ('File::Glob');

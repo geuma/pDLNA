@@ -28,7 +28,7 @@ our @EXPORT = qw(%CONFIG);
 use Config qw();
 use Config::ApacheFormat;
 use Digest::MD5;
-use Digest::SHA1;
+use Digest::SHA;
 use File::Basename;
 use File::MimeInfo;
 use IO::Interface::Simple;
@@ -499,9 +499,9 @@ sub parse_config
 	}
 	elsif ($CONFIG{'UUID'} eq 'Version5')
 	{
-		my $sha1 = Digest::SHA1->new;
-		$sha1->add($CONFIG{'HOSTNAME'});
-		$CONFIG{'UUID'} = substr($sha1->digest(), 0, 16);
+		my $sha = Digest::SHA->new();
+		$sha->add($CONFIG{'HOSTNAME'});
+		$CONFIG{'UUID'} = substr($sha->digest(), 0, 16);
 		$CONFIG{'UUID'} = join '-', map { unpack 'H*', $_ } map { substr $CONFIG{'UUID'}, 0, $_, '' } ( 4, 2, 2, 2, 6 ); # taken from UUID::Tiny perl module
 	}
 	elsif ($CONFIG{'UUID'} =~ /^[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}$/i)
