@@ -397,7 +397,7 @@ sub ctrl_content_directory_1
 		}
 		else
 		{
-			PDLNA::Log::log('Unable to find (a known) ObjectID in XML (POSTDATA).', 1, 'httpdir');
+			PDLNA::Log::log('ERROR: Unable to find (a known) ObjectID in XML (POSTDATA).', 0, 'httpdir');
 			return http_header({
 				'statuscode' => 501,
 				'content_type' => 'text/plain',
@@ -575,7 +575,7 @@ sub ctrl_content_directory_1
 			}
 			else
 			{
-				PDLNA::Log::log('SpecificView: Unable to understand request for ObjectID '.$object_id.'.', 2, 'httpdir');
+				PDLNA::Log::log('ERROR: SpecificView: Unable to understand request for ObjectID '.$object_id.'.', 0, 'httpdir');
 				return http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
@@ -769,7 +769,7 @@ sub ctrl_content_directory_1
 	}
 	else
 	{
-		PDLNA::Log::log('No Response.', 2, 'httpdir');
+		PDLNA::Log::log('ERROR: No Response.', 0, 'httpdir');
 		$response = http_header({
 			'statuscode' => 501,
 			'content_type' => 'text/plain',

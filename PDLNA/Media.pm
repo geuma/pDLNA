@@ -353,7 +353,7 @@ sub details
 	}
 	else
 	{
-		PDLNA::Log::log('MPlayer was unable to determine MediaInformation.', 1, 'library');
+		PDLNA::Log::log('ERROR: MPlayer was unable to determine MediaInformation.', 0, 'library');
 	}
 	return undef;
 }
