@@ -1226,7 +1226,7 @@ sub preview_media
 
 		if (defined($item_info[0]->{FULLNAME}))
 		{
-			if (-f $item_info[0]->{FULLNAME})
+			unless (-f $item_info[0]->{FULLNAME})
 			{
 				PDLNA::Log::log('Delivering preview for NON EXISTING Item is NOT supported.', 2, 'httpstream');
 				return http_header({
@@ -1265,7 +1265,7 @@ sub preview_media
 				$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
 				unless (defined($path))
 				{
-					PDLNA::Log::log('Problem creating temporary directory for Item Preview.', 2, 'httpstream');
+					PDLNA::Log::log('ERROR: Unable to create temporary directory for Item Preview.', 0, 'httpstream');
 					return http_header({
 						'statuscode' => 404,
 						'content_type' => 'text/plain',
@@ -1278,7 +1278,7 @@ sub preview_media
 			my $image = GD::Image->new($path);
 			unless ($image)
 			{
-				PDLNA::Log::log('Problem creating GD::Image object for Item Preview.', 2, 'httpstream');
+				PDLNA::Log::log('ERROR: Unable to create GD::Image object for Item Preview.', 0, 'httpstream');
 				return http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
