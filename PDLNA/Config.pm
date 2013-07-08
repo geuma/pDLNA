@@ -74,8 +74,8 @@ our %CONFIG = (
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.63.0',
-	'PROGRAM_DATE' => '2013-xx-xx',
-	'PROGRAM_BETA' => 1,
+	'PROGRAM_DATE' => '2013-07-08',
+	'PROGRAM_BETA' => 0,
 	'PROGRAM_DBVERSION' => '1.5',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -176,6 +176,16 @@ sub parse_config
 		else
 		{
 			$CONFIG{'LOCAL_IPADDR'} = $interface->address();
+		}
+
+		unless (Net::IP->new($CONFIG{'LOCAL_IPADDR'}))
+		{
+			push(@{$errormsg}, 'Invalid ListenIPAddress: '.Net::IP::Error().'.');
+		}
+
+		unless ($interface->is_multicast())
+		{
+			push(@{$errormsg}, 'Invalid ListenInterface: Interface is not capable of Multicast');
 		}
 	}
 	else
