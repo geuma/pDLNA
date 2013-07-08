@@ -156,6 +156,7 @@ sub parse_config
 		foreach my $interface (@interfaces)
 		{
 			next if $interface =~ /^lo/i;
+			next unless $interface->address();
 			$CONFIG{'LISTEN_INTERFACE'} = $interface;
 			last;
 		}
