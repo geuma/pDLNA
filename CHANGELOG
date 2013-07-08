@@ -7,8 +7,8 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
-Version 0.63.x
-xx-xx-2013
+Version 0.63.0
+08-07-2013
 
 - removed Devel::Size Perl module from dependencies
 - added a new DBVERSION meta-information to database - it allows pDLNA to only recreate the database if a new version of pDLNA comes with a new database structure (not every time a new version of pDLNA is installed)
@@ -21,7 +21,7 @@ xx-xx-2013
 - moved (again) from Net::Interface to IO::Interface (thx to shantanubhadoria) (issue #17)
 - removed usage of Net::Address::Ethernet (handled by IO::Interface too)
 - fixed a bug regarding delivering preview images
-- moved from Digest::SHA1 to Digest::SHA and improved the get_randid function by using timestamp with milliseconds
+- moved from Digest::SHA1 to Digest::SHA and improved the PDLNA::Utils::get_randid function by using timestamp with milliseconds
 
 Version 0.62.0
 05-05-2013
