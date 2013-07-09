@@ -37,10 +37,10 @@ use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Devices;
+use PDLNA::FFmpeg;
 use PDLNA::HTTPXML;
 use PDLNA::Log;
 use PDLNA::SpecificViews;
-use PDLNA::Transcode;
 use PDLNA::WebUI;
 
 sub start_webserver
@@ -902,7 +902,7 @@ sub stream_media
 			'video_codec' => $iteminfo[0]->{VIDEO_CODEC},
 		);
 		my $transcode = 0;
-		if ($transcode = PDLNA::Transcode::shall_we_transcode(
+		if ($transcode = PDLNA::FFmpeg::shall_we_transcode(
 				\%media_data,
 				{
 					'ip' => $client_ip,

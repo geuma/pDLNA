@@ -73,9 +73,9 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.63.0',
-	'PROGRAM_DATE' => '2013-07-08',
-	'PROGRAM_BETA' => 0,
+	'PROGRAM_VERSION' => '0.64.0',
+	'PROGRAM_DATE' => '2013-xx-xx',
+	'PROGRAM_BETA' => 1,
 	'PROGRAM_DBVERSION' => '1.5',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
@@ -457,11 +457,11 @@ sub parse_config
 	my $ffmpeg_error_message = undef;
 	if (-x $CONFIG{'FFMPEG_BIN'})
 	{
-		unless (PDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
+		unless (PDLNA::FFmpeg::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
-		unless (PDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
+		unless (PDLNA::FFmpeg::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
@@ -672,8 +672,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
 						#
 						my $ffmpeg_codec = undef;
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$ffmpeg_codec = PDLNA::FFmpeg::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$ffmpeg_codec = PDLNA::FFmpeg::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 						if (defined($ffmpeg_codec))
 						{
 							my $tmp_string = 'AUDIO_CODECS_DECODE';
@@ -701,8 +701,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE FORMATS
 						#
 						my $format = undef;
-						$format = PDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$format = PDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$format = PDLNA::FFmpeg::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$format = PDLNA::FFmpeg::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 
 						if (defined($format))
 						{

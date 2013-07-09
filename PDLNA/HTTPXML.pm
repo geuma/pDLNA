@@ -24,8 +24,8 @@ use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::Database;
+use PDLNA::FFmpeg;
 use PDLNA::SpecificViews;
-use PDLNA::Transcode;
 use PDLNA::Utils;
 
 sub get_browseresponse_header
@@ -212,7 +212,7 @@ sub get_browseresponse_item_detailed
 		'video_codec' => $iteminfo[0]->{VIDEO_CODEC},
 	);
 	my $transcode = 0;
-	if ($transcode = PDLNA::Transcode::shall_we_transcode(
+	if ($transcode = PDLNA::FFmpeg::shall_we_transcode(
 			\%media_data,
 			{
 				'ip' => $client_ip,

@@ -1,4 +1,4 @@
-package PDLNA::Transcode;
+package PDLNA::FFmpeg;
 #
 # pDLNA - a perl DLNA media server
 # Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
@@ -24,19 +24,25 @@ use PDLNA::Config;
 use PDLNA::Media;
 use PDLNA::Log;
 
-# this represents the beatuiful codec names and their internal (in the db) possible values
+# this represents the beatuiful codec names and their internal (in the db) possible values (from FFmpeg)
 my %AUDIO_CODECS = (
-	'aac' => [ 'faad', 'ffaac', ],
-	'ac3' => [ 'a52', 'ffac3', ],
-	'flac' => [ 'ffflac', ],
-	'mp3' => [ 'mp3', 'ffmp3float', ],
-	'vorbis' => [ 'ffvorbis', ],
-	'wav' => [ 'pcm', ],
-	'wmav1' => [ 'ffwmav1', ],
-	'wmav2' => [ 'ffwmav2', ],
+	'aac' => [ 'mpeg4aac', ],
+	'ac3' => [ 'ac3', ],
+	'flac' => [ 'flac', ],
+	'mp3' => [ 'mp3', ],
+	'vorbis' => [ 'vorbis', ],
+	'wav' => [ 'pcm_s16le', ],
+	'wmav1' => [ 'wmav1', ],
+	'wmav2' => [ 'wmav2', ],
 );
 
-# this represents the beatuiful codec names and their container names
+
+
+
+
+
+
+# this represents the beatuiful codec names and their internal (in the db) possible container names (from FFmpeg)
 my %AUDIO_CONTAINERS = (
 	'aac' => 'lavfpref',
 	'ac3' => 'lavf',
@@ -47,6 +53,17 @@ my %AUDIO_CONTAINERS = (
 	'wmav1' => 'asf',
 	'wmav2' => 'asf',
 );
+
+
+
+
+
+
+
+
+
+
+
 
 # this represents the beatuiful codec names and their ffmpeg decoder formats
 my %FFMPEG_DECODE_FORMATS = (
@@ -312,6 +329,92 @@ sub get_ffmpeg_codecs
 		}
 	}
 
+	return 1;
+}
+
+sub get_media_info
+{
+	my $file = shift;
+	my $info = shift;
+
+	open(FFMPEG, $CONFIG{'FFMPEG_BIN'}.' -i "'.$file.'" 2>&1 |') || PDLNA::Log::fatal('Unable to open FFmpeg :'.$!);
+	while (<FFMPEG>)
+	{
+		if ($_ =~ /Duration:\s+(\d\d):(\d\d):(\d\d).(\d+)\,/)
+		{
+			$$info{DURATION} = 3600*$1+60*$2+$3; # ignore miliseconds
+		}
+		#elsif ($_ =~ /Stream\s+.+:\s+Audio:\s+([\w\d]+),\s+(\d+)\s+Hz,\s+.+{,\s+(\d+)\s+kb\/s/)
+		elsif ($_ =~ /Stream\s+.+:\s+Audio:\s+([\w\d]+),\s+(.*)/)
+		{
+			$$info{AUDIO_CODEC} = $1;
+			my @tmp = split(/,/, $2);
+			foreach (@tmp)
+			{
+				if ($_ =~ /(\d+)\s+Hz/)
+				{
+					$$info{HZ} = $1;
+				}
+				elsif ($_ =~ /(\d+)\s+kb\/s/)
+				{
+					$$info{BITRATE} = $1*1000;
+				}
+				else
+				{
+					# TODO
+				}
+			}
+		}
+		elsif ($_ =~ /Stream\s+.+:\s+Video:\s+([\w\d]+),\s+(.*)/)
+		{
+			$$info{VIDEO_CODEC} = $1;
+			my @tmp = split(/,/, $2);
+			foreach (@tmp)
+			{
+				if ($_ =~ /(\d+)x(\d+)/)
+				{
+					$$info{WIDTH} = $1;
+					$$info{HEIGHT} = $2;
+				}
+				else
+				{
+					# TODO
+				}
+			}
+		}
+		elsif ($_ =~ /Input\s+.+,\s+([\w\d,]+),\s+from/)
+		{
+			$$info{CONTAINER} = (split(',', $1))[0]; # only take the first container (even if it is a comma seperated list)
+		}
+	}
+	close(CMD);
+
+	if (defined($$info{CONTAINER}) && (defined($$info{VIDEO_CODEC}) || defined($$info{AUDIO_CODEC})))
+	{
+#		use Data::Dumper;
+#		print STDERR $file."\n";
+#		print STDERR Dumper $info;
+
+		$$info{MIME_TYPE} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
+		$$info{TYPE} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
+		$$info{FILE_EXTENSION} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'FileExtension');
+
+		if (defined($$info{MIME_TYPE}) && defined($$info{TYPE}) && defined($$info{FILE_EXTENSION}))
+		{
+			PDLNA::Log::log('PDLNA::Media::details() returned for '.$file.": $$info{MIME_TYPE}, $$info{TYPE}, $$info{FILE_EXTENSION}", 3, 'library');
+		}
+		else
+		{
+			$$info{CONTAINER} = '' unless $$info{CONTAINER};
+			$$info{VIDEO_CODEC} = '' unless $$info{VIDEO_CODEC};
+			$$info{AUDIO_CODEC} = '' unless $$info{AUDIO_CODEC};
+			PDLNA::Log::log('ERROR: PDLNA::Media::details() was unable to determine details for '.$file.': '.join(', ', ($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC})), 0, 'library');
+		}
+	}
+	else
+	{
+		PDLNA::Log::log('ERROR: FFmpeg was unable to determine codec and/or container information for '.$file, 0, 'library');
+	}
 	return 1;
 }
 

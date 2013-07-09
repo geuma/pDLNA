@@ -28,6 +28,7 @@ use File::MimeInfo;
 
 use PDLNA::Config;
 use PDLNA::Database;
+use PDLNA::FFmpeg;
 use PDLNA::Log;
 use PDLNA::Media;
 use PDLNA::Utils;
@@ -701,7 +702,7 @@ sub get_fileinfo
 		if ($file[0]->{EXTERNAL})
 		{
 			my %info = ();
-			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
+			PDLNA::FFmpeg::get_media_info($file[0]->{FULLNAME}, \%info);
 			if (defined($info{MIME_TYPE}))
 			{
 				PDLNA::Database::update_db(
@@ -758,7 +759,7 @@ sub get_fileinfo
 		my %info = ();
 		if ($file[0]->{TYPE} eq 'video' || $file[0]->{TYPE} eq 'audio')
 		{
-			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
+			PDLNA::FFmpeg::get_media_info($file[0]->{FULLNAME}, \%info);
 			PDLNA::Database::update_db(
 				$dbh,
 				{
