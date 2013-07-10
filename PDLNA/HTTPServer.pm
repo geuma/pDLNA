@@ -1260,12 +1260,14 @@ sub preview_media
 			if ($item_info[0]->{TYPE} eq 'video') # we need to create the thumbnail
 			{
 				$randid = PDLNA::Utils::get_randid();
-				# this way is a little bit ugly ... but works for me
-				system($CONFIG{'MPLAYER_BIN'}.' -vo jpeg:outdir='.$CONFIG{'TMP_DIR'}.'/'.$randid.'/ -frames 1 -ss 10 "'.$path.'" > /dev/null 2>&1');
-				$path = glob("$CONFIG{'TMP_DIR'}/$randid/*");
-				unless (defined($path))
+				mkdir($CONFIG{'TMP_DIR'}.'/'.$randid);
+				my $thumbnail_path = $CONFIG{'TMP_DIR'}.'/'.$randid.'/thumbnail.jpg';
+				system($CONFIG{'FFMPEG_BIN'}.' -y -ss 20 -i "'.$path.'" -vcodec mjpeg -vframes 1 -an -f rawvideo "'.$thumbnail_path.'" > /dev/null 2>&1');
+
+				$path = $thumbnail_path;
+				unless (-f $path)
 				{
-					PDLNA::Log::log('ERROR: Unable to create temporary directory for Item Preview.', 0, 'httpstream');
+					PDLNA::Log::log('ERROR: Unable to create image for Item Preview.', 0, 'httpstream');
 					return http_header({
 						'statuscode' => 404,
 						'content_type' => 'text/plain',

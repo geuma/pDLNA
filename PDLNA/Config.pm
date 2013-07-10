@@ -120,7 +120,7 @@ sub parse_config
 
 	if (!-f $file)
 	{
-		push(@{$errormsg}, 'Configfile '.$file.' not found.');
+		push(@{$errormsg}, 'Configfile '.$file.' NOT found.');
 		return 0;
 	}
 
@@ -129,7 +129,7 @@ sub parse_config
 	);
 	unless ($cfg->read($file))
 	{
-		push(@{$errormsg}, 'Configfile '.$file.' is not readable.');
+		push(@{$errormsg}, 'Configfile '.$file.' is NOT readable.');
 		return 0;
 	}
 
@@ -170,7 +170,7 @@ sub parse_config
 			$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress');
 			if ($CONFIG{'LOCAL_IPADDR'} ne $interface->address())
 			{
-				 push(@{$errormsg}, 'Invalid ListenInterface: The configured ListenIPAddress is not located on the configured ListenInterface '.$CONFIG{'LISTEN_INTERFACE'}.'.');
+				 push(@{$errormsg}, 'Invalid ListenInterface: The configured ListenIPAddress is NOT located on the configured ListenInterface '.$CONFIG{'LISTEN_INTERFACE'}.'.');
 			}
 		}
 		else
@@ -185,12 +185,12 @@ sub parse_config
 
 		unless ($interface->is_multicast())
 		{
-			push(@{$errormsg}, 'Invalid ListenInterface: Interface is not capable of Multicast');
+			push(@{$errormsg}, 'Invalid ListenInterface: Interface is NOT capable of Multicast');
 		}
 	}
 	else
 	{
-		 push (@{$errormsg}, 'Invalid ListenInterface: The configured interface does not exist on your machine.');
+		 push (@{$errormsg}, 'Invalid ListenInterface: The configured interface does NOT exist on your machine.');
 	}
 
 	#
@@ -233,7 +233,7 @@ sub parse_config
 	$CONFIG{'TMP_DIR'} = $cfg->get('TempDir') if defined($cfg->get('TempDir'));
 	unless (-d $CONFIG{'TMP_DIR'})
 	{
-		push(@{$errormsg}, 'Invalid TempDir: Directory '.$CONFIG{'TMP_DIR'}.' for temporary files is not existing.');
+		push(@{$errormsg}, 'Invalid TempDir: Directory '.$CONFIG{'TMP_DIR'}.' for temporary files is NOT existing.');
 	}
 
 	#
@@ -284,14 +284,14 @@ sub parse_config
 		{
 			unless (mimetype($CONFIG{'DB_NAME'}) eq 'application/octet-stream') # TODO better check if it is a valid database
 			{
-				push(@{$errormsg}, 'Invalid DatabaseName: Database '.$CONFIG{'DB_NAME'}.' is already existing but not a valid database.');
+				push(@{$errormsg}, 'Invalid DatabaseName: Database '.$CONFIG{'DB_NAME'}.' is already existing but NOT a valid database.');
 			}
 		}
 		else
 		{
 			unless (-d dirname($CONFIG{'DB_NAME'}))
 			{
-				push(@{$errormsg}, 'Invalid DatabaseName: Directory '.dirname($CONFIG{'DB_NAME'}).' for database is not existing.');
+				push(@{$errormsg}, 'Invalid DatabaseName: Directory '.dirname($CONFIG{'DB_NAME'}).' for database is NOT existing.');
 			}
 		}
 	}
@@ -425,7 +425,7 @@ sub parse_config
 	# MPlayerBinaryPath
 	#
 	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled
 	{
 		if (-x $CONFIG{'MPLAYER_BIN'})
 		{
@@ -469,6 +469,20 @@ sub parse_config
 	else
 	{
 		$ffmpeg_error_message = 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.';
+	}
+
+	# a disabled LOW_RESOURCE_MODE requires FFmpeg
+	if (defined($ffmpeg_error_message) && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
+	{
+		push(@{$errormsg}, 'A disabled LowResourceMode requires a valid FFmpeg installation.');
+		push(@{$errormsg}, $ffmpeg_error_message);
+	}
+
+	# VIDEO_THUMBNAILS requires FFmpeg
+	if (defined($ffmpeg_error_message) && $CONFIG{'VIDEO_THUMBNAILS'} == 1)
+	{
+		push(@{$errormsg}, 'EnableVideoThumbnails requires a valid FFmpeg installation.');
+		push(@{$errormsg}, $ffmpeg_error_message);
 	}
 
 	#
@@ -606,7 +620,7 @@ sub parse_config
 				}
 				else
 				{
-					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
+					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is NOT executable.');
 				}
 
 				if (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
@@ -635,6 +649,7 @@ sub parse_config
 		{
 			if (defined($ffmpeg_error_message))
 			{
+				push(@{$errormsg}, 'Transcoding requires a valid FFmpeg installation.');
 				push(@{$errormsg}, $ffmpeg_error_message);
 				last;
 			}
@@ -662,7 +677,7 @@ sub parse_config
 					# since $block->get returns 1 if keyword is defined
 					unless (defined($block->get($type.$direction)) && $block->get($type.$direction) ne '1')
 					{
-						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is not defined.');
+						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is NOT defined.');
 						next;
 					}
 
@@ -693,7 +708,7 @@ sub parse_config
 						else
 						{
 							my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
-							$tmp_msg .= ' is not a supported '.$type.' for '.$type.$direction.' yet.';
+							$tmp_msg .= ' is NOT a supported '.$type.' for '.$type.$direction.' yet.';
 							push(@{$errormsg}, $tmp_msg);
 						}
 
@@ -724,7 +739,7 @@ sub parse_config
 							my $tmp_msg = $transcode_error_msg;
 							$tmp_msg .= 'Decode' if $direction eq 'In';
 							$tmp_msg .= 'Encode' if $direction eq 'Out';
-							$tmp_msg .= 'Format of '.$type.$direction.' is not supported yet.';
+							$tmp_msg .= 'Format of '.$type.$direction.' is NOT supported yet.';
 							push(@{$errormsg}, $tmp_msg);
 						}
 					}
