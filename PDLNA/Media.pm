@@ -31,6 +31,10 @@ use MP4::Info;
 use Ogg::Vorbis::Header::PurePerl;
 use XML::Simple;
 
+#
+# SUPPORTED MIME_TYPES
+#
+
 my %MIME_TYPES = (
 	'image/jpeg' => 'jpeg',
 	'image/gif' => 'gif',
@@ -51,6 +55,39 @@ my %MIME_TYPES = (
 	'video/x-flv' => 'flv',
 );
 
+sub is_supported_mimetype
+{
+	my $mimetype = shift;
+
+	return 1 if defined($MIME_TYPES{$mimetype});
+	return 0;
+}
+
+sub return_type_by_mimetype
+{
+	my $mimetype = shift;
+	my ($media_type) = split('/', $mimetype, 0);
+	$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
+	return $media_type;
+}
+
+sub get_mimetype_by_modelname
+{
+	my $mimetype = shift;
+	my $modelname = shift || '';
+
+	if ($modelname eq 'Samsung DTV DMR')
+	{
+		return 'video/x-mkv' if $mimetype eq 'video/x-matroska';
+		return 'video/x-avi' if $mimetype eq 'video/x-msvideo';
+	}
+	return $mimetype;
+}
+
+#
+# SUPPORTED PLAYLIST MIME_TYPES
+#
+
 my %PLAYLISTS = (
 	'audio/x-scpls' => 'pls',
 	'application/vnd.apple.mpegurl' => 'm3u',
@@ -60,73 +97,119 @@ my %PLAYLISTS = (
 	'application/xspf+xml' => 'xspf',
 );
 
+sub is_supported_playlist
+{
+	my $mimetype = shift;
+
+	return 1 if defined($PLAYLISTS{$mimetype});
+	return 0;
+}
+
+sub parse_playlist
+{
+	my $file = shift;
+	my $mime_type = shift;
+
+	my @items = ();
+	if ($mime_type eq 'audio/x-scpls')
+	{
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			push(@items, $1) if ($line =~ /^File\d+\=(.+)$/);
+		}
+	}
+	elsif ($mime_type eq 'application/vnd.apple.mpegurl' || $mime_type eq 'audio/x-mpegurl')
+	{
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			push(@items, $line) if ($line !~ /^#/);
+		}
+	}
+	elsif ($mime_type eq 'audio/x-ms-asx' || $mime_type eq 'video/x-ms-asf')
+	{
+		# TODO more beautiful way to do this
+		# reading the playlist file
+		sysopen(PLAYLIST, $file, O_RDONLY);
+		my @content = <PLAYLIST>;
+		close(PLAYLIST);
+
+		foreach my $line (@content)
+		{
+			$line =~ s/\r\n//g;
+			$line =~ s/\n//g;
+			$line =~ s/^\s+//g;
+		}
+
+		foreach my $entry (split(/(<.+?>)/, join('', @content)))
+		{
+			push(@items, $1) if $entry =~ /^<ref\s+href=\"(.+)\"\s*\/>$/;
+		}
+	}
+	elsif ($mime_type eq 'application/xspf+xml')
+	{
+		my $xs = XML::Simple->new();
+		my $xml = $xs->XMLin($file);
+		foreach my $element (@{$xml->{trackList}->{track}})
+		{
+			if ($element->{location} =~ /^file:\/\/(.+)$/)
+			{
+				push(@items, $1);
+			}
+			elsif ($element->{location} =~ /^http:\/\//)
+			{
+				push(@items, $element->{location});
+			}
+		}
+	}
+	return @items;
+}
+
+#
+# SUPPORTED SUBTITLE MIME_TYPES
+#
+
 my %SUBTITLES = (
 	'application/x-subrip' => 'srt',
 );
 
+sub is_supported_subtitle
+{
+	my $mimetype = shift;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	return 1 if defined($SUBTITLES{$mimetype});
+	return 0;
+}
 
 #
-# TODO DO WE NEED THIS
+# SUPPORTED STREAMING URLS
 #
 
-my %AUDIO_CODECS = (
-	'ffac3' => 'ac3',
-	'a52' => 'ac3',
-	'faad' => 'aac',
-	'ffflac' => 'flac',
-	'mp3' => 'mp3',
-	'ffvorbis' => 'vorbis',
-	'pcm' => 'wav',
-	'ffwmav1' => 'wmav1',
-	'ffwmav2' => 'wmav2',
-	'ffmp3float' => 'mp3',
-	'ffaac' => 'aac',
-);
+sub is_supported_stream
+{
+	my $url = shift || '';
 
-my %VIDEO_CODECS = (
-	'ffh264' => 'h264',
-	'ffwmv3' => 'wmvv3',  # or shall we name it wmvv9 ??
-	'ffdivx' => 'divx', # mpeg4 video v3
-	'ffodivx' => 'xvid', # mpeg4 video
-	'mpegpes' => 'mpg', # mpeg 1/2 video
-);
+	return 1 if $url =~ /^(http|mms):\/\//;
+	return 0;
+}
 
 #
-# TODO END
+# this is the data structure to determine the exact MimeType, FileExtension and MediaType per container and codec information from FFmpeg
+# this is used when LOW_RESOURCE_MODE is disabled
 #
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 my %CONTAINER = (
 	'avi' => {
@@ -270,222 +353,6 @@ my %CONTAINER = (
 	},
 );
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-my %FOO = (
-	'asf' => {
-		'AudioCodecs' => ['ffwmav2', 'ffwmav1', ],
-		'VideoCodecs' => [],
-		'ffwmv3' => {
-			'MimeType' => 'audio/x-ms-wmv',
-			'FileExtension' => 'wmv',
-			'MediaType' => 'video',
-		},
-	},
-	'avi' => {
-		'AudioCodecs' => ['mp3', 'a52', ],
-		'VideoCodecs' => ['ffodivx', 'ffdivx', ],
-		'ffodivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-		'ffdivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-	},
-	'avini' => {
-		'AudioCodecs' => ['mp3', 'a52', ],
-		'VideoCodecs' => ['ffodivx', 'ffdivx', ],
-		'ffodivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-		'ffdivx' => {
-			'MimeType' => 'video/x-msvideo', # video/avi, video/msvideo
-			'FileExtension' => 'avi',
-			'MediaType' => 'video',
-		},
-	},
-	'lavf' => {
-		'AudioCodecs' => ['a52', 'pcm', 'ffac3', ],
-		'VideoCodecs' => [],
-		'a52' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-		'pcm' => {
-			'MimeType' => 'audio/x-aiff',
-			'FileExtension' => 'aif',
-			'MediaType' => 'audio',
-		},
-		'ffac3' => {
-			'MimeType' => 'audio/ac3',
-			'FileExtension' => 'ac3',
-			'MediaType' => 'audio',
-		},
-	},
-	'lavfpref' => {
-		'AudioCodecs' => ['faad', 'ffaac'],
-		'VideoCodecs' => ['ffodivx', 'ffh264', 'ffvp6f', 'ffvorbis', ],
-		'ffh264' => {
-			'MimeType' => 'video/x-flv',
-			'FileExtension' => 'flv',
-			'MediaType' => 'video',
-		},
-		'faad' => {
-			'MimeType' => 'audio/mp4',
-			'FileExtension' => 'mp4', # m4a
-			'MediaType' => 'audio',
-		},
-		'ffaac' => {
-			'MimeType' => 'audio/mp4',
-			'FileExtension' => 'mp4', # m4a
-			'MediaType' => 'audio',
-		},
-		'ffodivx' => {
-			'MimeType' => 'video/mp4',
-			'FileExtension' => 'mp4',
-			'MediaType' => 'video',
-		},
-		'ffvp6f' => {
-			'MimeType' => 'video/x-flv',
-			'FileExtension' => 'flv',
-			'MediaType' => 'video',
-		},
-		'ffvorbis' => {
-			'MimeType' => 'video/x-theora+ogg',
-			'FileExtension' => 'ogg',
-			'MediaType' => 'audio',
-		},
-	},
-	'mkv' => {
-		'AudioCodecs' => ['a52', ],
-		'VideoCodecs' => ['ffh264', 'ffodivx', ],
-		'ffh264' => {
-			'MimeType' => 'video/x-matroska',
-			'FileExtension' => 'mkv',
-			'MediaType' => 'video',
-		},
-		'ffodivx' => {
-			'MimeType' => 'video/x-matroska',
-			'FileExtension' => 'mkv',
-			'MediaType' => 'video',
-		},
-	},
-	'mov' => {
-		'AudioCodecs' => ['faad', ],
-		'VideoCodecs' => ['ffodivx', 'ffh264', ],
-		'faad' => {
-			'MimeType' => 'audio/mp4',
-			'FileExtension' => 'mp4', # m4a
-			'MediaType' => 'audio',
-		},
-		'ffodivx' => {
-			'MimeType' => 'video/mp4',
-			'FileExtension' => 'mp4',
-			'MediaType' => 'video',
-		},
-		'ffh264' => {
-			'MimeType' => 'video/mp4',
-			'FileExtension' => 'mp4',
-			'MediaType' => 'video',
-		},
-	},
-	'mpegps' => {
-		'AudioCodecs' => ['a52', 'mp3', ],
-		'VideoCodecs' => ['mpegpes', ],
-		'mpegpes' => {
-			'MimeType' => 'video/mpeg',
-			'FileExtension' => 'mpg',
-			'MediaType' => 'video',
-		},
-	},
-	'ogg' => {
-		'AudioCodecs' => ['ffvorbis', ],
-		'VideoCodecs' => [],
-		'ffvorbis' => {
-			'MimeType' => 'video/x-theora+ogg',
-			'FileExtension' => 'ogg',
-			'MediaType' => 'audio',
-		},
-	},
-);
-
-sub audio_codec_by_beautiful_name
-{
-	my $beautiful_name = shift;
-	foreach my $audio_codec (keys %AUDIO_CODECS)
-	{
-		return $audio_codec if $AUDIO_CODECS{$audio_codec} eq $beautiful_name;
-	}
-	return undef;
-}
-
-sub audio_codec_by_name
-{
-	my $name = shift;
-	return $AUDIO_CODECS{$name} if defined($AUDIO_CODECS{$name});
-	return undef;
-}
-
-sub video_codec_by_beautiful_name
-{
-	my $beautiful_name = shift;
-	foreach my $video_codec (keys %VIDEO_CODECS)
-	{
-		return $video_codec if $VIDEO_CODECS{$video_codec} eq $beautiful_name;
-	}
-	return undef;
-}
-
-sub container_by_beautiful_name
-{
-	my $beautiful_name = shift;
-	return $beautiful_name if defined($CONTAINER{$beautiful_name});
-	return undef;
-}
-
-sub container_supports_audio_codec
-{
-	my $container = shift;
-	my $codec = shift;
-	return 1 if grep(/^$codec$/, @{$CONTAINER{$container}->{AudioCodecs}});
-	return 0;
-}
-
-sub container_supports_audio
-{
-	my $container = shift;
-
-	return 0 unless defined($container);
-	return scalar(@{$CONTAINER{$container}->{AudioCodecs}});
-}
-
-sub container_supports_video
-{
-	my $container = shift;
-
-	return 0 unless defined($container);
-	return scalar(@{$CONTAINER{$container}->{VideoCodecs}});
-}
-
 sub details
 {
 	my $container = shift;
@@ -522,95 +389,9 @@ sub details
 	return undef;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-sub is_supported_mimetype
-{
-	my $mimetype = shift;
-
-	return 1 if defined($MIME_TYPES{$mimetype});
-	return 0;
-}
-
-sub is_supported_playlist
-{
-	my $mimetype = shift;
-
-	return 1 if defined($PLAYLISTS{$mimetype});
-	return 0;
-}
-
-sub is_supported_subtitle
-{
-	my $mimetype = shift;
-
-	return 1 if defined($SUBTITLES{$mimetype});
-	return 0;
-}
-
-sub is_supported_stream
-{
-	my $url = shift || '';
-
-	return 1 if $url =~ /^(http|mms):\/\//;
-	return 0;
-}
-
-sub return_type_by_mimetype
-{
-	my $mimetype = shift;
-	my ($media_type) = split('/', $mimetype, 0);
-	$media_type = 'audio' if $mimetype eq 'video/x-theora+ogg';
-	return $media_type;
-}
+#
+# OTHER FUNCTIONS
+#
 
 sub get_dlnacontentfeatures
 {
@@ -776,90 +557,66 @@ sub get_audio_fileinfo
 	return 1;
 }
 
-sub get_mimetype_by_modelname
-{
-	my $mimetype = shift;
-	my $modelname = shift || '';
+#
+# OLD FUNCTIONS
+#
 
-	if ($modelname eq 'Samsung DTV DMR')
-	{
-		return 'video/x-mkv' if $mimetype eq 'video/x-matroska';
-		return 'video/x-avi' if $mimetype eq 'video/x-msvideo';
-	}
-	return $mimetype;
-}
-
-sub parse_playlist
-{
-	my $file = shift;
-	my $mime_type = shift;
-
-	my @items = ();
-	if ($mime_type eq 'audio/x-scpls')
-	{
-		# reading the playlist file
-		sysopen(PLAYLIST, $file, O_RDONLY);
-		my @content = <PLAYLIST>;
-		close(PLAYLIST);
-
-		foreach my $line (@content)
-		{
-			$line =~ s/\r\n//g;
-			$line =~ s/\n//g;
-			push(@items, $1) if ($line =~ /^File\d+\=(.+)$/);
-		}
-	}
-	elsif ($mime_type eq 'application/vnd.apple.mpegurl' || $mime_type eq 'audio/x-mpegurl')
-	{
-		# reading the playlist file
-		sysopen(PLAYLIST, $file, O_RDONLY);
-		my @content = <PLAYLIST>;
-		close(PLAYLIST);
-
-		foreach my $line (@content)
-		{
-			$line =~ s/\r\n//g;
-			$line =~ s/\n//g;
-			push(@items, $line) if ($line !~ /^#/);
-		}
-	}
-	elsif ($mime_type eq 'audio/x-ms-asx' || $mime_type eq 'video/x-ms-asf')
-	{
-		# TODO more beautiful way to do this
-		# reading the playlist file
-		sysopen(PLAYLIST, $file, O_RDONLY);
-		my @content = <PLAYLIST>;
-		close(PLAYLIST);
-
-		foreach my $line (@content)
-		{
-			$line =~ s/\r\n//g;
-			$line =~ s/\n//g;
-			$line =~ s/^\s+//g;
-		}
-
-		foreach my $entry (split(/(<.+?>)/, join('', @content)))
-		{
-			push(@items, $1) if $entry =~ /^<ref\s+href=\"(.+)\"\s*\/>$/;
-		}
-	}
-	elsif ($mime_type eq 'application/xspf+xml')
-	{
-		my $xs = XML::Simple->new();
-		my $xml = $xs->XMLin($file);
-		foreach my $element (@{$xml->{trackList}->{track}})
-		{
-			if ($element->{location} =~ /^file:\/\/(.+)$/)
-			{
-				push(@items, $1);
-			}
-			elsif ($element->{location} =~ /^http:\/\//)
-			{
-				push(@items, $element->{location});
-			}
-		}
-	}
-	return @items;
-}
+#sub audio_codec_by_beautiful_name
+#{
+#	my $beautiful_name = shift;
+#	foreach my $audio_codec (keys %AUDIO_CODECS)
+#	{
+#		return $audio_codec if $AUDIO_CODECS{$audio_codec} eq $beautiful_name;
+#	}
+#	return undef;
+#}
+#
+#sub audio_codec_by_name
+#{
+#	my $name = shift;
+#	return $AUDIO_CODECS{$name} if defined($AUDIO_CODECS{$name});
+#	return undef;
+#}
+#
+#sub video_codec_by_beautiful_name
+#{
+#	my $beautiful_name = shift;
+#	foreach my $video_codec (keys %VIDEO_CODECS)
+#	{
+#		return $video_codec if $VIDEO_CODECS{$video_codec} eq $beautiful_name;
+#	}
+#	return undef;
+#}
+#
+#sub container_by_beautiful_name
+#{
+#	my $beautiful_name = shift;
+#	return $beautiful_name if defined($CONTAINER{$beautiful_name});
+#	return undef;
+#}
+#
+#sub container_supports_audio_codec
+#{
+#	my $container = shift;
+#	my $codec = shift;
+#	return 1 if grep(/^$codec$/, @{$CONTAINER{$container}->{AudioCodecs}});
+#	return 0;
+#}
+#
+#sub container_supports_audio
+#{
+#	my $container = shift;
+#
+#	return 0 unless defined($container);
+#	return scalar(@{$CONTAINER{$container}->{AudioCodecs}});
+#}
+#
+#sub container_supports_video
+#{
+#	my $container = shift;
+#
+#	return 0 unless defined($container);
+#	return scalar(@{$CONTAINER{$container}->{VideoCodecs}});
+#}
 
 1;
