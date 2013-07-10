@@ -158,9 +158,14 @@ my %CONTAINER = (
 		},
 	},
 	'mov' => {
-		'AudioCodecs' => [ 'mpeg4aac', ],
+		'AudioCodecs' => [ 'mpeg4aac', 'aac', ],
 		'VideoCodecs' => [ 'h264', 'mpeg4', ],
 		'mpeg4aac' => {
+			'MimeType' => 'audio/mp4',
+			'FileExtension' => 'mp4', # m4a
+			'MediaType' => 'audio',
+		},
+		'aac' => {
 			'MimeType' => 'audio/mp4',
 			'FileExtension' => 'mp4', # m4a
 			'MediaType' => 'audio',

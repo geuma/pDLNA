@@ -26,7 +26,7 @@ use PDLNA::Log;
 
 # this represents the beatuiful codec names and their internal (in the db) possible values (from FFmpeg)
 my %AUDIO_CODECS = (
-	'aac' => [ 'mpeg4aac', ],
+	'aac' => [ 'mpeg4aac', 'aac', ],
 	'ac3' => [ 'ac3', ],
 	'flac' => [ 'flac', ],
 	'mp3' => [ 'mp3', ],
@@ -36,20 +36,14 @@ my %AUDIO_CODECS = (
 	'wmav2' => [ 'wmav2', ],
 );
 
-
-
-
-
-
-
 # this represents the beatuiful codec names and their internal (in the db) possible container names (from FFmpeg)
 my %AUDIO_CONTAINERS = (
-	'aac' => 'lavfpref',
-	'ac3' => 'lavf',
-	'flac' => 'audio',
-	'mp3' => 'audio',
+	'aac' => 'mov',
+	'ac3' => 'ac3',
+	'flac' => 'flac',
+	'mp3' => 'mp3',
 	'vorbis' => 'ogg',
-	'wav' => 'audio',
+	'wav' => 'wav',
 	'wmav1' => 'asf',
 	'wmav2' => 'asf',
 );

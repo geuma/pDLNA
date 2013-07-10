@@ -754,7 +754,7 @@ sub get_fileinfo
 		}
 
 		#
-		# FILL MPLAYER DATA OF VIDEO OR AUDIO FILES
+		# FILL FFmpeg DATA OF VIDEO OR AUDIO FILES
 		#
 		my %info = ();
 		if ($file[0]->{TYPE} eq 'video' || $file[0]->{TYPE} eq 'audio')
