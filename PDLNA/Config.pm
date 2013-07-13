@@ -66,7 +66,6 @@ our %CONFIG = (
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'LOW_RESOURCE_MODE' => 0,
-	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
@@ -420,35 +419,6 @@ sub parse_config
 	# LowResourceMode
 	#
 	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
-
-	#
-	# MPlayerBinaryPath
-	#
-	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
-	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled
-	{
-		if (-x $CONFIG{'MPLAYER_BIN'})
-		{
-			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
-			my @output = <CMD>;
-			close(CMD);
-
-			my $found = 0;
-			foreach my $line (@output)
-			{
-				$found = 1 if $line =~ /^MPlayer\s+(.+)\s+\(/;
-			}
-
-			unless ($found)
-			{
-				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
-			}
-		}
-		else
-		{
-			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
-		}
-	}
 
 	#
 	# FFmpegBinaryPath

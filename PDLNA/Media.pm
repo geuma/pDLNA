@@ -384,7 +384,7 @@ sub details
 	}
 	else
 	{
-		PDLNA::Log::log('ERROR: MPlayer was unable to determine MediaInformation.', 0, 'library');
+		PDLNA::Log::log('ERROR: FFmpeg was unable to determine MediaInformation.', 0, 'library');
 	}
 	return undef;
 }
@@ -426,6 +426,10 @@ sub get_dlnacontentfeatures
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for images
 		}
+#		else
+#		{
+#			$contentfeatures .= 'DLNA.ORG_OP=11;';
+#		}
 		elsif ($transcode)
 		{
 			$contentfeatures .= 'DLNA.ORG_OP=00;'; # deactivate seeking for transcoded media items

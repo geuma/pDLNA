@@ -849,6 +849,417 @@ sub deliver_subtitle
 	}
 }
 
+sub stream_media_beta
+{
+	my $content_id = shift;
+	my $method = shift;
+	my $CGI = shift;
+	my $FH = shift;
+	my $model_name = shift;
+	my $client_ip = shift;
+	my $user_agent = shift;
+
+	#
+	# ContentID verification
+	#
+	my $id = 0;
+	if ($content_id =~ /^(\d+)\.(\w+)$/)
+	{
+		$id = $1;
+	}
+	else
+	{
+		PDLNA::Log::log('ERROR: ContentID '.$content_id.' for Streaming Items is NOT supported yet.', 0, 'httpstream');
+		print $FH http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+		close(FILE);
+		return;
+	}
+	PDLNA::Log::log('Found ContentID in streaming request: '.$id, 3, 'httpstream');
+
+	#
+	# getting information from database
+	#
+	my $dbh = PDLNA::Database::connect();
+
+	my @item = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE,EXTERNAL FROM FILES WHERE ID = ?',
+			'parameters' => [ $id, ],
+		},
+		\@item,
+	);
+
+	my @iteminfo = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT CONTAINER, AUDIO_CODEC, VIDEO_CODEC, DURATION FROM FILEINFO WHERE FILEID_REF = ?;',
+			'parameters' => [ $id, ],
+		},
+		\@iteminfo,
+	);
+
+	my @subtitles = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+			'parameters' => [ $id, ],
+		},
+		\@subtitles,
+	);
+
+	PDLNA::Database::disconnect($dbh);
+
+	#
+	# TODO sanity checks for file
+	#
+
+	my $transcode = 0;
+
+
+	#
+	# TODO HTTP response header
+	#
+
+	my @additional_header = ();
+	push(@additional_header, 'Content-Type: '.PDLNA::Media::get_mimetype_by_modelname($item[0]->{MIME_TYPE}, $model_name));
+	push(@additional_header, 'Content-Length: '.$item[0]->{SIZE}) if !$item[0]->{EXTERNAL}; # TODO
+	push(@additional_header, 'Content-Disposition: attachment; filename="'.$item[0]->{NAME}.'"') if !$item[0]->{EXTERNAL};
+	push(@additional_header, 'Accept-Ranges: bytes'); # TODO
+
+	#
+	# contentFeatures.dlna.org
+	# Streaming of content is NOT working with SAMSUNG without this response header
+	#
+	if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
+	{
+		if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+		{
+			push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
+		}
+		else
+		{
+			PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 400,
+				'content_type' => 'text/plain',
+			});
+			close(FILE);
+			return;
+		}
+	}
+
+	#
+	# SUBTITLES
+	#
+	if (defined($$CGI{'GETCAPTIONINFO.SEC'}))
+	{
+		if ($$CGI{'GETCAPTIONINFO.SEC'} == 1)
+		{
+			if ($item[0]->{TYPE} eq 'video')
+			{
+				foreach my $subtitle (@subtitles)
+				{
+					if ($subtitle->{TYPE} eq 'srt' && -f $subtitle->{FULLNAME})
+					{
+						push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.srt');
+					}
+				}
+			}
+
+			unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
+			{
+				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
+			}
+		}
+		else
+		{
+			PDLNA::Log::log('Invalid getCaptionInfo.sec:'.$$CGI{'GETCAPTIONINFO.SEC'}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 400,
+				'content_type' => 'text/plain',
+			});
+			close(FILE);
+			return;
+		}
+	}
+
+	#
+	# DURATION
+	#
+	if (defined($$CGI{'GETMEDIAINFO.SEC'}))
+	{
+		if ($$CGI{'GETMEDIAINFO.SEC'} == 1)
+		{
+			if ($item[0]->{TYPE} eq 'video' || $item[0]->{TYPE} eq 'audio')
+			{
+				push(@additional_header, 'MediaInfo.sec: SEC_Duration='.$iteminfo[0]->{DURATION}.'000;'); # in milliseconds
+
+				unless (grep(/^contentFeatures.dlna.org:/, @additional_header))
+				{
+					push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0], $transcode));
+				}
+			}
+		}
+		else
+		{
+			PDLNA::Log::log('Invalid getMediaInfo.sec:'.$$CGI{'GETMEDIAINFO.SEC'}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 400,
+				'content_type' => 'text/plain',
+			});
+			close(FILE);
+			return;
+		}
+	}
+
+	#
+	# HANDLING THE THE REQUESTS
+	#
+
+	if ($method eq 'HEAD') # handling HEAD requests
+	{
+		PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item[0]->{NAME}.'.', 1, 'httpstream');
+
+		print $FH http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+			'log' => 'httpstream',
+		});
+		close(FILE);
+		return;
+	}
+	elsif ($method eq 'GET') # handling GET requests
+	{
+		# for clients, which are not sending the Streaming value for the transferMode.dlna.org parameter
+		# we set it, because they seem to ignore it
+		my @useragents = (
+			'foobar2000', # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
+			'vlc*', # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
+			'stagefright', # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
+			'gvfs', # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+			'(null)',
+		);
+		if (defined($$CGI{'USER-AGENT'}))
+		{
+			foreach my $ua (@useragents)
+			{
+				$$CGI{'TRANSFERMODE.DLNA.ORG'} = 'Streaming' if $$CGI{'USER-AGENT'} =~ /^$ua/i;
+			}
+		}
+
+		#
+		# transferMode handling
+		#
+		if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}))
+		{
+			if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
+			{
+				push(@additional_header, 'transferMode.dlna.org: Streaming');
+
+				if (defined($$CGI{'TIMESEEKRANGE.DLNA.ORG'}) && $$CGI{'TIMESEEKRANGE.DLNA.ORG'} =~ /^npt=(\d+)-(\d*)/)
+				{
+					PDLNA::Log::log('Delivering content for: '.$item[0]->{FULLNAME}.' with TIMESEEKRANGE request.', 1, 'httpstream');
+
+					my $startseek = $1 ? $1 : 0;
+					my $endseek = $2 ? $2 : $iteminfo[0]->{DURATION};
+
+
+
+
+
+					push(@additional_header, 'TimeSeekRange.dlna.org: npt='.PDLNA::Utils::convert_seek_duration($startseek).'-'.PDLNA::Utils::convert_seek_duration($endseek).'/'.PDLNA::Utils::convert_seek_duration($iteminfo[0]->{DURATION}));
+					push(@additional_header, 'X-Seek-Range: npt='.PDLNA::Utils::convert_seek_duration($startseek).'-'.PDLNA::Utils::convert_seek_duration($endseek).'/'.PDLNA::Utils::convert_seek_duration($iteminfo[0]->{DURATION}));
+
+
+
+
+
+					my $command = $CONFIG{'FFMPEG_BIN'}.' -y -ss '.$1.' -i "'.$item[0]->{FULLNAME}.'" -vcodec copy -acodec copy -f avi pipe:';
+
+					my $statuscode = 200;
+					#@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
+					@additional_header = map { /^(Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
+
+					open(ITEM, '-|', $command);
+					binmode(ITEM);
+
+					print $FH http_header({
+						'statuscode' => $statuscode,
+						'additional_header' => \@additional_header,
+						'log' => 'httpstream',
+					});
+					my $buf = undef;
+					while (sysread(ITEM, $buf, $CONFIG{'BUFFER_SIZE'}))
+					{
+						PDLNA::Log::log('Adding '.bytes::length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+						print $FH $buf or return 1;
+					}
+					close(ITEM);
+
+
+
+
+
+				}
+				else
+				{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#				if ($CONFIG{'LOW_RESOURCE_MODE'})
+#				{
+					my $statuscode = 200;
+					my ($lowrange, $highrange) = 0;
+					if (defined($$CGI{'RANGE'}) && $$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/)
+					{
+						PDLNA::Log::log('Delivering content for: '.$item[0]->{FULLNAME}.' with RANGE request.', 1, 'httpstream');
+						my $statuscode = 206;
+
+						$lowrange = int($1);
+						$highrange = $2 ? int($2) : 0;
+						$highrange = $item[0]->{SIZE}-1 if $highrange == 0;
+						$highrange = $item[0]->{SIZE}-1 if ($highrange >= $item[0]->{SIZE});
+
+						my $bytes_to_ship = $highrange - $lowrange + 1;
+
+						$additional_header[1] = 'Content-Length: '.$bytes_to_ship; # we need to change the Content-Length
+						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item[0]->{SIZE});
+					}
+
+					sysopen(ITEM, $item[0]->{FULLNAME}, O_RDONLY);
+					sysseek(ITEM, $lowrange, 0) if $lowrange;
+
+					print $FH http_header({
+						'statuscode' => $statuscode,
+						'additional_header' => \@additional_header,
+						'log' => 'httpstream',
+					});
+					my $buf = undef;
+					while (sysread(ITEM, $buf, $CONFIG{'BUFFER_SIZE'}))
+					{
+						PDLNA::Log::log('Adding '.bytes::length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+						print $FH $buf or return 1;
+					}
+					close(ITEM);
+				}
+#				else
+#				{
+#					my $statuscode = 200;
+#					my $command = $CONFIG{'FFMPEG_BIN'}.' -i '.$item[0]->{FULLNAME}.' -acodec copy -f mp3 pipe:';
+#					#@additional_header = map { /^(Content-Length|Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
+#					@additional_header = map { /^(Accept-Ranges):/i ? () : $_ } @additional_header; # delete some header
+#
+#					open(ITEM, '-|', $command);
+#					binmode(ITEM);
+#
+#					print $FH http_header({
+#						'statuscode' => $statuscode,
+#						'additional_header' => \@additional_header,
+#						'log' => 'httpstream',
+#					});
+#					my $buf = undef;
+#					while (sysread(ITEM, $buf, $CONFIG{'BUFFER_SIZE'}))
+#					{
+#						PDLNA::Log::log('Adding '.bytes::length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+#						print $FH $buf or return 1;
+#					}
+#					close(ITEM);
+#				}
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				close($FH);
+				return;
+			}
+			elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files
+			{
+				PDLNA::Log::log('Delivering (Interactive) content for: '.$item[0]->{FULLNAME}.'.', 1, 'httpstream');
+				push(@additional_header, 'transferMode.dlna.org: Interactive');
+
+				# Delivering interactive content as a whole
+				print $FH http_header({
+					'statuscode' => 200,
+					'additional_header' => \@additional_header,
+				});
+				sysopen(FILE, $item[0]->{FULLNAME}, O_RDONLY);
+				print $FH <FILE>;
+				close(FILE);
+				return;
+			}
+			else # unknown TRANSFERMODE.DLNA.ORG is set
+			{
+				PDLNA::Log::log('ERROR: Transfermode '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.' for Streaming Items is NOT supported yet.', 0, 'httpstream');
+				print $FH http_header({
+					'statuscode' => 501,
+					'content_type' => 'text/plain',
+				});
+				close(FILE);
+				return;
+			}
+		}
+		else # no TRANSFERMODE.DLNA.ORG is set
+		{
+			PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item[0]->{FULLNAME}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 200,
+				'additional_header' => \@additional_header,
+				'log' => 'httpstream',
+			});
+			close(FILE);
+			return;
+		}
+	}
+	else # unknown HTTP METHOD is set
+	{
+		PDLNA::Log::log('ERROR: HTTP Method '.$method.' for Streaming Items is NOT supported yet.', 0, 'httpstream');
+		print $FH http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+		close(FILE);
+		return;
+	}
+}
+
 sub stream_media
 {
 	my $content_id = shift;
@@ -957,7 +1368,7 @@ sub stream_media
 		push(@additional_header, 'Content-Type: '.PDLNA::Media::get_mimetype_by_modelname($item[0]->{MIME_TYPE}, $model_name));
 		push(@additional_header, 'Content-Length: '.$item[0]->{SIZE}) if !$item[0]->{EXTERNAL};
 		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item[0]->{NAME}.'"') if !$item[0]->{EXTERNAL};
-		push(@additional_header, 'Accept-Ranges: bytes');
+		push(@additional_header, 'Accept-Ranges: bytes'); # TODO
 
 		# Streaming of content is NOT working with SAMSUNG without this response header
 		if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
@@ -1121,7 +1532,7 @@ sub stream_media
 						my $command = '';
 						if (PDLNA::Media::is_supported_stream($item[0]->{FULLNAME})) # if it is a supported stream
 						{
-							$command = $CONFIG{'MPLAYER_BIN'}.' '.$item[0]->{FULLNAME}.' -dumpstream -dumpfile /dev/stdout 2>/dev/null';
+							$command = PDLNA::FFmpeg::get_ffmpeg_stream_command(\%media_data);
 						}
 						elsif ($transcode) # if TRANSCODING is required
 						{

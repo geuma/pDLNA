@@ -48,18 +48,7 @@ my %AUDIO_CONTAINERS = (
 	'wmav2' => 'asf',
 );
 
-
-
-
-
-
-
-
-
-
-
-
-# this represents the beatuiful codec names and their ffmpeg decoder formats
+# this represents the beatuiful codec names and their FFmpeg decoder formats
 my %FFMPEG_DECODE_FORMATS = (
 	'aac' => 'aac',
 	'ac3' => 'ac3',
@@ -71,7 +60,7 @@ my %FFMPEG_DECODE_FORMATS = (
 	'wmav2' => 'asf',
 );
 
-# this represents the beatuiful codec names and their ffmpeg encoder formats
+# this represents the beatuiful codec names and their FFmpeg encoder formats
 my %FFMPEG_ENCODE_FORMATS = (
 	'aac' => 'm4v',
 	'ac3' => 'ac3',
@@ -83,7 +72,7 @@ my %FFMPEG_ENCODE_FORMATS = (
 	'wmav2' => 'asf',
 );
 
-# this represents the beautiful codec names and their ffmpeg decode codecs
+# this represents the beautiful codec names and their FFmpeg decode codecs
 my %FFMPEG_AUDIO_DECODE_CODECS = (
 	'aac' => 'aac',
 	'ac3' => 'ac3',
@@ -95,7 +84,7 @@ my %FFMPEG_AUDIO_DECODE_CODECS = (
 	'wmav2' => 'wmav2',
 );
 
-# this represents the beautiful codec names and their ffmpeg encode codecs
+# this represents the beautiful codec names and their FFmpeg encode codecs
 my %FFMPEG_AUDIO_ENCODE_CODECS = (
 	'aac' => 'libfaac',
 	'ac3' => 'ac3',
@@ -107,6 +96,7 @@ my %FFMPEG_AUDIO_ENCODE_CODECS = (
 	'wmav2' => 'wmav2',
 );
 
+# additional parameters for FFmpeg
 my %FFMPEG_AUDIO_ENCODE_PARAMS = (
 	'aac' => [],
 	'ac3' => [],
@@ -149,6 +139,29 @@ sub get_encode_format_by_audio_codec
 	return $FFMPEG_ENCODE_FORMATS{$codec} if defined($FFMPEG_ENCODE_FORMATS{$codec});
 	return undef;
 }
+
+#
+#
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 sub shall_we_transcode
 {
@@ -205,8 +218,25 @@ sub shall_we_transcode
 
 			return 1;
 		}
+		elsif ($$media_data{'media_type'} eq 'video')
+		{
+		}
 	}
 	return 0;
+}
+
+sub get_ffmpeg_stream_command
+{
+	my $media_data = shift;
+
+	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'"';
+	$command .= ' -vcodec copy' if $$media_data{'media_type'} eq 'video';
+	$command .= ' -acodec copy';
+	$command .= ' -f '.$$media_data{'container'};
+	$command .= ' pipe:';
+	$command .= ' 2>/dev/null';
+
+	return $command;
 }
 
 sub get_transcode_command
@@ -227,6 +257,79 @@ sub get_transcode_command
 
 	return $command;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sub get_ffmpeg_command
+{
+	my $media_data = shift;
+
+	my $command = $CONFIG{'FFMPEG_BIN'}.' -i "'.$$media_data{'fullname'}.'"';
+	$command .= ' -acodec copy';
+	$command .= ' -f '.$AUDIO_CONTAINERS{$$media_data{'audio_codec'}};
+	$command .= ' pipe: 2>/dev/null';
+
+	PDLNA::Log::log('Command for streaming: '.$command.'.', 3, 'transcoding');
+
+	return $command;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+# parse FFmpeg capabilities
+#
 
 sub get_ffmpeg_formats
 {
@@ -326,6 +429,10 @@ sub get_ffmpeg_codecs
 	return 1;
 }
 
+#
+# use FFmpeg to determine media (audio ir video) details (codecs, ...)
+#
+
 sub get_media_info
 {
 	my $file = shift;
@@ -385,10 +492,6 @@ sub get_media_info
 
 	if (defined($$info{CONTAINER}) && (defined($$info{VIDEO_CODEC}) || defined($$info{AUDIO_CODEC})))
 	{
-#		use Data::Dumper;
-#		print STDERR $file."\n";
-#		print STDERR Dumper $info;
-
 		$$info{MIME_TYPE} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MimeType');
 		$$info{TYPE} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'MediaType');
 		$$info{FILE_EXTENSION} = PDLNA::Media::details($$info{CONTAINER}, $$info{VIDEO_CODEC}, $$info{AUDIO_CODEC}, 'FileExtension');

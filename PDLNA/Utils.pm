@@ -109,6 +109,21 @@ sub convert_duration
 	return $string;
 }
 
+sub convert_seek_duration
+{
+	my $duration_seconds = shift || 0;
+
+	my ($seconds, $minutes, $hours) = 0;
+
+	$seconds = $duration_seconds;
+	$minutes = int($seconds / 60) if $seconds > 59;
+	$seconds -= $minutes * 60 if $seconds;
+	$hours = int($minutes / 60) if $minutes > 59;
+	$minutes -= $hours * 60 if $hours;
+
+	return add_leading_char($hours, 2, 0).':'.add_leading_char($minutes, 2, 0).':'.add_leading_char($seconds, 2, 0);
+}
+
 # well, it is not real random ... but it's adequate
 sub get_randid
 {
