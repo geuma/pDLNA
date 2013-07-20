@@ -828,7 +828,7 @@ sub get_fileinfo
 		}
 
 		$counter++;
-		unless ($counter % 50) # after 100 files, we are doing a commit
+		unless ($counter % 50) # after 50 files, we are doing a commit
 		{
 			$dbh->commit();
 		}
