@@ -438,6 +438,12 @@ sub get_media_info
 	my $file = shift;
 	my $info = shift;
 
+	$$info{DURATION} = 0;
+	$$info{HZ} = 0;
+	$$info{BITRATE} = 0;
+	$$info{WIDTH} = 0;
+	$$info{HEIGHT} = 0;
+
 	open(FFMPEG, $CONFIG{'FFMPEG_BIN'}.' -i "'.$file.'" 2>&1 |') || PDLNA::Log::fatal('Unable to open FFmpeg :'.$!);
 	while (<FFMPEG>)
 	{

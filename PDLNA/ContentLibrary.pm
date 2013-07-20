@@ -431,8 +431,8 @@ sub add_file_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-				'parameters' => [ $results[0]->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ],
+				'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID) VALUES (?,?)',
+				'parameters' => [ $results[0]->{ID}, 0, ],
 			},
 		);
 	}
