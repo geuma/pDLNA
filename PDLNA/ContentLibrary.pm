@@ -39,6 +39,7 @@ sub index_directories_thread
 	while(1)
 	{
 		my $dbh = PDLNA::Database::connect();
+		$dbh->{AutoCommit} = 0;
 
 		my $timestamp_start = time();
 		foreach my $directory (@{$CONFIG{'DIRECTORIES'}}) # we are not able to run this part in threads - since glob seems to be NOT thread safe
@@ -75,6 +76,7 @@ sub index_directories_thread
 			);
 			$i++;
 		}
+		$dbh->commit();
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
@@ -85,6 +87,7 @@ sub index_directories_thread
 				'parameters' => [ $timestamp_end, ],
 			},
 		);
+		$dbh->commit();
 
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
@@ -93,7 +96,14 @@ sub index_directories_thread
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		remove_nonexistant_files($dbh);
+		$dbh->commit();
+
+		$timestamp_start = time();
 		get_fileinfo($dbh);
+		$dbh->commit();
+		$timestamp_end = time();
+		$duration = $timestamp_end - $timestamp_start;
+		PDLNA::Log::log('Getting FFmpeg information for indexed media files '.$duration.' seconds.', 1, 'library');
 
 		PDLNA::Database::disconnect($dbh);
 
@@ -108,6 +118,7 @@ sub process_directory
 	$$params{'path'} =~ s/\/$//;
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
+	$dbh->commit();
 
 	$$params{'path'} = PDLNA::Utils::escape_brackets($$params{'path'});
 	PDLNA::Log::log('Globbing directory: '.PDLNA::Utils::create_filesystem_path([ $$params{'path'}, '*', ]).'.', 2, 'library');
@@ -687,6 +698,7 @@ sub get_fileinfo
 		\@results,
 	);
 
+	my $counter = 0;
 	foreach my $id (@results)
 	{
 		my @file = ();
@@ -813,6 +825,12 @@ sub get_fileinfo
 					'parameters' => [ $audioinfo{ARTIST}, $audioinfo{ALBUM}, $audioinfo{TITLE}, $audioinfo{GENRE}, $audioinfo{YEAR}, $audioinfo{TRACKNUM}, 1, $id->{FILEID_REF}, ],
 				},
 			);
+		}
+
+		$counter++;
+		unless ($counter % 50) # after 100 files, we are doing a commit
+		{
+			$dbh->commit();
 		}
 	}
 }

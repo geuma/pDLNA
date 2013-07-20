@@ -13,6 +13,9 @@ xx-xx-2013
 - moved from Movie::Info to using FFmpeg natively to determine media information (based on the idea of lombao)
 - using FFmpeg instead of Mplayer to create VideoThumbnails
 - using FFmpeg instead of Mplayer to gather media streams
+- added default values for FILEINFO database and increased PROGRAM_DBVERSION
+- indexing files is now about 4 to 5 times faster (by disabling AutoCommit)
+- storing media information is now 0.5 times faster (by disabling AutoCommit)
 
 Version 0.63.0
 08-07-2013

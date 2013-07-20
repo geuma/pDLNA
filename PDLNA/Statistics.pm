@@ -70,6 +70,7 @@ sub write_statistics_periodic
 	while(1)
 	{
 		my $dbh = PDLNA::Database::connect();
+		$dbh->{AutoCommit} = 0;
 
 		#
 		# MEMORY
@@ -97,6 +98,7 @@ sub write_statistics_periodic
 			},
 		);
 
+		$dbh->commit();
 		PDLNA::Database::disconnect($dbh);
 
 		sleep 60;
