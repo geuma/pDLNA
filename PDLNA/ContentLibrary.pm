@@ -83,7 +83,7 @@ sub index_directories_thread
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => "UPDATE METADATA SET VALUE = ? WHERE KEY = 'TIMESTAMP'",
+				'query' => "UPDATE METADATA SET VALUE = ? WHERE PARAM = 'TIMESTAMP'",
 				'parameters' => [ $timestamp_end, ],
 			},
 		);

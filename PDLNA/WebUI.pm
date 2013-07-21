@@ -243,7 +243,7 @@ sub show
 		my $timestamp = PDLNA::Database::select_db_field_int(
 			$dbh,
 			{
-				'query' => 'SELECT value FROM METADATA WHERE key = ?',
+				'query' => 'SELECT VALUE FROM METADATA WHERE PARAM = ?',
 				'parameters' => [ 'TIMESTAMP', ],
 			},
 		);
@@ -681,7 +681,7 @@ sub graph
 	$data_options{'dbtable'} = 'STAT_MEM' if $type eq 'memory';
 	$data_options{'dbtable'} = 'STAT_ITEMS' if $type eq 'media';
 
-	$data_options{'title'} .= ' by current '.$period;
+	$data_options{'title'} .= ' by last '.$period;
 
 	$data_options{'dbfields'} = [ 'AVG(VMS)', 'AVG(RSS)', ] if $type eq 'memory';
 	$data_options{'dbfields'} = [ 'AVG(AUDIO)', 'AVG(IMAGE)', 'AVG(VIDEO)', ] if $type eq 'media';
@@ -735,11 +735,16 @@ sub graph
 
 	my $dbh = PDLNA::Database::connect();
 
+	my %queries = (
+		'SQLITE3' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', '-1 ".$period."', 'utc') GROUP BY datetime",
+		'MYSQL' => "SELECT date_format(FROM_UNIXTIME(DATE), '".$data_options{'dateformatstring'}."') as datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > UNIX_TIMESTAMP(DATE_SUB(now(), INTERVAL 1 ".$period.")) GROUP BY datetime",
+	);
+
 	my @results = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', 'start of ".$period."', 'utc') GROUP BY datetime",
+			'query' => $queries{$CONFIG{'DB_TYPE'}},
 			'parameters' => [ ],
 		},
 		\@results,
@@ -762,15 +767,23 @@ sub graph
 	#
 	# deliver the graph to the browser
 	#
-
-	my $image = $graph->plot(\@data) || PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
-	my $response = PDLNA::HTTPServer::http_header({
-		'statuscode' => 200,
-		'content_type' => 'image/png',
-	});
-	$response .= $image->png();
-
-	return $response;
+	my $image = undef;
+	if ($image = $graph->plot(\@data))
+	{
+		my $response = PDLNA::HTTPServer::http_header({
+			'statuscode' => 200,
+			'content_type' => 'image/png',
+		});
+		$response .= $image->png();
+		return $response;
+	}
+	else
+	{
+		PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
+		return PDLNA::HTTPServer::http_header({
+			'statuscode' => 404,
+		});
+	}
 }
 
 1;

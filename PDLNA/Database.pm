@@ -25,16 +25,30 @@ use DBI;
 use PDLNA::Config;
 use PDLNA::Log;
 
+my $AUTOINCREMENT_STRING = 'AUTOINCREMENT';
+
 sub connect
 {
-	my $dbh = undef;
+	my $dsn = undef;
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		$dbh = DBI->connect('dbi:SQLite:dbname='.$CONFIG{'DB_NAME'},'','', {
-			PrintError => 0,
-			RaiseError => 0,
-		},) || PDLNA::Log::fatal('Cannot connect to database: '.$DBI::errstr);
+		$dsn = 'dbi:SQLite:dbname='.$CONFIG{'DB_NAME'};
 	}
+	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
+	{
+		$dsn = 'dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost';
+		$AUTOINCREMENT_STRING = 'AUTO_INCREMENT';
+	}
+
+	my $dbh = DBI->connect($dsn, $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, {
+		PrintError => 0,
+		RaiseError => 0,
+	},);
+	unless (defined($dbh))
+	{
+		PDLNA::Log::fatal('Unable to connect to Database: '.$DBI::errstr);
+	}
+
 	return $dbh;
 }
 
@@ -55,7 +69,7 @@ sub initialize_db
 		select_db(
 			$dbh,
 			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE KEY = ?',
+				'query' => 'SELECT VALUE FROM METADATA WHERE PARAM = ?',
 				'parameters' => [ 'DBVERSION', ],
 			},
 			\@results,
@@ -69,21 +83,21 @@ sub initialize_db
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 					'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
 				},
 			);
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
 				},
 			);
 			insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 					'parameters' => [ 'TIMESTAMP', time(), ],
 				},
 			);
@@ -104,30 +118,30 @@ sub initialize_db
 	}
 	else
 	{
-		$dbh->do('CREATE TABLE METADATA (
-				KEY					VARCHAR(128) PRIMARY KEY,
+		$dbh->do("CREATE TABLE METADATA (
+				PARAM				VARCHAR(128) PRIMARY KEY,
 				VALUE				VARCHAR(128)
-			);'
+			);"
 		);
 
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 				'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
 			},
 		);
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
 			},
 		);
 		insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO METADATA (KEY, VALUE) VALUES (?,?)',
+				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
 				'parameters' => [ 'TIMESTAMP', time(), ],
 			},
 		);
@@ -136,7 +150,7 @@ sub initialize_db
 	unless (grep(/^FILES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
@@ -148,9 +162,9 @@ sub initialize_db
 
 				MIME_TYPE			VARCHAR(128),
 				TYPE				VARCHAR(12),
-				EXTERNAL			BOOLEAN,
+				EXTERNAL			INTEGER,
 
-				ROOT				BOOLEAN,
+				ROOT				INTEGER,
 				SEQUENCE			BIGINT
 			);"
 		);
@@ -160,14 +174,14 @@ sub initialize_db
 	{
 		$dbh->do("CREATE TABLE FILEINFO (
 				FILEID_REF			INTEGER PRIMARY KEY,
-				VALID				BOOLEAN,
+				VALID				INTEGER,
 
 				WIDTH				INTEGER DEFAULT 0,
 				HEIGHT				INTEGER DEFAULT 0,
 
 				DURATION			INTEGER DEFAULT 0,
 				BITRATE				INTEGER DEFAULT 0,
-				VBR					BOOLEAN DEFAULT 0,
+				VBR					INTEGER DEFAULT 0,
 
 				CONTAINER			VARCHAR(128),
 				AUDIO_CODEC			VARCHAR(128),
@@ -192,13 +206,13 @@ sub initialize_db
 	unless (grep(/^DIRECTORIES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DIRECTORIES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
 				DIRNAME				VARCHAR(2048),
 
-				ROOT				BOOLEAN,
+				ROOT				INTEGER,
 				TYPE				INTEGER
 			);"
 		);
@@ -207,7 +221,7 @@ sub initialize_db
 	unless (grep(/^SUBTITLES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE SUBTITLES (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 				FILEID_REF			INTEGER,
 
 				TYPE				VARCHAR(2048),
@@ -224,7 +238,7 @@ sub initialize_db
 	unless (grep(/^DEVICE_IP$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_IP (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 
 				IP					VARCHAR(15),
 				USER_AGENT			VARCHAR(128),
@@ -236,7 +250,7 @@ sub initialize_db
 	unless (grep(/^DEVICE_BM$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 				DEVICE_IP_REF		INTEGER,
 
 				FILE_ID_REF			INTEGER,
@@ -248,7 +262,7 @@ sub initialize_db
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 				DEVICE_IP_REF		INTEGER,
 
 				UDN					VARCHAR(64),
@@ -267,7 +281,7 @@ sub initialize_db
 	unless (grep(/^DEVICE_NTS$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 				DEVICE_UDN_REF		INTEGER,
 
 				TYPE				VARCHAR(128),
@@ -279,7 +293,7 @@ sub initialize_db
 	unless (grep(/^DEVICE_SERVICE$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID					INTEGER PRIMARY KEY AUTOINCREMENT,
+				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
 				DEVICE_UDN_REF		INTEGER,
 
 				SERVICE_ID			VARCHAR(256),
@@ -322,12 +336,17 @@ sub select_db_tables
 {
 	my $dbh = shift;
 
+	my %queries = (
+		'SQLITE3' => "SELECT name FROM sqlite_master WHERE type = 'table'",
+		'MYSQL' => "SELECT table_name FROM information_schema.tables WHERE table_type = 'base table'",
+	);
+
 	my @tables = ();
 	select_db_array(
 		$dbh,
 		{
-			'query' => 'SELECT name FROM sqlite_master WHERE type = ?',
-			'parameters' => [ 'table', ],
+			'query' => $queries{$CONFIG{'DB_TYPE'}},
+			'parameters' => [ ],
 		},
 		\@tables,
 	);

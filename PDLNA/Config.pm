@@ -27,6 +27,7 @@ our @EXPORT = qw(%CONFIG);
 
 use Config qw();
 use Config::ApacheFormat;
+use DBI;
 use Digest::MD5;
 use Digest::SHA;
 use File::Basename;
@@ -48,8 +49,8 @@ our %CONFIG = (
 	'ALLOWED_CLIENTS' => [],
 	'DB_TYPE' => 'SQLITE3',
 	'DB_NAME' => '/tmp/pdlna.db',
-	'DB_USER' => undef,
-	'DB_PASS' => undef,
+	'DB_USER' => 'pdlna',
+	'DB_PASS' => '',
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
 	'LOG_FILE' => 'STDERR',
 	'LOG_CATEGORY' => [],
@@ -271,9 +272,9 @@ sub parse_config
 	# DATABASE PARSING
 	#
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
-	unless ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	unless ($CONFIG{'DB_TYPE'} =~ /^(SQLITE3|MYSQL)$/)
 	{
-		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3|MYSQL]');
 	}
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
@@ -294,9 +295,32 @@ sub parse_config
 			}
 		}
 	}
-	# TODO parsing and defining them in configuration file - for MySQL and so on
-#	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
-#	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
+	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
+	{
+		if (defined($cfg->get('DatabaseName')))
+		{
+			$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName');
+		}
+		else
+		{
+			$CONFIG{'DB_NAME'} = 'pdlna';
+		}
+		$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
+		$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
+
+		my $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost', $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, {
+			PrintError => 0,
+			RaiseError => 0,
+		},);
+		if (defined($dbh))
+		{
+			$dbh->disconnect();
+		}
+		else
+		{
+			 push(@{$errormsg}, 'Invalid MySQL Database Configuration: Unable to connect to Database: '.$DBI::errstr);
+		}
+	}
 
 	#
 	# LOG FILE PARSING
