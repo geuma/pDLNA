@@ -1091,6 +1091,22 @@ sub get_amount_size_of_items
 	return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
+sub get_amount_directories
+{
+	my $dbh = shift;
+
+	my @result = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES',
+			'parameters' => [ ],
+		},
+		\@result,
+	);
+	return $result[0]->{AMOUNT};
+}
+
 #
 # helper functions
 #

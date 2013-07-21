@@ -1,4 +1,4 @@
-- add more DB support ( ... )
+- add more DB support (PostgreSQL will only be possible with a lot of changes and followed by incompatibility)
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)
 - enable/disable webui (is it useful?)

@@ -250,7 +250,7 @@ sub show
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
 		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
-		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
+		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).') in '.PDLNA::ContentLibrary::get_amount_directories($dbh).' directories</td></tr>';
 
 		my $duration = PDLNA::Database::select_db_field_int(
 			$dbh,

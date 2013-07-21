@@ -17,6 +17,7 @@ xx-xx-2013
 - indexing files is now about 4 to 5 times faster (by disabling AutoCommit)
 - storing media information is now 0.5 times faster (by disabling AutoCommit)
 - added support for MySQL
+- added amount of directories to WebUI
 
 Version 0.63.0
 08-07-2013
