@@ -18,6 +18,7 @@ xx-xx-2013
 - storing media information is now 0.5 times faster (by disabling AutoCommit)
 - added support for MySQL
 - added amount of directories to WebUI
+- added $VERSION, $HOSTNAME and $OS variables to the FriendlyName configuration
 
 Version 0.63.0
 08-07-2013

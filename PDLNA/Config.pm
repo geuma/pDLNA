@@ -41,6 +41,7 @@ use PDLNA::Media;
 
 our %CONFIG = (
 	# values which can be modified by configuration file
+	'FRIENDLY_NAME' => 'pDLNA $VERSION on $HOSTNAME',
 	'LOCAL_IPADDR' => undef,
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
@@ -93,7 +94,6 @@ our %CONFIG = (
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 );
-$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
 
 sub print_version
 {
@@ -137,6 +137,12 @@ sub parse_config
 	# FRIENDLY NAME PARSING
 	#
 	$CONFIG{'FRIENDLY_NAME'} = $cfg->get('FriendlyName') if defined($cfg->get('FriendlyName'));
+
+	my $version_string = print_version();
+	$CONFIG{'FRIENDLY_NAME'} =~ s/\$VERSION/v$version_string/;
+	$CONFIG{'FRIENDLY_NAME'} =~ s/\$HOSTNAME/$CONFIG{'HOSTNAME'}/;
+	$CONFIG{'FRIENDLY_NAME'} =~ s/\$OS/$CONFIG{'OS'}/;
+
 	if ($CONFIG{'FRIENDLY_NAME'} !~ /^[\w\-\s\.]{1,32}$/)
 	{
 		push(@{$errormsg}, 'Invalid FriendlyName: Please use letters, numbers, dots, dashes, underscores and or spaces and the FriendlyName requires a name that is 32 characters or less in length.');
