@@ -95,7 +95,7 @@ sub index_directories_thread
 		my ($amount, $size) = get_amount_size_of_items($dbh);
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
-		remove_nonexistant_files($dbh);
+		cleanup_contentlibrary($dbh);
 		$dbh->commit();
 
 		$timestamp_start = time();
@@ -451,7 +451,7 @@ sub add_file_to_db
 	return $results[0]->{ID};
 }
 
-sub remove_nonexistant_files
+sub cleanup_contentlibrary
 {
 	my $dbh = shift;
 
@@ -616,6 +616,25 @@ sub remove_nonexistant_files
 			{
 				delete_all_by_itemid($dbh, $item->{ID});
 			}
+		}
+	}
+
+	# delete directories from database with no subdirectories or subfiles
+	@directories = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT ID FROM DIRECTORIES',
+			'parameters' => [ ],
+		},
+		\@directories,
+	);
+	foreach my $dir (@directories)
+	{
+		my $amount = get_amount_elements_by_id($dbh, $dir->{ID});
+		if ($amount == 0)
+		{
+			delete_subitems_recursively($dbh, $dir->{ID});
 		}
 	}
 }
