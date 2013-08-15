@@ -132,7 +132,7 @@ sub process_directory
 			PDLNA::Log::log('Skipping '.$element.' directory.', 2, 'library');
 			next;
 		}
-		elsif (-d "$element" && $$params{'recursion'} eq 'yes' && !grep(/^$element_basename$/, @{$$params{'exclude_dirs'}}))
+		elsif (-d "$element" && $$params{'recursion'} eq 'yes' && !grep(/^\Q$element_basename\E$/, @{$$params{'exclude_dirs'}}))
 		{
 			PDLNA::Log::log('Processing directory '.$element.'.', 2, 'library');
 
@@ -149,7 +149,7 @@ sub process_directory
 				}
 			);
 		}
-		elsif (-f "$element" && !grep(/^$element_basename$/, @{$$params{'exclude_items'}}))
+		elsif (-f "$element" && !grep(/^\Q$element_basename\E$/, @{$$params{'exclude_items'}}))
 		{
 			my $mime_type = mimetype($element);
 			PDLNA::Log::log('Processing '.$element.' with MimeType '.$mime_type.'.', 2, 'library');
@@ -606,8 +606,8 @@ sub remove_nonexistant_files
 			PDLNA::Database::select_db(
 				$dbh,
 				{
-					'query' => 'SELECT ID FROM FILES WHERE NAME = ? AND PATH LIKE ?',
-					'parameters' => [ $excl_items, $directory->{'path'}.'%', ],
+					'query' => 'SELECT ID FROM FILES WHERE (NAME = ? AND PATH LIKE ?) OR (FULLNAME = ?)',
+					'parameters' => [ $excl_items, $directory->{'path'}.'%', $directory->{'path'}.$excl_items, ],
 				},
 				\@items,
 			);
