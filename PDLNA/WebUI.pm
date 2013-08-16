@@ -29,6 +29,7 @@ use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Daemon;
+use PDLNA::FFmpeg;
 use PDLNA::Statistics;
 use PDLNA::Status;
 use PDLNA::Utils;
@@ -73,11 +74,12 @@ sub show
 	$response .= '<h5>Connected devices</h5>';
 	$response .= build_connected_devices($dbh);
 
-	$response .= '<h5>Statistics</h5>';
+	$response .= '<h5>Information</h5>';
 	$response .= '<ul>';
-	$response .= '<li><a href="/webui/perf/pi">Process Information</a></li>';
-	$response .= '<li><a href="/webui/perf/cl">Media Library Information</a></li>';
-	$response .= '<li><a href="/webui/perf/pdlna">pDLNA Information</a></li>';
+	$response .= '<li><a href="/webui/info/pi">Process Information</a></li>';
+	$response .= '<li><a href="/webui/info/cl">Media Library Information</a></li>';
+	$response .= '<li><a href="/webui/info/pdlna">pDLNA Information</a></li>';
+	$response .= '<li><a href="/webui/info/ffmpeg">FFmpeg Information</a></li>' if !$CONFIG{'LOW_RESOURCE_MODE'};
 	$response .= '</ul>';
 	$response .= '</div>';
 
@@ -201,7 +203,7 @@ sub show
 			}
 		}
 	}
-	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pi')
+	elsif ($nav[0] eq 'info' && $nav[1] eq 'pi')
 	{
 		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
 		my %proc_info = PDLNA::Statistics::get_proc_information();
@@ -232,7 +234,7 @@ sub show
 			$response .= show_graph(\@nav);
 		}
 	}
-	elsif ($nav[0] eq 'perf' && $nav[1] eq 'cl')
+	elsif ($nav[0] eq 'info' && $nav[1] eq 'cl')
 	{
 		$response .= '<table>';
 		$response .= '<thead>';
@@ -259,7 +261,7 @@ sub show
 				'parameters' => [ ],
 			},
 		);
-		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>';
+		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
@@ -277,7 +279,7 @@ sub show
 			$response .= show_graph(\@nav);
 		}
 	}
-	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pdlna')
+	elsif ($nav[0] eq 'info' && $nav[1] eq 'pdlna')
 	{
 		$response .= '<table>';
 		$response .= '<thead>';
@@ -289,7 +291,7 @@ sub show
 		$response .= '</tbody>';
 		$response .= '</table>';
 
-		$response .= '<form action="/webui/perf/pdlna/check4update" method="post">';
+		$response .= '<form action="/webui/info/pdlna/check4update" method="post">';
 		$response .= '<div class="element button">';
 		$response .= '<input type="submit" class="submit" value="Check4Updates" />';
 		$response .= '</div>';
@@ -324,6 +326,61 @@ sub show
 				$response .= '<div class="error"><p>Check4Updates was not successful: HTTP Status Code '.$http_response->status_line().'.</p></div>';
 			}
 		}
+	}
+	elsif ($nav[0] eq 'info' && $nav[1] eq 'ffmpeg' && !$CONFIG{'LOW_RESOURCE_MODE'})
+	{
+		$response .= '<table>';
+		$response .= '<thead>';
+		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
+		$response .= '</thead>';
+		$response .= '<tbody>';
+		$response .= '<tr><td>FFmpeg Version</td><td>'.$CONFIG{'FFMPEG_VERSION'}.'</td></tr>';
+		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
+
+		my @results = ();
+		foreach (@{$CONFIG{'FORMATS_DECODE'}})
+		{
+			if (my $format = PDLNA::FFmpeg::get_beautiful_decode_format($_))
+			{
+				push(@results, $format);
+			}
+		}
+		$response .= '<tr><td>Supported decoding formats</td><td>'.join(', ', @results).'</td></tr>';
+
+		@results = ();
+		foreach (@{$CONFIG{'FORMATS_ENCODE'}})
+		{
+			if (my $format = PDLNA::FFmpeg::get_beautiful_encode_format($_))
+			{
+				push(@results, $format);
+			}
+		}
+		$response .= '<tr><td>Supported encoding formats</td><td>'.join(', ', @results).'</td></tr>';
+
+		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
+
+		@results = ();
+		foreach (@{$CONFIG{'AUDIO_CODECS_DECODE'}})
+		{
+			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_decode_codec($_))
+			{
+				push(@results, $codec);
+			}
+		}
+		$response .= '<tr><td>Supported decoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
+
+		@results = ();
+		foreach (@{$CONFIG{'AUDIO_CODECS_ENCODE'}})
+		{
+			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_encode_codec($_))
+			{
+				 push(@results, $codec);
+			}
+		}
+		$response .= '<tr><td>Supported encoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
+
+		$response .= '</tbody>';
+		$response .= '</table>';
 	}
 	$response .= '</div>';
 
@@ -533,7 +590,7 @@ sub parse_nav
 	my $param = shift;
 
 	my @nav = split('/', $param);
-	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
+	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|info)$/)
 	{
 		$nav[0] = 'content';
 		$nav[1] = 0;

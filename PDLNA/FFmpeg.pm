@@ -108,6 +108,10 @@ my %FFMPEG_AUDIO_ENCODE_PARAMS = (
 	'wmav2' => [ '-ab 32k', ],
 );
 
+#
+#
+#
+
 sub is_supported_audio_decode_codec
 {
 	my $codec = shift;
@@ -123,6 +127,78 @@ sub is_supported_audio_encode_codec
 	return $FFMPEG_AUDIO_ENCODE_CODECS{$codec} if defined($FFMPEG_AUDIO_ENCODE_CODECS{$codec});
 	return undef;
 }
+
+sub is_supported_decode_format
+{
+	my $format = shift;
+
+	return $FFMPEG_DECODE_FORMATS{$format} if defined($FFMPEG_DECODE_FORMATS{$format});
+	return undef;
+}
+
+sub is_supported_encode_format
+{
+	my $format = shift;
+
+	return $FFMPEG_ENCODE_FORMATS{$format} if defined($FFMPEG_ENCODE_FORMATS{$format});
+	return undef;
+}
+
+#
+#
+#
+
+sub get_beautiful_audio_decode_codec
+{
+	my $codec = shift;
+
+	foreach my $beautiful (keys %FFMPEG_AUDIO_DECODE_CODECS)
+	{
+		return $beautiful if $FFMPEG_AUDIO_DECODE_CODECS{$beautiful} eq $codec;
+	}
+
+	return undef;
+}
+
+sub get_beautiful_audio_encode_codec
+{
+	my $codec = shift;
+
+	foreach my $beautiful (keys %FFMPEG_AUDIO_ENCODE_CODECS)
+	{
+		return $beautiful if $FFMPEG_AUDIO_ENCODE_CODECS{$beautiful} eq $codec;
+	}
+
+	return undef;
+}
+
+sub get_beautiful_decode_format
+{
+	my $format = shift;
+
+	foreach my $beautiful (keys %FFMPEG_DECODE_FORMATS)
+	{
+		return $beautiful if $FFMPEG_DECODE_FORMATS{$beautiful} eq $format;
+	}
+
+	return undef;
+}
+
+sub get_beautiful_encode_format
+{
+	my $format = shift;
+
+	foreach my $beautiful (keys %FFMPEG_ENCODE_FORMATS)
+	{
+		return $beautiful if $FFMPEG_ENCODE_FORMATS{$beautiful} eq $format;
+	}
+
+	return undef;
+}
+
+#
+#
+#
 
 sub get_decode_format_by_audio_codec
 {
@@ -373,6 +449,7 @@ sub get_ffmpeg_formats
 sub get_ffmpeg_codecs
 {
 	my $ffmpeg_bin = shift;
+	my $ffmpeg_ver = shift;
 	my $audio_decode = shift;
 	my $audio_encode = shift;
 	my $video_decode = shift;
@@ -390,7 +467,11 @@ sub get_ffmpeg_codecs
 	my @output = <CMD>;
 	close(CMD);
 
-	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	if ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	{
+		$$ffmpeg_ver = $1;
+	}
+	else
 	{
 		return 0;
 	}
