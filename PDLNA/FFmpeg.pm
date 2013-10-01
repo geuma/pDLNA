@@ -1,24 +1,41 @@
 package PDLNA::FFmpeg;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+PDLNA::FFmpeg - support transcoding.
+
+=head1 DESCRIPTION
+
+works out formats and media information.
+
+=cut
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Media.html">PDLNA::Media</a>,
+<a href="./Log.html">PDLNA::Log</a>,
+</p>
+
+=end html
+
+=item external libraries
+
+None.
+
+=back
+
+=cut
 
 use PDLNA::Config;
 use PDLNA::Media;
@@ -108,9 +125,13 @@ my %FFMPEG_AUDIO_ENCODE_PARAMS = (
 	'wmav2' => [ '-ab 32k', ],
 );
 
-#
-#
-#
+=head1 METHODS
+
+=over
+
+=item is_supported_audio_decode_codec()
+
+=cut
 
 sub is_supported_audio_decode_codec
 {
@@ -120,6 +141,11 @@ sub is_supported_audio_decode_codec
 	return undef;
 }
 
+
+=item is_supported_audio_encode_codec()
+
+=cut
+
 sub is_supported_audio_encode_codec
 {
 	my $codec = shift;
@@ -127,6 +153,11 @@ sub is_supported_audio_encode_codec
 	return $FFMPEG_AUDIO_ENCODE_CODECS{$codec} if defined($FFMPEG_AUDIO_ENCODE_CODECS{$codec});
 	return undef;
 }
+
+
+=item is_supported_decode_format()
+
+=cut
 
 sub is_supported_decode_format
 {
@@ -136,6 +167,11 @@ sub is_supported_decode_format
 	return undef;
 }
 
+
+=item is_supported_encode_format()
+
+=cut
+
 sub is_supported_encode_format
 {
 	my $format = shift;
@@ -144,9 +180,9 @@ sub is_supported_encode_format
 	return undef;
 }
 
-#
-#
-#
+=item get_beautiful_audio_decode_codec()
+
+=cut
 
 sub get_beautiful_audio_decode_codec
 {
@@ -160,6 +196,11 @@ sub get_beautiful_audio_decode_codec
 	return undef;
 }
 
+
+=item get_beautiful_audio_encode_codec()
+
+=cut
+
 sub get_beautiful_audio_encode_codec
 {
 	my $codec = shift;
@@ -171,6 +212,11 @@ sub get_beautiful_audio_encode_codec
 
 	return undef;
 }
+
+
+=item get_beautiful_decode_format()
+
+=cut
 
 sub get_beautiful_decode_format
 {
@@ -184,6 +230,11 @@ sub get_beautiful_decode_format
 	return undef;
 }
 
+
+=item get_beautiful_encode_format()
+
+=cut
+
 sub get_beautiful_encode_format
 {
 	my $format = shift;
@@ -196,9 +247,9 @@ sub get_beautiful_encode_format
 	return undef;
 }
 
-#
-#
-#
+=item get_decode_format_by_audio_codec()
+
+=cut
 
 sub get_decode_format_by_audio_codec
 {
@@ -208,6 +259,11 @@ sub get_decode_format_by_audio_codec
 	return undef;
 }
 
+
+=item get_encode_format_by_audio_codec()
+
+=cut
+
 sub get_encode_format_by_audio_codec
 {
 	my $codec = shift;
@@ -216,28 +272,9 @@ sub get_encode_format_by_audio_codec
 	return undef;
 }
 
-#
-#
-#
+=item shall_we_transcode()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+=cut
 
 sub shall_we_transcode
 {
@@ -301,6 +338,11 @@ sub shall_we_transcode
 	return 0;
 }
 
+
+=item get_ffmpeg_stream_command()
+
+=cut
+
 sub get_ffmpeg_stream_command
 {
 	my $media_data = shift;
@@ -314,6 +356,11 @@ sub get_ffmpeg_stream_command
 
 	return $command;
 }
+
+
+=item get_transcode_command()
+
+=cut
 
 sub get_transcode_command
 {
@@ -335,43 +382,9 @@ sub get_transcode_command
 }
 
 
+=item get_ffmpeg_command()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+=cut
 
 sub get_ffmpeg_command
 {
@@ -387,25 +400,11 @@ sub get_ffmpeg_command
 	return $command;
 }
 
+=item get_ffmpeg_formats()
 
+parse FFmpeg capabilities
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-# parse FFmpeg capabilities
-#
+=cut
 
 sub get_ffmpeg_formats
 {
@@ -445,6 +444,10 @@ sub get_ffmpeg_formats
 
 	return 1;
 }
+
+=item get_ffmpeg_codecs()
+
+=cut
 
 sub get_ffmpeg_codecs
 {
@@ -510,9 +513,11 @@ sub get_ffmpeg_codecs
 	return 1;
 }
 
-#
-# use FFmpeg to determine media (audio ir video) details (codecs, ...)
-#
+=item get_media_info()
+
+use FFmpeg to determine media (audio ir video) details (codecs, ...)
+
+=cut
 
 sub get_media_info
 {
@@ -601,5 +606,26 @@ sub get_media_info
 	}
 	return 1;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;
