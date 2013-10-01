@@ -1,24 +1,42 @@
 package PDLNA::DeviceService;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::DeviceService - to define services for each device object.
+
+=head1 DESCRIPTION
+
+This module constructs a DeviceService object.
+
+=cut
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./DeviceServiceAction.html">PDLNA::DeviceServiceAction</a>,
+<a href="./Utils.html">PDLNA::Utils</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<threads>,
+L<threads::shared>,
+L<XML::Simple>.
+
+=back
+
+=cut
 
 use threads;
 use threads::shared;
@@ -28,7 +46,15 @@ use XML::Simple;
 use PDLNA::DeviceServiceAction;
 use PDLNA::Utils;
 
-# constructor
+
+=head1 METHODS
+
+=over
+
+=item new() - constructor.
+
+=cut
+
 sub new
 {
 	my $class = shift;
@@ -98,7 +124,10 @@ sub new
 	return \%self;
 }
 
-# prints the object information
+=item print_object() - creates a string of the object information.
+
+=cut
+
 sub print_object
 {
 	my $self = shift;
@@ -118,5 +147,26 @@ sub print_object
 
 	return $string;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

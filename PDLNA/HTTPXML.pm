@@ -1,32 +1,60 @@
 package PDLNA::HTTPXML;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY, without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::HTTPXML - to form messages for HTTPServer.
+
+=head1 DESCRIPTION
+
+This module builds xml for the http messages.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./SpecificViews.html">PDLNA::SpecificViews</a>,
+<a href="./Transcode.html">PDLNA::Transcode</a>,
+<a href="./Utils.html">PDLNA::Utils</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Date::Format>.
+
+=back
+
+=cut
 
 use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::Database;
-use PDLNA::FFmpeg;
 use PDLNA::SpecificViews;
+use PDLNA::Transcode;
 use PDLNA::Utils;
+
+=head1 METHODS
+
+=over
+
+=item get_browseresponse_header()
+
+=cut
 
 sub get_browseresponse_header
 {
@@ -46,6 +74,10 @@ sub get_browseresponse_header
 	return join('', @xml);
 }
 
+=item get_browseresponse_footer()
+
+=cut
+
 sub get_browseresponse_footer
 {
 	my $number_returned = shift;
@@ -64,6 +96,10 @@ sub get_browseresponse_footer
 
 	return join('', @xml);
 }
+
+=item get_browseresponse_group_specific()
+
+=cut
 
 sub get_browseresponse_group_specific
 {
@@ -90,6 +126,10 @@ sub get_browseresponse_group_specific
 	return join('', @xml);
 }
 
+=item get_browseresponse_item_specific()
+
+=cut
+
 sub get_browseresponse_item_specific
 {
 	my $item_id = shift;
@@ -111,6 +151,10 @@ sub get_browseresponse_item_specific
 	get_browseresponse_item_detailed($item_id, $filter, $dbh, $client_ip, $user_agent, \@xml);
 	return join('', @xml);
 }
+
+=item get_browseresponse_directory()
+
+=cut
 
 sub get_browseresponse_directory
 {
@@ -142,6 +186,10 @@ sub get_browseresponse_directory
 	return join('', @xml);
 }
 
+=item get_browseresponse_item()
+
+=cut
+
 sub get_browseresponse_item
 {
 	my $item_id = shift;
@@ -160,7 +208,9 @@ sub get_browseresponse_item
 	return join('', @xml);
 }
 
+=item get_browseresponse_item_detailed()
 
+=cut
 
 sub get_browseresponse_item_detailed
 {
@@ -212,7 +262,7 @@ sub get_browseresponse_item_detailed
 		'video_codec' => $iteminfo[0]->{VIDEO_CODEC},
 	);
 	my $transcode = 0;
-	if ($transcode = PDLNA::FFmpeg::shall_we_transcode(
+	if ($transcode = PDLNA::Transcode::shall_we_transcode(
 			\%media_data,
 			{
 				'ip' => $client_ip,
@@ -367,6 +417,10 @@ sub get_browseresponse_item_detailed
 	push(@{$xml}, '&lt;/item&gt;');
 }
 
+=item get_serverdescription()
+
+=cut
+
 sub get_serverdescription
 {
 	my $user_agent = shift || '';
@@ -457,6 +511,10 @@ sub get_serverdescription
 
 	return join('', @xml);
 }
+
+=item get_contentdirectory()
+
+=cut
 
 sub get_contentdirectory
 {
@@ -654,6 +712,10 @@ sub get_contentdirectory
 	return join('', @xml);
 }
 
+=item connectionmanager()
+
+=cut
+
 sub get_connectionmanager
 {
 	my @xml = (
@@ -793,5 +855,26 @@ sub get_connectionmanager
 
 	return join('', @xml);
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

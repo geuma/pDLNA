@@ -1,29 +1,56 @@
 package PDLNA::SOAPMessages;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::SOAPMessages - to form soap messages.
+
+=head1 DESCRIPTION
+
+This module creates and sends a soap message using the si
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./SOAPClient.html">PDLNA::SOAPClient</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Date::Format>.
+
+=back
+
+=cut
 
 use Date::Format;
 
 use PDLNA::Config;
 use PDLNA::SOAPClient;
+
+
+=head1 METHODS
+
+=over
+
+=item send_sms()
+
+=cut
+
 
 sub send_sms
 {
@@ -60,9 +87,10 @@ sub send_sms
 	$client->send();
 }
 
-#
-# HELPER FUNCTIONS
-#
+=item soapclient() - helper function to create a soap client object.
+
+
+=cut
 
 sub _soapclient
 {
@@ -77,5 +105,26 @@ sub _soapclient
 	);
 	return $client;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

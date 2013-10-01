@@ -1,24 +1,47 @@
 package PDLNA::Statistics;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::Statistics - helper module for process stats.
+
+=head1 DESCRIPTION
+
+This module;
+
+ - inserts process information statistics into the database
+
+ - writes memory and media statistics into the log.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Daemon.html">PDLNA::Daemon</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./Log.html">PDLNA::Log</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Proc::ProcessTable>.
+
+=back
+
+=cut
 
 use Proc::ProcessTable;
 
@@ -26,6 +49,15 @@ use PDLNA::Config;
 use PDLNA::Daemon;
 use PDLNA::Database;
 use PDLNA::Log;
+
+=head1 METHODS
+
+=over
+
+=item get_proc_information()
+
+=cut
+
 
 sub get_proc_information
 {
@@ -64,13 +96,16 @@ sub get_proc_information
 	return %statistics;
 }
 
+=item write_statistics_periodic()
+
+=cut
+
 sub write_statistics_periodic
 {
 	PDLNA::Log::log('Starting thread for writing statistics periodically.', 1, 'default');
 	while(1)
 	{
 		my $dbh = PDLNA::Database::connect();
-		$dbh->{AutoCommit} = 0;
 
 		#
 		# MEMORY
@@ -98,11 +133,31 @@ sub write_statistics_periodic
 			},
 		);
 
-		$dbh->commit();
 		PDLNA::Database::disconnect($dbh);
 
 		sleep 60;
 	}
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

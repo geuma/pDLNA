@@ -1,24 +1,49 @@
 package PDLNA::WebUI;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::WebUI - module for presenting the web user interface.
+
+=head1 DESCRIPTION
+
+This module provides a web dashboard for pDLNA.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./ContentLibrary.html">PDLNA::ContentLibrary</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./Daemon.html">PDLNA::Daemon</a>,
+<a href="./Statistics.html">PDLNA::Statistics</a>,
+<a href="./Status.html">PDLNA::Status</a>,
+<a href="./Utils.html">PDLNA::Utils</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Date::Format>,
+L<GD::Graph::area>,
+L<LWP::UserAgent>,
+L<XML::Simple>.
+
+=back
+
+=cut
 
 use Date::Format;
 use GD::Graph::area;
@@ -29,10 +54,19 @@ use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Database;
 use PDLNA::Daemon;
-use PDLNA::FFmpeg;
 use PDLNA::Statistics;
 use PDLNA::Status;
 use PDLNA::Utils;
+
+
+=head1 METHODS
+
+=over
+
+=item show()
+
+=cut
+
 
 sub show
 {
@@ -74,12 +108,11 @@ sub show
 	$response .= '<h5>Connected devices</h5>';
 	$response .= build_connected_devices($dbh);
 
-	$response .= '<h5>Information</h5>';
+	$response .= '<h5>Statistics</h5>';
 	$response .= '<ul>';
-	$response .= '<li><a href="/webui/info/pi">Process Information</a></li>';
-	$response .= '<li><a href="/webui/info/cl">Media Library Information</a></li>';
-	$response .= '<li><a href="/webui/info/pdlna">pDLNA Information</a></li>';
-	$response .= '<li><a href="/webui/info/ffmpeg">FFmpeg Information</a></li>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+	$response .= '<li><a href="/webui/perf/pi">Process Information</a></li>';
+	$response .= '<li><a href="/webui/perf/cl">Media Library Information</a></li>';
+	$response .= '<li><a href="/webui/perf/pdlna">pDLNA Information</a></li>';
 	$response .= '</ul>';
 	$response .= '</div>';
 
@@ -203,7 +236,7 @@ sub show
 			}
 		}
 	}
-	elsif ($nav[0] eq 'info' && $nav[1] eq 'pi')
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pi')
 	{
 		my $pid = PDLNA::Daemon::read_pidfile($CONFIG{'PIDFILE'});
 		my %proc_info = PDLNA::Statistics::get_proc_information();
@@ -234,7 +267,7 @@ sub show
 			$response .= show_graph(\@nav);
 		}
 	}
-	elsif ($nav[0] eq 'info' && $nav[1] eq 'cl')
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'cl')
 	{
 		$response .= '<table>';
 		$response .= '<thead>';
@@ -245,14 +278,14 @@ sub show
 		my $timestamp = PDLNA::Database::select_db_field_int(
 			$dbh,
 			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE PARAM = ?',
+				'query' => 'SELECT value FROM METADATA WHERE key = ?',
 				'parameters' => [ 'TIMESTAMP', ],
 			},
 		);
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
 		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
-		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).') in '.PDLNA::ContentLibrary::get_amount_directories($dbh).' directories</td></tr>';
+		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).')</td></tr>';
 
 		my $duration = PDLNA::Database::select_db_field_int(
 			$dbh,
@@ -261,7 +294,7 @@ sub show
 				'parameters' => [ ],
 			},
 		);
-		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>';
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
@@ -279,7 +312,7 @@ sub show
 			$response .= show_graph(\@nav);
 		}
 	}
-	elsif ($nav[0] eq 'info' && $nav[1] eq 'pdlna')
+	elsif ($nav[0] eq 'perf' && $nav[1] eq 'pdlna')
 	{
 		$response .= '<table>';
 		$response .= '<thead>';
@@ -291,7 +324,7 @@ sub show
 		$response .= '</tbody>';
 		$response .= '</table>';
 
-		$response .= '<form action="/webui/info/pdlna/check4update" method="post">';
+		$response .= '<form action="/webui/perf/pdlna/check4update" method="post">';
 		$response .= '<div class="element button">';
 		$response .= '<input type="submit" class="submit" value="Check4Updates" />';
 		$response .= '</div>';
@@ -327,61 +360,6 @@ sub show
 			}
 		}
 	}
-	elsif ($nav[0] eq 'info' && $nav[1] eq 'ffmpeg' && !$CONFIG{'LOW_RESOURCE_MODE'})
-	{
-		$response .= '<table>';
-		$response .= '<thead>';
-		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
-		$response .= '</thead>';
-		$response .= '<tbody>';
-		$response .= '<tr><td>FFmpeg Version</td><td>'.$CONFIG{'FFMPEG_VERSION'}.'</td></tr>';
-		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
-
-		my @results = ();
-		foreach (@{$CONFIG{'FORMATS_DECODE'}})
-		{
-			if (my $format = PDLNA::FFmpeg::get_beautiful_decode_format($_))
-			{
-				push(@results, $format);
-			}
-		}
-		$response .= '<tr><td>Supported decoding formats</td><td>'.join(', ', @results).'</td></tr>';
-
-		@results = ();
-		foreach (@{$CONFIG{'FORMATS_ENCODE'}})
-		{
-			if (my $format = PDLNA::FFmpeg::get_beautiful_encode_format($_))
-			{
-				push(@results, $format);
-			}
-		}
-		$response .= '<tr><td>Supported encoding formats</td><td>'.join(', ', @results).'</td></tr>';
-
-		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
-
-		@results = ();
-		foreach (@{$CONFIG{'AUDIO_CODECS_DECODE'}})
-		{
-			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_decode_codec($_))
-			{
-				push(@results, $codec);
-			}
-		}
-		$response .= '<tr><td>Supported decoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
-
-		@results = ();
-		foreach (@{$CONFIG{'AUDIO_CODECS_ENCODE'}})
-		{
-			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_encode_codec($_))
-			{
-				 push(@results, $codec);
-			}
-		}
-		$response .= '<tr><td>Supported encoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
-
-		$response .= '</tbody>';
-		$response .= '</table>';
-	}
 	$response .= '</div>';
 
 	$response .= '<div id="footer">';
@@ -395,6 +373,10 @@ sub show
 	PDLNA::Database::disconnect($dbh);
 	return $response;
 }
+
+=item javascript()
+
+=cut
 
 sub javascript
 {
@@ -426,6 +408,10 @@ sub javascript
 	);
 	return join("\n", @javascript);
 }
+
+=item css()
+
+=cut
 
 sub css
 {
@@ -581,6 +567,10 @@ sub css
 	return join("\n", @css);
 }
 
+=item parse_nav()
+
+=cut
+
 #
 # NAVIGATION
 #
@@ -590,7 +580,7 @@ sub parse_nav
 	my $param = shift;
 
 	my @nav = split('/', $param);
-	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|info)$/)
+	if (!defined($nav[0]) || $nav[0] !~ /^(content|device|perf)$/)
 	{
 		$nav[0] = 'content';
 		$nav[1] = 0;
@@ -610,6 +600,10 @@ sub parse_nav
 
 	return @nav;
 }
+
+=item build_directory_tree()
+
+=cut
 
 sub build_directory_tree
 {
@@ -636,6 +630,10 @@ sub build_directory_tree
 
 	return $response;
 }
+
+=item build_connected_devices()
+
+=cut
 
 sub build_connected_devices
 {
@@ -676,6 +674,10 @@ sub build_connected_devices
 	return $response;
 }
 
+=item show_graph()
+
+=cut
+
 sub show_graph
 {
 	my $nav = shift;
@@ -703,6 +705,10 @@ sub show_graph
 
 	return $response;
 }
+
+=item graph()
+
+=cut
 
 sub graph
 {
@@ -738,7 +744,7 @@ sub graph
 	$data_options{'dbtable'} = 'STAT_MEM' if $type eq 'memory';
 	$data_options{'dbtable'} = 'STAT_ITEMS' if $type eq 'media';
 
-	$data_options{'title'} .= ' by last '.$period;
+	$data_options{'title'} .= ' by current '.$period;
 
 	$data_options{'dbfields'} = [ 'AVG(VMS)', 'AVG(RSS)', ] if $type eq 'memory';
 	$data_options{'dbfields'} = [ 'AVG(AUDIO)', 'AVG(IMAGE)', 'AVG(VIDEO)', ] if $type eq 'media';
@@ -792,16 +798,11 @@ sub graph
 
 	my $dbh = PDLNA::Database::connect();
 
-	my %queries = (
-		'SQLITE3' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', '-1 ".$period."', 'utc') GROUP BY datetime",
-		'MYSQL' => "SELECT date_format(FROM_UNIXTIME(DATE), '".$data_options{'dateformatstring'}."') as datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > UNIX_TIMESTAMP(DATE_SUB(now(), INTERVAL 1 ".$period.")) GROUP BY datetime",
-	);
-
 	my @results = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => $queries{$CONFIG{'DB_TYPE'}},
+			'query' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', 'start of ".$period."', 'utc') GROUP BY datetime",
 			'parameters' => [ ],
 		},
 		\@results,
@@ -824,23 +825,36 @@ sub graph
 	#
 	# deliver the graph to the browser
 	#
-	my $image = undef;
-	if ($image = $graph->plot(\@data))
-	{
-		my $response = PDLNA::HTTPServer::http_header({
-			'statuscode' => 200,
-			'content_type' => 'image/png',
-		});
-		$response .= $image->png();
-		return $response;
-	}
-	else
-	{
-		PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
-		return PDLNA::HTTPServer::http_header({
-			'statuscode' => 404,
-		});
-	}
+
+	my $image = $graph->plot(\@data) || PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
+	my $response = PDLNA::HTTPServer::http_header({
+		'statuscode' => 200,
+		'content_type' => 'image/png',
+	});
+	$response .= $image->png();
+
+	return $response;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

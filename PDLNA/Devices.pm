@@ -1,24 +1,47 @@
 package PDLNA::Devices;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::Devices - to mange dnla devices
+
+=head1 DESCRIPTION
+
+In DLNA, Devices are network entities that provide services. Services are
+the basic unit of control. They provide actions and maintain status.
+This module browses the network and sets entries in the database
+describing what is finds and uses the information later in helper
+functions.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Database.html">PDLNA::Database</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<File::Basename>,
+L<URI::Split>,
+L<XML::Simple>.
+
+=back
+
+=cut
 
 use File::Basename;
 use URI::Split qw(uri_split uri_join);
@@ -26,6 +49,15 @@ use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::Database;
+
+=head1 METHODS
+
+=over
+
+=item add_device()
+
+=cut
+
 
 sub add_device
 {
@@ -223,6 +255,10 @@ sub add_device
 	#
 }
 
+=item delete_expired_devices()
+
+=cut
+
 sub delete_expired_devices
 {
 	my $dbh = PDLNA::Database::connect();
@@ -268,6 +304,10 @@ sub delete_expired_devices
 	PDLNA::Database::disconnect($dbh);
 }
 
+=item delete_device()
+
+=cut
+
 sub delete_device
 {
 	my $dbh = shift;
@@ -289,6 +329,10 @@ sub delete_device
 		_delete_device_udn_by_id($dbh, $device_udn_id) if $device_nts_amount == 0;
 	}
 }
+
+=item get_modelname_by_devicetype()
+
+=cut
 
 sub get_modelname_by_devicetype
 {
@@ -329,6 +373,10 @@ sub get_modelname_by_devicetype
 # HELPER FUNCTIONS
 #
 
+=item delete_device_nts_by_id()
+
+=cut
+
 sub _delete_device_nts_by_id
 {
 	my $dbh = shift;
@@ -342,6 +390,11 @@ sub _delete_device_nts_by_id
 		},
 	);
 }
+
+=item get_device_nts_id_by_device_udn_id()
+
+
+=cut
 
 sub _get_device_nts_id_by_device_udn_id
 {
@@ -362,6 +415,10 @@ sub _get_device_nts_id_by_device_udn_id
 	return $device_nts[0]->{ID};
 }
 
+=item get_device_nts_amount_by_device_udn_id()
+
+=cut
+
 sub _get_device_nts_amount_by_device_udn_id
 {
 	my $dbh = shift;
@@ -379,6 +436,10 @@ sub _get_device_nts_amount_by_device_udn_id
 
 	return $device_nts_amount[0]->{AMOUNT};
 }
+
+=item delete_device_udn_by_id()
+
+=cut
 
 sub _delete_device_udn_by_id
 {
@@ -403,6 +464,10 @@ sub _delete_device_udn_by_id
 	);
 }
 
+=item get_device_udn_id_by_device_ip_id()
+
+=cut
+
 sub _get_device_udn_id_by_device_ip_id
 {
 	my $dbh = shift;
@@ -422,6 +487,10 @@ sub _get_device_udn_id_by_device_ip_id
 	return $device_udn[0]->{ID};
 }
 
+=item get_device_udn_amount_by_device_ip_id()
+
+=cut
+
 sub _get_device_udn_amount_by_device_ip_id
 {
 	my $dbh = shift;
@@ -439,6 +508,10 @@ sub _get_device_udn_amount_by_device_ip_id
 
 	return $device_udn_amount[0]->{AMOUNT};
 }
+
+=item get_device_ip_id_by_device_ip()
+
+=cut
 
 sub _get_device_ip_id_by_device_ip
 {
@@ -458,6 +531,10 @@ sub _get_device_ip_id_by_device_ip
 	return $devices[0]->{ID};
 }
 
+=item delete_device_ip_by_id()
+
+=cut
+
 sub _delete_device_ip_by_id
 {
 	my $dbh = shift;
@@ -471,5 +548,26 @@ sub _delete_device_ip_by_id
 		},
 	);
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

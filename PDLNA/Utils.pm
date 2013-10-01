@@ -1,24 +1,43 @@
 package PDLNA::Utils;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::Utils - helper module with sundry utilities.
+
+=head1 DESCRIPTION
+
+This module provides various utilities to help with things.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Log.html">PDLNA::Log</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Digest::SHA>,
+L<LWP::UserAgent>,
+L<Time::HiRes>.
+
+=back
+
+=cut
 
 use Digest::SHA;
 use LWP::UserAgent;
@@ -26,6 +45,16 @@ use Time::HiRes qw(gettimeofday);
 
 use PDLNA::Config;
 use PDLNA::Log;
+
+
+=head1 METHODS
+
+=over
+
+=item http_date()
+
+=cut
+
 
 sub http_date
 {
@@ -42,6 +71,10 @@ sub http_date
 	return "$days[$wday], $mday $months[$mon] $year $hour:$min:$sec GMT";
 }
 
+=item add_leading_char()
+
+=cut
+
 sub add_leading_char
 {
 	my $string = shift || '';
@@ -56,6 +89,10 @@ sub add_leading_char
 	return $string;
 }
 
+=item remove_leading_char()
+
+=cut
+
 sub remove_leading_char
 {
 	my $string = shift || '';
@@ -67,6 +104,10 @@ sub remove_leading_char
 	}
 	return $string;
 }
+
+=item convert_bytes()
+
+=cut
 
 sub convert_bytes
 {
@@ -80,6 +121,10 @@ sub convert_bytes
 	}
 	return sprintf("%.2f", $bytes).' '.$size[$ctr];
 }
+
+=item convert_duration()
+
+=cut
 
 sub convert_duration
 {
@@ -109,28 +154,20 @@ sub convert_duration
 	return $string;
 }
 
-sub convert_seek_duration
-{
-	my $duration_seconds = shift || 0;
+=item get_randid() - well, it is not real random but it's adequate.
 
-	my ($seconds, $minutes, $hours) = 0;
+=cut
 
-	$seconds = $duration_seconds;
-	$minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60 if $seconds;
-	$hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60 if $hours;
-
-	return add_leading_char($hours, 2, 0).':'.add_leading_char($minutes, 2, 0).':'.add_leading_char($seconds, 2, 0);
-}
-
-# well, it is not real random ... but it's adequate
 sub get_randid
 {
 	my $sha = Digest::SHA->new();
 	$sha->add(get_timestamp_ms());
 	return $sha->hexdigest();
 }
+
+=item string_shortener()
+
+=cut
 
 sub string_shortener
 {
@@ -144,6 +181,10 @@ sub string_shortener
 	return $string;
 
 }
+
+=item fetch_http()
+
+=cut
 
 sub fetch_http
 {
@@ -165,13 +206,22 @@ sub fetch_http
 	return undef;
 }
 
+=item get_timestamp_ms()
+
+=cut
+
 sub get_timestamp_ms
 {
 	my $timestamp = int (gettimeofday() * 1000);
 	return $timestamp;
 }
 
-# TODO windows part
+=item is_path_absolute()
+
+
+=cut
+
+#TODO windows part.
 sub is_path_absolute
 {
 	my $path = shift;
@@ -180,7 +230,11 @@ sub is_path_absolute
 	return 0;
 }
 
-# TODO windows part
+=item create_filesystem_path()
+
+=cut
+
+#TODO windows part.
 sub create_filesystem_path
 {
 	my $items = shift;
@@ -188,7 +242,11 @@ sub create_filesystem_path
 	return join('/', @{$items});
 }
 
-# TODO windows part (if needed)
+=item escape_brackets()
+
+=cut
+
+# TODO windows part (if needed).
 sub escape_brackets
 {
 	my $string = shift;
@@ -198,5 +256,26 @@ sub escape_brackets
 
 	return $string;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;
