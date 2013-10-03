@@ -1,30 +1,57 @@
 package PDLNA::Log;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::Log - helper module for logging.
+
+=head1 DESCRIPTION
+
+This module provides application logging.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Date::Format>,
+L<Fcntl>,
+L<Sys::Syslog>.
+
+=back
+
+=cut
 
 use Date::Format;
 use Fcntl ':flock';
 use Sys::Syslog qw(:standard :macros);
 
 use PDLNA::Config;
+
+
+=head1 METHODS
+
+=over
+
+=item log()
+
+=cut
 
 sub log
 {
@@ -45,6 +72,10 @@ sub log
 	}
 }
 
+=item fatal()
+
+=cut
+
 sub fatal
 {
 	my $message = shift;
@@ -55,6 +86,10 @@ sub fatal
 	exit 1;
 }
 
+=item add_message_info()
+
+=cut
+
 sub add_message_info
 {
 	my $message = shift;
@@ -64,6 +99,10 @@ sub add_message_info
 	return $message if $CONFIG{'LOG_FILE'} eq 'SYSLOG';
 	return time2str($CONFIG{'DATE_FORMAT'}, time()).' '.$category.'('.$debuglevel.'): '.$message;
 }
+
+=item write_log_msg()
+
+=cut
 
 sub write_log_msg
 {
@@ -86,6 +125,10 @@ sub write_log_msg
 	}
 }
 
+=item append_logfile()
+
+=cut
+
 sub append_logfile
 {
 	my $message = shift;
@@ -106,5 +149,26 @@ sub append_logfile
 	flock(FILE, LOCK_UN);
 	close(FILE);
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

@@ -1,26 +1,51 @@
 package PDLNA::SSDP;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::SSDP - core module for Simple Service Discovery Protocol (SSDP).
+
+=head1 DESCRIPTION
+
+When a Universal Plug and Play (UPnP) enabled device joins a network,
+it joins a multicast group and sends out alive packets. When another UPnP
+enabled device has received this message, it decides based on the information
+in the alive messages, whether it downloads the ServerDescription XML file 
+from the device. This module facilites this.
+
+=cut
+
 
 use strict;
 use warnings;
 
 #use threads;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./Devices.html">PDLNA::Devices</a>,
+<a href="./Log.html">PDLNA::Log</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<IO::Socket::INET>,
+L<IO::Socket::Multicast>,
+L<Net::Netmask>.
+
+=back
+
+=cut
 
 use IO::Socket::INET;
 use IO::Socket::Multicast;
@@ -30,6 +55,15 @@ use PDLNA::Config;
 use PDLNA::Database;
 use PDLNA::Devices;
 use PDLNA::Log;
+
+=head1 METHODS
+
+=over
+
+=item new()
+
+=cut
+
 
 sub new
 {
@@ -54,6 +88,10 @@ sub new
 	return $self;
 }
 
+=item add_send_socket()
+
+=cut
+
 sub add_send_socket
 {
 	my $self = shift;
@@ -68,6 +106,10 @@ sub add_send_socket
 		#ReuseAddr => 1,
 	) || PDLNA::Log::fatal('Cannot bind to SSDP sending socket: '.$!);
 }
+
+=item add_receive_socket()
+
+=cut
 
 sub add_receive_socket
 {
@@ -87,6 +129,10 @@ sub add_receive_socket
 		$CONFIG{'LISTEN_INTERFACE'}
 	) || PDLNA::Log::fatal('Cannot bind to SSDP listening socket: '.$!);
 }
+
+=item send_byebye()
+
+=cut
 
 sub send_byebye
 {
@@ -111,6 +157,10 @@ sub send_byebye
 	}
 }
 
+=item send_alive()
+
+=cut
+
 sub send_alive
 {
 	my $self = shift;
@@ -134,6 +184,10 @@ sub send_alive
 		sleeper(3);
 	}
 }
+
+=item send_announce()
+
+=cut
 
 sub send_announce
 {
@@ -175,6 +229,10 @@ sub send_announce
 	}
 }
 
+=item start_sending_periodic_alive_messages_thread()
+
+=cut
+
 sub start_sending_periodic_alive_messages_thread
 {
 	my $self = shift;
@@ -189,6 +247,10 @@ sub start_sending_periodic_alive_messages_thread
 	$thread->detach();
 }
 
+=item send_periodic_alive_messages()
+
+=cut
+
 sub send_periodic_alive_messages
 {
 	my $self = shift;
@@ -200,6 +262,10 @@ sub send_periodic_alive_messages
 		sleeper($CONFIG{'CACHE_CONTROL'});
 	}
 }
+
+=item start_listening_thread()
+
+=cut
 
 sub start_listening_thread
 {
@@ -214,6 +280,10 @@ sub start_listening_thread
 	);
 	$thread->detach();
 }
+
+=item parse_ssdp_message()
+
+=cut
 
 sub parse_ssdp_message
 {
@@ -272,6 +342,10 @@ sub parse_ssdp_message
 
 	return 1;
 }
+
+=item receive_messages()
+
+=cut
 
 sub receive_messages
 {
@@ -363,6 +437,10 @@ sub receive_messages
 	}
 }
 
+=item ssdp_message()
+
+=cut
+
 sub ssdp_message
 {
 	my $self = shift;
@@ -401,6 +479,10 @@ sub ssdp_message
 	return $msg;
 }
 
+=item generate_usn() - generate a unique service name
+
+=cut
+
 sub generate_usn
 {
 	my $nt = shift;
@@ -411,11 +493,36 @@ sub generate_usn
 	return $usn;
 }
 
+=item sleeper()
+
+=cut
+
 sub sleeper
 {
 	my $interval = shift;
 	$interval = 3 unless defined($interval);
 	sleep(int(rand($interval)));
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

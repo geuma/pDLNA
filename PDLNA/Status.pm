@@ -1,24 +1,44 @@
 package PDLNA::Status;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::Status - helper module for updates.
+
+=head1 DESCRIPTION
+
+This module checks for pDLNA version updates or device service updates.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./Log.html">PDLNA::Log</a>,
+<a href="./SOAPMessages.html">PDLNA::SOAPMessages</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<LWP::UserAgent>,
+L<XML::Simple>.
+
+=back
+
+=cut
 
 use LWP::UserAgent;
 use XML::Simple;
@@ -27,6 +47,16 @@ use PDLNA::Config;
 use PDLNA::Database;
 use PDLNA::Log;
 use PDLNA::SOAPMessages;
+
+
+=head1 METHODS
+
+=over
+
+=item check_update_periodic()
+
+=cut
+
 
 sub check_update_periodic
 {
@@ -37,6 +67,10 @@ sub check_update_periodic
 		sleep 86400;
 	}
 }
+
+=item do_http_request()
+
+=cut
 
 sub do_http_request
 {
@@ -66,6 +100,10 @@ sub do_http_request
 	);
 	return $response;
 }
+
+=item check_update()
+
+=cut
 
 sub check_update
 {
@@ -110,5 +148,26 @@ sub check_update
 		PDLNA::Log::log('Check4Updates was NOT successful: HTTP Status Code '.$response->status_line().'.', 1, 'default');
 	}
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

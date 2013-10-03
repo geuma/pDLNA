@@ -1,31 +1,56 @@
 package PDLNA::SOAPClient;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+package PDLNA::SOAPClient - for processing soap messages.
+
+=head1 DESCRIPTION
+
+This module gets and sends a soap message.
+
+=cut
+
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Log.html">PDLNA::Log</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<SOAP::Lite>,
+L<XML::Simple>.
+
+=back
+
+=cut
 
 use SOAP::Lite;
 use XML::Simple;
 
 use PDLNA::Log;
 
-# constructor
+
+=head1 METHODS
+
+=over
+
+=item new() - constructor.
+
+=cut
+
 sub new
 {
 	my $class = shift;
@@ -42,6 +67,10 @@ sub new
 	return $self;
 }
 
+=item method()
+
+=cut
+
 sub method
 {
 	my $self = shift;
@@ -50,6 +79,10 @@ sub method
 	$self->{METHOD} = $method;
 }
 
+=item add_argument()
+
+=cut
+
 sub add_argument
 {
 	my $self = shift;
@@ -57,6 +90,10 @@ sub add_argument
 
 	push(@{$self->{ARGUMENTS}}, SOAP::Data->type($$params{'type'})->name($$params{'name'})->value($$params{'value'}));
 }
+
+=item send()
+
+=cut
 
 sub send
 {
@@ -110,5 +147,26 @@ sub send
 	}
 	return 0;
 }
+
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
 
 1;

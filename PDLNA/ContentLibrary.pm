@@ -1,24 +1,51 @@
 package PDLNA::ContentLibrary;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+PDLNA::ContentLibrary - mange links between the filestore and the datastore.
+
+=head1 DESCRIPTION
+
+Files such as avi, jpeg, ogg are stored in a filestore (e.g. a directory on a server) and data relating to 
+the location of the directory, the contents of the directory and details of the type and contents of the
+files / metadata in the directory are stored in a datastore (e.g. sqllite database).  This module gets and sets
+the links between the filestore entries and database metadata entries and builds queries for getting the
+information.
+
+=cut
 
 use strict;
 use warnings;
+
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Config.html">PDLNA::Config</a>,
+<a href="./Database.html">PDLNA::Database</a>,
+<a href="./Log.html">PDLNA::Log</a>,
+<a href="./Media.html">PDLNA::Media</a>,
+<a href="./Utils.html">PDLNA::Utils</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<DBI>,
+L<Date::Format>,
+L<File::Basename>,
+L<File::Glob>,
+L<File::MimeInfo>.
+
+=back
+
+=cut
 
 use DBI;
 use Date::Format;
@@ -28,10 +55,23 @@ use File::MimeInfo;
 
 use PDLNA::Config;
 use PDLNA::Database;
-use PDLNA::FFmpeg;
 use PDLNA::Log;
 use PDLNA::Media;
 use PDLNA::Utils;
+
+=head1 METHODS
+
+=over
+
+=item index_directories_thread()
+
+Recurse through the configuration directories to look for;
+
+ - normal filestore directories
+ - playlists
+ - external directories like streams.
+
+=cut
 
 sub index_directories_thread
 {
@@ -39,7 +79,6 @@ sub index_directories_thread
 	while(1)
 	{
 		my $dbh = PDLNA::Database::connect();
-		$dbh->{AutoCommit} = 0;
 
 		my $timestamp_start = time();
 		foreach my $directory (@{$CONFIG{'DIRECTORIES'}}) # we are not able to run this part in threads - since glob seems to be NOT thread safe
@@ -76,18 +115,16 @@ sub index_directories_thread
 			);
 			$i++;
 		}
-		$dbh->commit();
 		my $timestamp_end = time();
 
 		# add our timestamp when finished
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => "UPDATE METADATA SET VALUE = ? WHERE PARAM = 'TIMESTAMP'",
+				'query' => "UPDATE METADATA SET VALUE = ? WHERE KEY = 'TIMESTAMP'",
 				'parameters' => [ $timestamp_end, ],
 			},
 		);
-		$dbh->commit();
 
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
@@ -95,21 +132,20 @@ sub index_directories_thread
 		my ($amount, $size) = get_amount_size_of_items($dbh);
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
-		cleanup_contentlibrary($dbh);
-		$dbh->commit();
-
-		$timestamp_start = time();
+		remove_nonexistant_files($dbh);
 		get_fileinfo($dbh);
-		$dbh->commit();
-		$timestamp_end = time();
-		$duration = $timestamp_end - $timestamp_start;
-		PDLNA::Log::log('Getting FFmpeg information for indexed media files '.$duration.' seconds.', 1, 'library');
 
 		PDLNA::Database::disconnect($dbh);
 
 		sleep $CONFIG{'RESCAN_MEDIA'};
 	}
 }
+
+=item process_directory()
+
+ This sub does the actual work to process the configuration 'root' directories to actually add the underlying subdirectories for normal directories and playlists.
+
+=cut
 
 sub process_directory
 {
@@ -118,7 +154,6 @@ sub process_directory
 	$$params{'path'} =~ s/\/$//;
 
 	add_directory_to_db($dbh, $$params{'path'}, $$params{'rootdir'}, 0);
-	$dbh->commit();
 
 	$$params{'path'} = PDLNA::Utils::escape_brackets($$params{'path'});
 	PDLNA::Log::log('Globbing directory: '.PDLNA::Utils::create_filesystem_path([ $$params{'path'}, '*', ]).'.', 2, 'library');
@@ -132,7 +167,7 @@ sub process_directory
 			PDLNA::Log::log('Skipping '.$element.' directory.', 2, 'library');
 			next;
 		}
-		elsif (-d "$element" && $$params{'recursion'} eq 'yes' && !grep(/^\Q$element_basename\E$/, @{$$params{'exclude_dirs'}}))
+		elsif (-d "$element" && $$params{'recursion'} eq 'yes' && !grep(/^$element_basename$/, @{$$params{'exclude_dirs'}}))
 		{
 			PDLNA::Log::log('Processing directory '.$element.'.', 2, 'library');
 
@@ -149,7 +184,7 @@ sub process_directory
 				}
 			);
 		}
-		elsif (-f "$element" && !grep(/^\Q$element_basename\E$/, @{$$params{'exclude_items'}}))
+		elsif (-f "$element" && !grep(/^$element_basename$/, @{$$params{'exclude_items'}}))
 		{
 			my $mime_type = mimetype($element);
 			PDLNA::Log::log('Processing '.$element.' with MimeType '.$mime_type.'.', 2, 'library');
@@ -283,6 +318,12 @@ sub process_directory
 	}
 }
 
+=item add_directory_to_db()
+
+ Adds a subdirectory under the configuration 'root' directories to the database.
+
+=cut
+
 sub add_directory_to_db
 {
 	my $dbh = shift;
@@ -314,6 +355,12 @@ sub add_directory_to_db
 		PDLNA::Log::log('Added directory '.$path.' to ContentLibrary.', 2, 'library');
 	}
 }
+
+=item add_subtitle_to_db()
+
+ Add or update in datastore links to the subtitle file.
+
+=cut
 
 sub add_subtitle_to_db
 {
@@ -359,6 +406,12 @@ sub add_subtitle_to_db
 		);
 	}
 }
+
+=item add_file_to_db()
+
+ Add or update a link between a file in filestore and the datastore.
+
+=cut
 
 sub add_file_to_db
 {
@@ -442,8 +495,8 @@ sub add_file_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID) VALUES (?,?)',
-				'parameters' => [ $results[0]->{ID}, 0, ],
+				'query' => 'INSERT INTO FILEINFO (FILEID_REF, VALID, WIDTH, HEIGHT, DURATION, BITRATE, VBR, ARTIST, ALBUM, TITLE, GENRE, YEAR, TRACKNUM) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+				'parameters' => [ $results[0]->{ID}, 0, 0, 0, 0, 0, 0, 'n/A', 'n/A', 'n/A', 'n/A', '0000', 0, ],
 			},
 		);
 	}
@@ -451,7 +504,13 @@ sub add_file_to_db
 	return $results[0]->{ID};
 }
 
-sub cleanup_contentlibrary
+=item remove_nonexistant_files()
+
+ Recurse through directories stored in datastore and remove any files or directories that no longer exist in the filestore.
+
+=cut
+
+sub remove_nonexistant_files
 {
 	my $dbh = shift;
 
@@ -606,8 +665,8 @@ sub cleanup_contentlibrary
 			PDLNA::Database::select_db(
 				$dbh,
 				{
-					'query' => 'SELECT ID FROM FILES WHERE (NAME = ? AND PATH LIKE ?) OR (FULLNAME = ?)',
-					'parameters' => [ $excl_items, $directory->{'path'}.'%', $directory->{'path'}.$excl_items, ],
+					'query' => 'SELECT ID FROM FILES WHERE NAME = ? AND PATH LIKE ?',
+					'parameters' => [ $excl_items, $directory->{'path'}.'%', ],
 				},
 				\@items,
 			);
@@ -618,26 +677,13 @@ sub cleanup_contentlibrary
 			}
 		}
 	}
-
-	# delete directories from database with no subdirectories or subfiles
-	@directories = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID FROM DIRECTORIES',
-			'parameters' => [ ],
-		},
-		\@directories,
-	);
-	foreach my $dir (@directories)
-	{
-		my $amount = get_amount_elements_by_id($dbh, $dir->{ID});
-		if ($amount == 0)
-		{
-			delete_subitems_recursively($dbh, $dir->{ID});
-		}
-	}
 }
+
+=item delete_all_by_itemid()
+
+ Delete items from datastore.
+
+=cut
 
 sub delete_all_by_itemid
 {
@@ -666,6 +712,12 @@ sub delete_all_by_itemid
 		},
 	);
 }
+
+=item delete_subitems_recursively()
+
+ Delete subitems from the datastore.
+
+=cut
 
 sub delete_subitems_recursively
 {
@@ -702,6 +754,12 @@ sub delete_subitems_recursively
 	);
 }
 
+=item get_fileinfo()
+
+ Get the metadata.
+
+=cut
+
 sub get_fileinfo
 {
 	my $dbh = shift;
@@ -717,7 +775,6 @@ sub get_fileinfo
 		\@results,
 	);
 
-	my $counter = 0;
 	foreach my $id (@results)
 	{
 		my @file = ();
@@ -733,7 +790,7 @@ sub get_fileinfo
 		if ($file[0]->{EXTERNAL})
 		{
 			my %info = ();
-			PDLNA::FFmpeg::get_media_info($file[0]->{FULLNAME}, \%info);
+			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
 			if (defined($info{MIME_TYPE}))
 			{
 				PDLNA::Database::update_db(
@@ -785,12 +842,12 @@ sub get_fileinfo
 		}
 
 		#
-		# FILL FFmpeg DATA OF VIDEO OR AUDIO FILES
+		# FILL MPLAYER DATA OF VIDEO OR AUDIO FILES
 		#
 		my %info = ();
 		if ($file[0]->{TYPE} eq 'video' || $file[0]->{TYPE} eq 'audio')
 		{
-			PDLNA::FFmpeg::get_media_info($file[0]->{FULLNAME}, \%info);
+			PDLNA::Media::get_mplayer_info($file[0]->{FULLNAME}, \%info);
 			PDLNA::Database::update_db(
 				$dbh,
 				{
@@ -845,18 +902,18 @@ sub get_fileinfo
 				},
 			);
 		}
-
-		$counter++;
-		unless ($counter % 50) # after 50 files, we are doing a commit
-		{
-			$dbh->commit();
-		}
 	}
 }
 
 #
 # various function for getting information about the ContentLibrary from the DB
 #
+
+=item get_subdirectories_by_id()
+
+ Get a list of subdirectories from the datastore.
+
+=cut
 
 sub get_subdirectories_by_id
 {
@@ -896,6 +953,12 @@ sub get_subdirectories_by_id
 	);
 }
 
+=item get_directory_type_by_id()
+
+ Get a list of directory types from the datastore.
+
+=cut
+
 sub get_directory_type_by_id
 {
 	my $dbh = shift;
@@ -912,6 +975,12 @@ sub get_directory_type_by_id
 
 	return $results[0]->{TYPE};
 }
+
+=item get_subfiles_by_id()
+
+ Get a list of subfiles.
+
+=cut
 
 sub get_subfiles_by_id
 {
@@ -951,6 +1020,12 @@ sub get_subfiles_by_id
 	);
 }
 
+=item get_subfiles_size_by_id()
+
+ Get a list of subfile sizes.
+
+=cut
+
 sub get_subfiles_size_by_id
 {
 	my $dbh = shift;
@@ -967,6 +1042,12 @@ sub get_subfiles_size_by_id
 	);
 	return $result[0]->{FULLSIZE};
 }
+
+=item get_amount_subdirectories_by_id()
+
+ Get a count of subdirectories.
+
+=cut
 
 sub get_amount_subdirectories_by_id
 {
@@ -999,6 +1080,12 @@ sub get_amount_subdirectories_by_id
 	return $directory_amount[0]->{AMOUNT};
 }
 
+=item get_amount_subfiles_by_id()
+
+ Get a count of files.
+
+=cut
+
 sub get_amount_subfiles_by_id
 {
 	my $dbh = shift;
@@ -1020,6 +1107,12 @@ sub get_amount_subfiles_by_id
 	return $files_amount[0]->{AMOUNT};
 }
 
+=item get_amount_elements_by_id()
+
+ Work out the totals for directories + subdirectories and directories + subfiles.
+
+=cut
+
 sub get_amount_elements_by_id
 {
 	my $dbh = shift;
@@ -1031,6 +1124,12 @@ sub get_amount_elements_by_id
 
 	return $directory_amount;
 }
+
+=item get_parent_of_directory_by_id()
+
+ Get a parent of a directory.
+
+=cut
 
 sub get_parent_of_directory_by_id
 {
@@ -1051,6 +1150,12 @@ sub get_parent_of_directory_by_id
 	return $directory_parent[0]->{ID};
 }
 
+=item get_parent_of_item_by_id()
+
+ Get a parent id for a child.
+
+=cut
+
 sub get_parent_of_item_by_id
 {
 	my $dbh = shift;
@@ -1070,6 +1175,12 @@ sub get_parent_of_item_by_id
 	return $item_parent[0]->{ID};
 }
 
+=item is_in_same_directory_tree()
+
+ Work out if parent is in the same tree as child.
+
+=cut
+
 sub is_in_same_directory_tree
 {
 	my $dbh = shift;
@@ -1084,6 +1195,12 @@ sub is_in_same_directory_tree
 
 	return 0;
 }
+
+=item get_amount_size_of_items()
+
+ Work out the totals for number and size of files.
+
+=cut
 
 sub get_amount_size_of_items
 {
@@ -1110,25 +1227,15 @@ sub get_amount_size_of_items
 	return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
 }
 
-sub get_amount_directories
-{
-	my $dbh = shift;
-
-	my @result = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES',
-			'parameters' => [ ],
-		},
-		\@result,
-	);
-	return $result[0]->{AMOUNT};
-}
-
 #
 # helper functions
 #
+
+=item duration()
+
+ Format the duration.
+
+=cut
 
 # TODO make it more beautiful
 sub duration
@@ -1151,7 +1258,28 @@ sub duration
 	return $string;
 }
 
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
+
+
 1;
+
 
 #	if ($CONFIG{'SPECIFIC_VIEWS'})
 #	{

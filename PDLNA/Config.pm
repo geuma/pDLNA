@@ -1,21 +1,32 @@
 package PDLNA::Config;
-#
-# pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+=head1 NAME
+
+PDLNA::Config - to read defaults or set the configuration values.
+
+=head1 DESCRIPTION
+
+This package gets values from the configuration file (whose location is set in rc.pDLNA or default => '/etc/pdlna.conf').
+
+Where a specific value for a key has not been set this package determines a default value.
+
+The configuration file has sections for;
+
+ - Global Parameters
+
+ - Database
+
+ - Network
+
+ - SSDP
+
+ - DLNA
+
+ - Logging
+
+ - MediaTranscoding Profiles
+
+=cut
 
 use strict;
 use warnings;
@@ -25,9 +36,39 @@ use base 'Exporter';
 our @ISA = qw(Exporter);
 our @EXPORT = qw(%CONFIG);
 
+=head1 LIBRARY FUNCTIONS
+
+=over 12
+
+=item internal libraries
+
+=begin html
+
+</p>
+<a href="./Media.html">PDLNA::Media</a>.
+</p>
+
+=end html
+
+=item external libraries
+
+L<Config>,
+L<Config::ApacheFormat>,
+L<Digest::MD5>,
+L<Digest::SHA>,
+L<File::Basename>,
+L<File::MimeInfo>,
+L<IO::Interface::Simple>,
+L<Net::IP>,
+L<Net::Netmask>,
+L<Sys::Hostname>.
+
+=back
+
+=cut
+
 use Config qw();
 use Config::ApacheFormat;
-use DBI;
 use Digest::MD5;
 use Digest::SHA;
 use File::Basename;
@@ -41,7 +82,6 @@ use PDLNA::Media;
 
 our %CONFIG = (
 	# values which can be modified by configuration file
-	'FRIENDLY_NAME' => 'pDLNA $VERSION on $HOSTNAME',
 	'LOCAL_IPADDR' => undef,
 	'LISTEN_INTERFACE' => undef,
 	'HTTP_PORT' => 8001,
@@ -50,8 +90,8 @@ our %CONFIG = (
 	'ALLOWED_CLIENTS' => [],
 	'DB_TYPE' => 'SQLITE3',
 	'DB_NAME' => '/tmp/pdlna.db',
-	'DB_USER' => 'pdlna',
-	'DB_PASS' => '',
+	'DB_USER' => undef,
+	'DB_PASS' => undef,
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
 	'LOG_FILE' => 'STDERR',
 	'LOG_CATEGORY' => [],
@@ -68,16 +108,17 @@ our %CONFIG = (
 	'IMAGE_THUMBNAILS' => 0,
 	'VIDEO_THUMBNAILS' => 0,
 	'LOW_RESOURCE_MODE' => 0,
+	'MPLAYER_BIN' => '/usr/bin/mplayer',
 	'FFMPEG_BIN' => '/usr/bin/ffmpeg',
 	'DIRECTORIES' => [],
 	'EXTERNALS' => [],
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.64.0',
-	'PROGRAM_DATE' => '2013-xx-xx',
-	'PROGRAM_BETA' => 1,
-	'PROGRAM_DBVERSION' => '1.6',
+	'PROGRAM_VERSION' => '0.63.0',
+	'PROGRAM_DATE' => '2013-07-08',
+	'PROGRAM_BETA' => 0,
+	'PROGRAM_DBVERSION' => '1.5',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
@@ -94,6 +135,15 @@ our %CONFIG = (
 	'OS_VERSION' => $Config::Config{osvers},
 	'HOSTNAME' => hostname(),
 );
+$CONFIG{'FRIENDLY_NAME'} = 'pDLNA v'.print_version().' on '.$CONFIG{'HOSTNAME'};
+
+=head1 METHODS
+
+=over 12
+
+=item print_version() - to get the version number for pDLNA
+
+=cut
 
 sub print_version
 {
@@ -101,6 +151,11 @@ sub print_version
 	$string .= 'b' if $CONFIG{'PROGRAM_BETA'};
 	return $string;
 }
+
+=item eval_binary_value() - to translate all sorts of binary values to 1 eg. on, true, yes etc
+
+
+=cut
 
 sub eval_binary_value
 {
@@ -113,6 +168,12 @@ sub eval_binary_value
 	return 0;
 }
 
+=item parse_config() - does all the work to get / set values for configuration items
+
+
+=cut
+
+
 sub parse_config
 {
 	my $file = shift;
@@ -120,7 +181,7 @@ sub parse_config
 
 	if (!-f $file)
 	{
-		push(@{$errormsg}, 'Configfile '.$file.' NOT found.');
+		push(@{$errormsg}, 'Configfile '.$file.' not found.');
 		return 0;
 	}
 
@@ -129,7 +190,7 @@ sub parse_config
 	);
 	unless ($cfg->read($file))
 	{
-		push(@{$errormsg}, 'Configfile '.$file.' is NOT readable.');
+		push(@{$errormsg}, 'Configfile '.$file.' is not readable.');
 		return 0;
 	}
 
@@ -137,12 +198,6 @@ sub parse_config
 	# FRIENDLY NAME PARSING
 	#
 	$CONFIG{'FRIENDLY_NAME'} = $cfg->get('FriendlyName') if defined($cfg->get('FriendlyName'));
-
-	my $version_string = print_version();
-	$CONFIG{'FRIENDLY_NAME'} =~ s/\$VERSION/v$version_string/;
-	$CONFIG{'FRIENDLY_NAME'} =~ s/\$HOSTNAME/$CONFIG{'HOSTNAME'}/;
-	$CONFIG{'FRIENDLY_NAME'} =~ s/\$OS/$CONFIG{'OS'}/;
-
 	if ($CONFIG{'FRIENDLY_NAME'} !~ /^[\w\-\s\.]{1,32}$/)
 	{
 		push(@{$errormsg}, 'Invalid FriendlyName: Please use letters, numbers, dots, dashes, underscores and or spaces and the FriendlyName requires a name that is 32 characters or less in length.');
@@ -176,7 +231,7 @@ sub parse_config
 			$CONFIG{'LOCAL_IPADDR'} = $cfg->get('ListenIPAddress');
 			if ($CONFIG{'LOCAL_IPADDR'} ne $interface->address())
 			{
-				 push(@{$errormsg}, 'Invalid ListenInterface: The configured ListenIPAddress is NOT located on the configured ListenInterface '.$CONFIG{'LISTEN_INTERFACE'}.'.');
+				 push(@{$errormsg}, 'Invalid ListenInterface: The configured ListenIPAddress is not located on the configured ListenInterface '.$CONFIG{'LISTEN_INTERFACE'}.'.');
 			}
 		}
 		else
@@ -191,12 +246,12 @@ sub parse_config
 
 		unless ($interface->is_multicast())
 		{
-			push(@{$errormsg}, 'Invalid ListenInterface: Interface is NOT capable of Multicast');
+			push(@{$errormsg}, 'Invalid ListenInterface: Interface is not capable of Multicast');
 		}
 	}
 	else
 	{
-		 push (@{$errormsg}, 'Invalid ListenInterface: The configured interface does NOT exist on your machine.');
+		 push (@{$errormsg}, 'Invalid ListenInterface: The configured interface does not exist on your machine.');
 	}
 
 	#
@@ -239,7 +294,7 @@ sub parse_config
 	$CONFIG{'TMP_DIR'} = $cfg->get('TempDir') if defined($cfg->get('TempDir'));
 	unless (-d $CONFIG{'TMP_DIR'})
 	{
-		push(@{$errormsg}, 'Invalid TempDir: Directory '.$CONFIG{'TMP_DIR'}.' for temporary files is NOT existing.');
+		push(@{$errormsg}, 'Invalid TempDir: Directory '.$CONFIG{'TMP_DIR'}.' for temporary files is not existing.');
 	}
 
 	#
@@ -278,9 +333,9 @@ sub parse_config
 	# DATABASE PARSING
 	#
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
-	unless ($CONFIG{'DB_TYPE'} =~ /^(SQLITE3|MYSQL)$/)
+	unless ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
-		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3|MYSQL]');
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3]');
 	}
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
@@ -290,43 +345,20 @@ sub parse_config
 		{
 			unless (mimetype($CONFIG{'DB_NAME'}) eq 'application/octet-stream') # TODO better check if it is a valid database
 			{
-				push(@{$errormsg}, 'Invalid DatabaseName: Database '.$CONFIG{'DB_NAME'}.' is already existing but NOT a valid database.');
+				push(@{$errormsg}, 'Invalid DatabaseName: Database '.$CONFIG{'DB_NAME'}.' is already existing but not a valid database.');
 			}
 		}
 		else
 		{
 			unless (-d dirname($CONFIG{'DB_NAME'}))
 			{
-				push(@{$errormsg}, 'Invalid DatabaseName: Directory '.dirname($CONFIG{'DB_NAME'}).' for database is NOT existing.');
+				push(@{$errormsg}, 'Invalid DatabaseName: Directory '.dirname($CONFIG{'DB_NAME'}).' for database is not existing.');
 			}
 		}
 	}
-	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
-	{
-		if (defined($cfg->get('DatabaseName')))
-		{
-			$CONFIG{'DB_NAME'} = $cfg->get('DatabaseName');
-		}
-		else
-		{
-			$CONFIG{'DB_NAME'} = 'pdlna';
-		}
-		$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
-		$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
-
-		my $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost', $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, {
-			PrintError => 0,
-			RaiseError => 0,
-		},);
-		if (defined($dbh))
-		{
-			$dbh->disconnect();
-		}
-		else
-		{
-			 push(@{$errormsg}, 'Invalid MySQL Database Configuration: Unable to connect to Database: '.$DBI::errstr);
-		}
-	}
+	# TODO parsing and defining them in configuration file - for MySQL and so on
+#	$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
+#	$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
 
 	#
 	# LOG FILE PARSING
@@ -451,17 +483,46 @@ sub parse_config
 	$CONFIG{'LOW_RESOURCE_MODE'} = eval_binary_value($cfg->get('LowResourceMode')) if defined($cfg->get('LowResourceMode'));
 
 	#
+	# MPlayerBinaryPath
+	#
+	$CONFIG{'MPLAYER_BIN'} = $cfg->get('MPlayerBinaryPath') if defined($cfg->get('MPlayerBinaryPath'));
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 0 || $CONFIG{'VIDEO_THUMBNAILS'} == 1) # only check for mplayer installation if LOW_RESOURCE_MODE is disabled and VIDEO_THUMBNAILS is enabled
+	{
+		if (-x $CONFIG{'MPLAYER_BIN'})
+		{
+			open(CMD, $CONFIG{'MPLAYER_BIN'}.' --help |');
+			my @output = <CMD>;
+			close(CMD);
+
+			my $found = 0;
+			foreach my $line (@output)
+			{
+				$found = 1 if $line =~ /^MPlayer\s+(.+)\s+\(/;
+			}
+
+			unless ($found)
+			{
+				push(@{$errormsg}, 'Invalid MPlayer Binary: Unable to detect MPlayer installation.');
+			}
+		}
+		else
+		{
+			push(@{$errormsg}, 'Invalid path for MPlayer Binary: Please specify the correct path or install MPlayer.');
+		}
+	}
+
+	#
 	# FFmpegBinaryPath
 	#
 	$CONFIG{'FFMPEG_BIN'} = $cfg->get('FFmpegBinaryPath') if defined($cfg->get('FFmpegBinaryPath'));
 	my $ffmpeg_error_message = undef;
 	if (-x $CONFIG{'FFMPEG_BIN'})
 	{
-		unless (PDLNA::FFmpeg::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, \$CONFIG{'FFMPEG_VERSION'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
+		unless (PDLNA::Transcode::get_ffmpeg_codecs($CONFIG{'FFMPEG_BIN'}, $CONFIG{'AUDIO_CODECS_DECODE'}, $CONFIG{'AUDIO_CODECS_ENCODE'}, $CONFIG{'VIDEO_CODECS_DECODE'}, $CONFIG{'VIDEO_CODECS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
-		unless (PDLNA::FFmpeg::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
+		unless (PDLNA::Transcode::get_ffmpeg_formats($CONFIG{'FFMPEG_BIN'}, $CONFIG{'FORMATS_DECODE'}, $CONFIG{'FORMATS_ENCODE'}))
 		{
 			$ffmpeg_error_message = 'Invalid FFmpeg Binary: Unable to detect FFmpeg installation.';
 		}
@@ -469,20 +530,6 @@ sub parse_config
 	else
 	{
 		$ffmpeg_error_message = 'Invalid path for FFmpeg Binary: Please specify the correct path or install FFmpeg.';
-	}
-
-	# a disabled LOW_RESOURCE_MODE requires FFmpeg
-	if (defined($ffmpeg_error_message) && $CONFIG{'LOW_RESOURCE_MODE'} == 0)
-	{
-		push(@{$errormsg}, 'A disabled LowResourceMode requires a valid FFmpeg installation.');
-		push(@{$errormsg}, $ffmpeg_error_message);
-	}
-
-	# VIDEO_THUMBNAILS requires FFmpeg
-	if (defined($ffmpeg_error_message) && $CONFIG{'VIDEO_THUMBNAILS'} == 1)
-	{
-		push(@{$errormsg}, 'EnableVideoThumbnails requires a valid FFmpeg installation.');
-		push(@{$errormsg}, $ffmpeg_error_message);
 	}
 
 	#
@@ -620,7 +667,7 @@ sub parse_config
 				}
 				else
 				{
-					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is NOT executable.');
+					push(@{$errormsg}, 'Invalid External \''.$external_block->[1].'\': Script is not executable.');
 				}
 
 				if (defined($block->get('MediaType')) && $block->get('MediaType') =~ /^(audio|video)$/)
@@ -649,7 +696,6 @@ sub parse_config
 		{
 			if (defined($ffmpeg_error_message))
 			{
-				push(@{$errormsg}, 'Transcoding requires a valid FFmpeg installation.');
 				push(@{$errormsg}, $ffmpeg_error_message);
 				last;
 			}
@@ -677,7 +723,7 @@ sub parse_config
 					# since $block->get returns 1 if keyword is defined
 					unless (defined($block->get($type.$direction)) && $block->get($type.$direction) ne '1')
 					{
-						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is NOT defined.');
+						push(@{$errormsg}, $transcode_error_msg.$type.$direction.' is not defined.');
 						next;
 					}
 
@@ -687,8 +733,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE CHOSEN CODECS
 						#
 						my $ffmpeg_codec = undef;
-						$ffmpeg_codec = PDLNA::FFmpeg::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$ffmpeg_codec = PDLNA::FFmpeg::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_decode_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$ffmpeg_codec = PDLNA::Transcode::is_supported_audio_encode_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 						if (defined($ffmpeg_codec))
 						{
 							my $tmp_string = 'AUDIO_CODECS_DECODE';
@@ -708,7 +754,7 @@ sub parse_config
 						else
 						{
 							my $tmp_msg = $transcode_error_msg.$block->get($type.$direction);
-							$tmp_msg .= ' is NOT a supported '.$type.' for '.$type.$direction.' yet.';
+							$tmp_msg .= ' is not a supported '.$type.' for '.$type.$direction.' yet.';
 							push(@{$errormsg}, $tmp_msg);
 						}
 
@@ -716,8 +762,8 @@ sub parse_config
 						# CHECK IF FFMPEG SUPPORTS THE FORMATS
 						#
 						my $format = undef;
-						$format = PDLNA::FFmpeg::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
-						$format = PDLNA::FFmpeg::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
+						$format = PDLNA::Transcode::get_decode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'In';
+						$format = PDLNA::Transcode::get_encode_format_by_audio_codec(lc($block->get($type.$direction))) if $direction eq 'Out';
 
 						if (defined($format))
 						{
@@ -739,7 +785,7 @@ sub parse_config
 							my $tmp_msg = $transcode_error_msg;
 							$tmp_msg .= 'Decode' if $direction eq 'In';
 							$tmp_msg .= 'Encode' if $direction eq 'Out';
-							$tmp_msg .= 'Format of '.$type.$direction.' is NOT supported yet.';
+							$tmp_msg .= 'Format of '.$type.$direction.' is not supported yet.';
 							push(@{$errormsg}, $tmp_msg);
 						}
 					}
@@ -775,5 +821,25 @@ sub parse_config
 	return 1 if (scalar(@{$errormsg}) == 0);
 	return 0;
 }
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2010-2013 Stefan Heumader L<E<lt>stefan@heumader.atE<gt>>.
+
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
 
 1;
