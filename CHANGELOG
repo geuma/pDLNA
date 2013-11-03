@@ -19,6 +19,11 @@ xx-xx-2013
 - added support for MySQL
 - added amount of directories to WebUI
 - added $VERSION, $HOSTNAME and $OS variables to the FriendlyName configuration
+- fixed issue #21 (https://github.com/geuma/pDLNA/issues/21) -aka- special characters in filenames break some regular expressions (under some circumstances)
+- improved handling of ExcludedItems configuration parameter
+- directories with no subdirectories or subfiles will be deleted from ContentLibrary
+- Length of all Media Items in WebUI will only be shown when LowResourceMode is disabled
+- added FFmpeg information to WebUI to provide easier access to Transcoding possibilities
 
 Version 0.63.0
 08-07-2013
