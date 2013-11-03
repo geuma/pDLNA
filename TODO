@@ -21,3 +21,4 @@
 - set bookmark soap action (X_SetBookmark) - started, but tv does not send the requests ???
 - ReuseAddr parameter for both SSDP sockets (working depends on installed modules and Perl version) - How to handle it?
 - add archives to the media library ???
+- drop privileges
