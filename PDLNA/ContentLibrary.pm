@@ -341,7 +341,7 @@ sub add_subtitle_to_db
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ?, WHERE ID = ?;',
+					'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ? WHERE ID = ?;',
 					'parameters' => [ $fileinfo[9], $fileinfo[7], $results[0]->{ID}, ],
 				},
 			);
