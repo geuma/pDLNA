@@ -75,8 +75,8 @@ our %CONFIG = (
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.64.0',
-	'PROGRAM_DATE' => '2013-xx-xx',
-	'PROGRAM_BETA' => 1,
+	'PROGRAM_DATE' => '2013-11-03',
+	'PROGRAM_BETA' => 0,
 	'PROGRAM_DBVERSION' => '1.6',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.com',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',

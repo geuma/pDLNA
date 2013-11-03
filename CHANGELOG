@@ -8,7 +8,7 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.64.0
-xx-xx-2013
+03-11-2013
 
 - moved from Movie::Info to using FFmpeg natively to determine media information (based on the idea of lombao)
 - using FFmpeg instead of Mplayer to create VideoThumbnails
