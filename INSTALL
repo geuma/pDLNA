@@ -11,22 +11,12 @@ http://www.pdlna.com/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
 
 INSTALLATION REQUIREMENTS
 -------------------------
-the extra perl modules you will probably need are:
- Config::ApacheFormat
- Getopt::Long::Descriptive
- Image::Info
- IO::Interface
- IO::Socket::Multicast
- IO::Socket::Multicast6
- XML::Simple
- Net::Netmask
+Since pDLNA requires some Perl modules, please see chapter 2 of the
+'pDLNA Installation, Configuration and Debugging Guide' available under
+http://www.pdlna.com/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
 
-If you're on a debian system these can be installed with apt using the
-following packages:
-sudo apt-get install libgetopt-long-descriptive-perl \
-libconfig-apacheformat-perl libio-interface-perl libio-socket-multicast-perl \
-libio-socket-multicast6-perl libxml-simple-perl libimage-info-perl \
-libgd-gd2-perl libnet-netmask-perl
+You are also able to execute 'install.pl -c' to see, which Perl modules
+are needed and which are already installed.
 
 INSTALL
 ---------------
