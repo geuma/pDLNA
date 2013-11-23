@@ -25,7 +25,6 @@ use Audio::Wav;
 use Audio::WMA;
 use Fcntl;
 use Image::Info qw(image_info dim image_type);
-use Movie::Info;
 use MP3::Info;
 use MP4::Info;
 use Ogg::Vorbis::Header::PurePerl;
