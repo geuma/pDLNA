@@ -317,7 +317,7 @@ sub show
 				{
 					$response .= '<div class="info">';
 					$response .= '<p>A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: <strong>'.$xml->{'response'}->{'NewVersion'}.'</strong>.</p>';
-					$response .= '<p>Check the <a href="http://www.pdlna.com/cgi-bin/index.pl?menu=changelog&release='.$xml->{'response'}->{'NewVersion'}.'">Changelog</a> section on the project website for detailed information.</p>';
+					$response .= '<p>Check the <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'/cgi-bin/index.pl?menu=changelog&release='.$xml->{'response'}->{'NewVersion'}.'">Changelog</a> section on the project website for detailed information.</p>';
 					$response .= '</div>';
 				}
 			}

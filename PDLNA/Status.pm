@@ -56,7 +56,7 @@ sub do_http_request
 	};
 
 	my $response = $ua->post(
-		'http://www.pdlna.com/cgi-bin/status.pl',
+		$CONFIG{'PROGRAM_WEBSITE'}.'/cgi-bin/status.pl',
 		Content_Type => 'text/xml',
 		Content => $xml_obj->XMLout(
 			$xml,

@@ -1,19 +1,19 @@
 pDLNA
 (c) 2010-2013 Stefan Heumader
 email: stefan@heumader.at
-webpage: http://www.pdlna.com
+webpage: http://www.pdlna.org
 
 Licened under GPLv3 (see LICENSE file)
 
 For detailed information regarding the installation, please read the
 'pDLNA Installation, Configuration and Debugging Guide' available under
-http://www.pdlna.com/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
+http://www.pdlna.org/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
 
 INSTALLATION REQUIREMENTS
 -------------------------
 Since pDLNA requires some Perl modules, please see chapter 2 of the
 'pDLNA Installation, Configuration and Debugging Guide' available under
-http://www.pdlna.com/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
+http://www.pdlna.org/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
 
 You are also able to execute 'install.pl -c' to see, which Perl modules
 are needed and which are already installed.
