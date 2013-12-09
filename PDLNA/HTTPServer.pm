@@ -430,9 +430,21 @@ sub ctrl_content_directory_1
 		}
 		elsif ($browse_flag eq 'BrowseDirectChildren')
 		{
-			if ($browsefilters[0] eq '*')
+			if ($filter eq '*')
 			{
-				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class', 'res@bitrate', 'res@duration');
+				@browsefilters = ();
+			}
+
+			# these filter seem to be mandatory, so we need to put them always into the HTTP response
+			foreach my $filter ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class')
+			{
+				push(@browsefilters, $filter) unless grep(/^$filter$/, @browsefilters);
+			}
+
+			if ($filter eq '*')
+			{
+				push(@browsefilters, 'res@bitrate');
+				push(@browsefilters, 'res@duration');
 			}
 		}
 		else
