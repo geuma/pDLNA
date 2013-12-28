@@ -23,6 +23,7 @@ use warnings;
 use Digest::SHA;
 use LWP::UserAgent;
 use Time::HiRes qw(gettimeofday);
+use XML::Simple;
 
 use PDLNA::Config;
 use PDLNA::Log;
@@ -195,6 +196,18 @@ sub escape_brackets
 
 	$string =~ s/\[/\\[/g;
 	$string =~ s/\]/\\]/g;
+
+	return $string;
+}
+
+sub encode_xml
+{
+	my $string = shift;
+
+	my $xs = XML::Simple->new();
+	$string = $xs->escape_value($string);
+	$string =~ s/&/&amp;/g; # double encoding of ampersand: http://sourceforge.net/p/minidlna/bugs/198/
+	#$string =~ s/'/&apos;/g; # single qoutes are not encoded by XML::Simple, do we need it ?
 
 	return $string;
 }

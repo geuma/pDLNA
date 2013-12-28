@@ -10,8 +10,9 @@ Licened under GPLv3 (see LICENSE file)
 Version 0.64.3
 xx-xx-201x
 
-- modified WebUI to open Changelog link in a new browser tab/window
+- modified WebUI to open Changelog link to project website in a new browser tab/window
 - improved regular expression to determine valid FFmpeg installations (thanks to marc)
+- added encoding of special characters in XML
 
 Version 0.64.2
 09-12-2013
