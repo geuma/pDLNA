@@ -24,6 +24,8 @@ use PDLNA::Config;
 use PDLNA::Media;
 use PDLNA::Log;
 
+my $FFMPEG_REGEX_STRING = '^ffmpeg\s+version\s+(.+),{0,1}\scopyright';
+
 # this represents the beatuiful codec names and their internal (in the db) possible values (from FFmpeg)
 my %AUDIO_CODECS = (
 	'aac' => [ 'mpeg4aac', 'aac', ],
@@ -417,7 +419,7 @@ sub get_ffmpeg_formats
 	my @output = <CMD>;
 	close(CMD);
 
-	unless ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	unless ($output[0] =~ /$FFMPEG_REGEX_STRING/i)
 	{
 		return 0;
 	}
@@ -467,7 +469,7 @@ sub get_ffmpeg_codecs
 	my @output = <CMD>;
 	close(CMD);
 
-	if ($output[0] =~ /^ffmpeg\s+version\s+(.+),\scopyright/i)
+	if ($output[0] =~ /$FFMPEG_REGEX_STRING/i)
 	{
 		$$ffmpeg_ver = $1;
 	}
