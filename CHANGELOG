@@ -8,7 +8,7 @@ Licened under GPLv3 (see LICENSE file)
 -----------------------------------------
 
 Version 0.64.3
-xx-xx-201x
+29-12-2013
 
 - modified WebUI to open Changelog link to project website in a new browser tab/window
 - improved regular expression to determine valid FFmpeg installations (thanks to marc)
