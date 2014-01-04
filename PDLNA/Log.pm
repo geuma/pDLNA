@@ -104,6 +104,29 @@ sub append_logfile
 
 	if ($filesize > $CONFIG{'LOG_FILE_MAX_SIZE'})
 	{
+		if ($CONFIG{'LOG_FILE_ROTATION_AMOUNT'})
+		{
+			# delete the oldest log file from rotation
+			if (-f $CONFIG{'LOG_FILE'}.'.'.$CONFIG{'LOG_FILE_ROTATION_AMOUNT'})
+			{
+				unlink($CONFIG{'LOG_FILE'}.'.'.$CONFIG{'LOG_FILE_ROTATION_AMOUNT'}) || &log('ERROR: Unable to remove LogFile: '.$!, 0, 'default')
+			}
+
+			# increase number of already rotated logfiles
+			for (my $i = $CONFIG{'LOG_FILE_ROTATION_AMOUNT'}; $i > 0; $i--)
+			{
+				my $j = $i-1;
+				if (-f $CONFIG{'LOG_FILE'}.'.'.$j)
+				{
+					rename($CONFIG{'LOG_FILE'}.'.'.$j, $CONFIG{'LOG_FILE'}.'.'.$i) || &log('ERROR: Unable to rename LogFile: '.$!, 0, 'default');
+				}
+			}
+
+			# rename current logfile
+			rename($CONFIG{'LOG_FILE'}, $CONFIG{'LOG_FILE'}.'.1') || &log('ERROR: Unable to rename LogFile: '.$!, 0, 'default');
+		}
+		# if no ROTATION configured, just overwrite the old file
+
 		open(FILE, ">$CONFIG{'LOG_FILE'}");
 	}
 	else

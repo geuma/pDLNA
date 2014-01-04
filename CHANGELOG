@@ -11,6 +11,7 @@ Version 0.64.4
 xx-xx-2014
 
 - added the name and line of the file, which called the fatal() or log() subroutine, to the log messages (based on the idea of marc)
+- added LogFileRotation configuration parameter, so pDLNA is now able to rotate logfiles on his own (based on the idea of marc)
 
 Version 0.64.3
 29-12-2013

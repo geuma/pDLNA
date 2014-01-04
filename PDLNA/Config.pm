@@ -54,6 +54,7 @@ our %CONFIG = (
 	'DB_PASS' => '',
 	'LOG_FILE_MAX_SIZE' => 10485760, # 10 MB
 	'LOG_FILE' => 'STDERR',
+	'LOG_FILE_ROTATION_AMOUNT' => 0,
 	'LOG_CATEGORY' => [],
 	'DATE_FORMAT' => '%Y-%m-%d %H:%M:%S',
 	'BUFFER_SIZE' => 32768, # 32 kB
@@ -359,6 +360,11 @@ sub parse_config
 				push(@{$errormsg}, 'Invalid LogFileMaxSize: Please specify LogFileMaxSize in megabytes (from 1 to 99).');
 			}
 			$CONFIG{'LOG_FILE_MAX_SIZE'} = $CONFIG{'LOG_FILE_MAX_SIZE'} * 1024 * 1024; # calc megabytes value from config file to bytes
+		}
+
+		if (defined($cfg->get('LogFileRotation')))
+		{
+			$CONFIG{'LOG_FILE_ROTATION_AMOUNT'} = int($cfg->get('LogFileRotation'));
 		}
 	}
 
