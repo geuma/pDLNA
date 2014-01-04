@@ -265,7 +265,7 @@ sub process_directory
 
 				foreach my $result (@results)
 				{
-					unless (grep(/^$result->{NAME}$/, @items) || grep(/^$result->{FULLNAME}$/, @items))
+					unless (grep(/^\Q$result->{NAME}\E$/, @items) || grep(/^\Q$result->{FULLNAME}\E$/, @items))
 					{
 						delete_all_by_itemid($dbh, $result->{ID});
 					}
