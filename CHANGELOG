@@ -1,11 +1,16 @@
 pDLNA CHANGELOG
-(c) 2010-2013 Stefan Heumader
+(c) 2010-2014 Stefan Heumader
 email: stefan@heumader.at
 webpage: http://www.pdlna.org
 
 Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
+
+Version 0.64.4
+xx-xx-2014
+
+- added the name and line of the file, which called the fatal() or log() subroutine, to the log messages (based on the idea of marc)
 
 Version 0.64.3
 29-12-2013

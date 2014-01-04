@@ -1,7 +1,7 @@
 package PDLNA::Log;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2013 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2014 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,6 +32,8 @@ sub log
 	my $debuglevel = shift || 0;
 	my $category = shift || undef;
 
+	my (undef, $filename, $line) = caller();
+
 	if (
 		$debuglevel == 0 ||
 		(
@@ -40,7 +42,7 @@ sub log
 		)
 	)
 	{
-		$message = add_message_info($message, $debuglevel, $category);
+		$message = add_message_info($message, $debuglevel, $category, $filename, $line);
 		write_log_msg($message, $debuglevel, $category);
 	}
 }
@@ -48,8 +50,12 @@ sub log
 sub fatal
 {
 	my $message = shift;
+	my $debuglevel = shift || 0;
+	my $category = shift || undef;
 
-	print STDERR $message."\n";
+	my (undef, $filename, $line) = caller();
+
+	print STDERR add_message_info($message, $debuglevel, $category, $filename, $line)."\n";
 	print STDERR "Going to terminate $CONFIG{'PROGRAM_NAME'}/v".PDLNA::Config::print_version()." on $CONFIG{'OS'}/$CONFIG{'OS_VERSION'} with FriendlyName '$CONFIG{'FRIENDLY_NAME'}' ...\n";
 
 	exit 1;
@@ -60,9 +66,13 @@ sub add_message_info
 	my $message = shift;
 	my $debuglevel = shift;
 	my $category = shift;
+	my $filename = shift || undef;
+	my $line = shift || undef;
 
+	$message = '('.$filename.':'.$line.'): '.$message if defined($filename);
 	return $message if $CONFIG{'LOG_FILE'} eq 'SYSLOG';
-	return time2str($CONFIG{'DATE_FORMAT'}, time()).' '.$category.'('.$debuglevel.'): '.$message;
+	$message = $category.'('.$debuglevel.') '.$message if defined($category);
+	return time2str($CONFIG{'DATE_FORMAT'}, time()).' '.$message;
 }
 
 sub write_log_msg
@@ -73,7 +83,7 @@ sub write_log_msg
 
 	if ($CONFIG{'LOG_FILE'} eq 'STDERR')
 	{
-		print STDERR $message . "\n";
+		print STDERR $message."\n";
 	}
 	elsif ($CONFIG{'LOG_FILE'} eq 'SYSLOG')
 	{
