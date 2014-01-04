@@ -7,7 +7,7 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
-Version 0.64.4
+Version 0.65.0
 xx-xx-2014
 
 - added the name and line of the file, which called the fatal() or log() subroutine, to the log messages (based on the idea of marc)

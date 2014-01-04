@@ -21,7 +21,7 @@ use threads;
 use threads::shared;
 use Getopt::Long::Descriptive;
 
-use lib ('./');
+use lib ('../lib/perl5');
 use PDLNA::Config;
 use PDLNA::ContentLibrary;
 use PDLNA::Daemon;

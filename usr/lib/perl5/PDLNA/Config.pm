@@ -75,7 +75,7 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.64.4',
+	'PROGRAM_VERSION' => '0.65.0',
 	'PROGRAM_DATE' => '2014-xx-xx',
 	'PROGRAM_BETA' => 1,
 	'PROGRAM_DBVERSION' => '1.6',

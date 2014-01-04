@@ -121,10 +121,10 @@ unless (-d $PREFIX)
 }
 
 my %installation_files = (
-	'rc.pDLNA' => ['f', '/etc/init.d/', 0755],
-	'pDLNA.pl' => ['f', $PREFIX, 0755],
-	'pdlna.conf' => ['f', '/etc/', 0644],
-	'PDLNA' => ['d', $PREFIX, 0755],
+	'etc/init.d/pdlna' => ['f', '/', 0755],
+	'usr/sbin/pDLNA.pl' => ['f', $PREFIX, 0755],
+	'etc/pdlna.conf' => ['f', '/', 0644],
+	'usr/lib/perl5/PDLNA' => ['d', $PREFIX, 0755],
 	'external_programs' => ['d', $PREFIX, 0755],
 	'README' => ['f', $PREFIX, 0644],
 	'LICENSE' => ['f', $PREFIX, 0644],
@@ -170,24 +170,24 @@ print "Step 4:\n";
 print "Setting of relevant paths ...\n";
 print "------------------------------------------------------\n";
 
-my $regex = '+DIR="./"+DIR="'.$PREFIX.'"';
-if (system("sed -i -e s'$regex'+ /etc/init.d/rc.pDLNA") == 0)
+my $regex = '+DIR="../../usr/sbin/"+DIR="'.$PREFIX.'usr/sbin/"';
+if (system("sed -i -e s'$regex'+ /etc/init.d/pdlna") == 0)
 {
-	pass("Changed path for binary in '/etc/init.d/rc.pDLNA'.");
+	pass("Changed path for binary in '/etc/init.d/pdlna'.");
 }
 else
 {
-	fail("Failed to change path for binary in '/etc/init.d/rc.pDLNA': $!.");
+	fail("Failed to change path for binary in '/etc/init.d/pdlna': $!.");
 }
 
-$regex = "+use lib ('./');+use lib ('/opt');+";
-if (system('sed -i -e s"'.$regex.'" '.$PREFIX.'pDLNA.pl') == 0)
+$regex = "+use lib ('../lib/perl5');+use lib ('$PREFIX"."usr/lib/perl5');+";
+if (system('sed -i -e s"'.$regex.'" '.$PREFIX.'usr/sbin/pDLNA.pl') == 0)
 {
-	pass("Changed path for lib in '".$PREFIX."pDLNA.pl'.");
+	pass("Changed path for lib in '".$PREFIX."usr/sbin/pDLNA.pl'.");
 }
 else
 {
-	fail("Failed to change path for lib in '".$PREFIX."pDLNA.pl': $!.");
+	fail("Failed to change path for lib in '".$PREFIX."usr/sbin/pDLNA.pl': $!.");
 }
 
 print "------------------------------------------------------\n";
@@ -200,7 +200,7 @@ for (my $i = 0; $i < @INC; $i++)
 {
 	splice(@INC, $i, 1) if $INC[$i] eq '.';
 }
-push(@INC, $PREFIX); # push the new LIB directory to PATH
+push(@INC, $PREFIX.'usr/lib/perl5/'); # push the new LIB directory to PATH
 
 use_ok ('PDLNA::Config');
 use_ok ('PDLNA::ContentLibrary');

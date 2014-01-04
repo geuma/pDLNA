@@ -26,7 +26,7 @@ also check for requirements, copies the files to the correct directories
 and sets the necessary rights.
 
 At the end, if all tests passed, you should be able to edit '/etc/pdlna.conf'
-and start pDLNA with the initscript located at '/etc/init.d/rc.pdlna'.
+and start pDLNA with the initscript located at '/etc/init.d/pdlna'.
 
 
 Stefan Heumader

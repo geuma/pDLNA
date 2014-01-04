@@ -1760,7 +1760,7 @@ sub logo
 		PDLNA::Log::log('Delivering Logo in format '.$type.' and with '.$size.'x'.$size.' pixels.', 2, 'httpgeneric');
 
 		GD::Image->trueColor(1);
-		my $image = GD::Image->new('PDLNA/pDLNA.png');
+		my $image = GD::Image->new('../lib/perl5/PDLNA/pDLNA.png');
 		my $preview = GD::Image->new($size, $size);
 
 		# all black areas of the image should be transparent

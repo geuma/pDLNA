@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DIR="./"
+DIR="../../usr/sbin/"
 BIN="pDLNA.pl"
 PRG="pDLNA"
 
