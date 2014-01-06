@@ -127,11 +127,11 @@ sub append_logfile
 		}
 		# if no ROTATION configured, just overwrite the old file
 
-		open(FILE, ">$CONFIG{'LOG_FILE'}");
+		open(FILE, '>:encoding(UTF-8)', $CONFIG{'LOG_FILE'});
 	}
 	else
 	{
-		open(FILE, ">>$CONFIG{'LOG_FILE'}");
+		open(FILE, '>>:encoding(UTF-8)', $CONFIG{'LOG_FILE'});
 	}
 
 	flock(FILE, LOCK_EX);

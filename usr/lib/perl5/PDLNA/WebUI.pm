@@ -22,6 +22,7 @@ use warnings;
 
 use Date::Format;
 use GD::Graph::area;
+use HTML::Entities;
 use LWP::UserAgent;
 use XML::Simple;
 
@@ -43,13 +44,13 @@ sub show
 
 	my $response = PDLNA::HTTPServer::http_header({
 		'statuscode' => 200,
-		'content_type' => 'text/html',
+		'content_type' => 'text/html; charset=UTF-8',
 	});
 
 	$response .= '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'."\n";
 	$response .= '<html>';
 	$response .= '<head>';
-	$response .= '<title>'.$CONFIG{'FRIENDLY_NAME'}.'</title>';
+	$response .= '<title>'.encode_entities($CONFIG{'FRIENDLY_NAME'}).'</title>';
 	$response .= '<script type="text/javascript" src="/webui/js.js"></script>';
 	$response .= '<link href="/webui/css.css" rel="stylesheet" rev="stylesheet" type="text/css">';
 	$response .= '</head>';
@@ -57,7 +58,7 @@ sub show
 	$response .= '<div id="container">';
 
 	$response .= '<div id="header">';
-	$response .= '<h3>'.$CONFIG{'FRIENDLY_NAME'}.'</h3>';
+	$response .= '<h3>'.encode_entities($CONFIG{'FRIENDLY_NAME'}).'</h3>';
 	$response .= '</div>';
 
 	$response .= '<div id="sidebar">';
@@ -96,7 +97,7 @@ sub show
 		$response .= '</thead>';
 
 		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($dbh, $nav[1])).'</td><td>&nbsp;</td></tr>';
+		$response .= '<tr><td>&nbsp;</td><td>'.encode_entities(PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($dbh, $nav[1]))).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
 
 		$response .= '<tbody>';
@@ -105,9 +106,9 @@ sub show
 		foreach my $id (@files)
 		{
 			$response .= '<tr>';
-			$response .= '<td title="'.$id->{NAME}.'">'.PDLNA::Utils::string_shortener($id->{NAME}, 30).'</td>';
-			$response .= '<td>'.PDLNA::Utils::convert_bytes($id->{SIZE}).'</td>';
-			$response .= '<td>'.time2str($CONFIG{'DATE_FORMAT'}, $id->{DATE}).'</td>';
+			$response .= '<td title="'.encode_entities($id->{NAME}).'">'.encode_entities(PDLNA::Utils::string_shortener($id->{NAME}, 30)).'</td>';
+			$response .= '<td>'.encode_entities(PDLNA::Utils::convert_bytes($id->{SIZE})).'</td>';
+			$response .= '<td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $id->{DATE})).'</td>';
 			$response .= '</tr>';
 		}
 		$response .= '</tbody>';
@@ -135,9 +136,9 @@ sub show
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>IP</td><td>'.$device_ip[0]->{IP}.'</td></tr>';
-				$response .= '<tr><td>HTTP UserAgent</td><td>'.$device_ip[0]->{USER_AGENT}.'</td></tr>' if defined($device_ip[0]->{USER_AGENT});
-				$response .= '<tr><td>Last seen at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{LAST_SEEN}).'</td></tr>';
+				$response .= '<tr><td>IP</td><td>'.encode_entities($device_ip[0]->{IP}).'</td></tr>';
+				$response .= '<tr><td>HTTP UserAgent</td><td>'.encode_entities($device_ip[0]->{USER_AGENT}).'</td></tr>' if defined($device_ip[0]->{USER_AGENT});
+				$response .= '<tr><td>Last seen at</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{LAST_SEEN})).'</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}
@@ -165,12 +166,12 @@ sub show
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>UDN</td><td>'.$device_udn[0]->{UDN}.'</td></tr>';
-				$response .= '<tr><td>SSDP Banner</td><td>'.$device_udn[0]->{SSDP_BANNER}.'</td></tr>' if defined($device_udn[0]->{SSDP_BANNER});
-				$response .= '<tr><td>Friendly Name</td><td>'.$device_udn[0]->{FRIENDLY_NAME}.'</td></tr>' if defined($device_udn[0]->{FRIENDLY_NAME});
-				$response .= '<tr><td>Model Name</td><td>'.$device_udn[0]->{MODEL_NAME}.'</td></tr>' if defined($device_udn[0]->{MODEL_NAME});
-				$response .= '<tr><td>Device Type</td><td>'.$device_udn[0]->{TYPE}.'</td></tr>' if defined($device_udn[0]->{TYPE});
-				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{DESC_URL}.'" target="_blank">'.$device_udn[0]->{DESC_URL}.'</a></td></tr>' if defined($device_udn[0]->{DESC_URL});
+				$response .= '<tr><td>UDN</td><td>'.encode_entities($device_udn[0]->{UDN}).'</td></tr>';
+				$response .= '<tr><td>SSDP Banner</td><td>'.encode_entities($device_udn[0]->{SSDP_BANNER}).'</td></tr>' if defined($device_udn[0]->{SSDP_BANNER});
+				$response .= '<tr><td>Friendly Name</td><td>'.encode_entities($device_udn[0]->{FRIENDLY_NAME}).'</td></tr>' if defined($device_udn[0]->{FRIENDLY_NAME});
+				$response .= '<tr><td>Model Name</td><td>'.encode_entities($device_udn[0]->{MODEL_NAME}).'</td></tr>' if defined($device_udn[0]->{MODEL_NAME});
+				$response .= '<tr><td>Device Type</td><td>'.encode_entities($device_udn[0]->{TYPE}).'</td></tr>' if defined($device_udn[0]->{TYPE});
+				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{DESC_URL}.'" target="_blank">'.encode_entities($device_udn[0]->{DESC_URL}).'</a></td></tr>' if defined($device_udn[0]->{DESC_URL});
 				$response .= '</tbody>';
 				$response .= '</table>';
 
@@ -192,7 +193,7 @@ sub show
 				);
 				foreach my $nts (@device_nts)
 				{
-					$response .= '<tr><td>'.$nts->{TYPE}.'</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $nts->{EXPIRE}).'</td></tr>';
+					$response .= '<tr><td>'.encode_entities($nts->{TYPE}).'</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $nts->{EXPIRE})).'</td></tr>';
 				}
 				$response .= '</tbody>';
 				$response .= '</table>';
@@ -212,19 +213,19 @@ sub show
 		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 		$response .= '</thead>';
 		$response .= '<tbody>';
-		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with PID</td><td>'.$pid.'</td></tr>';
-		$response .= '<tr><td>Parent PID of '.$CONFIG{'PROGRAM_NAME'}.'</td><td>'.$proc_info{'ppid'}.'</td></tr>';
-		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' started at</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $proc_info{'start'}).'</td></tr>';
-		$response .= '<tr><td>'.$CONFIG{'PROGRAM_NAME'}.' running with priority</td><td>'.$proc_info{'priority'}.'</td></tr>';
+		$response .= '<tr><td>'.encode_entities($CONFIG{'PROGRAM_NAME'}).' running with PID</td><td>'.encode_entities($pid).'</td></tr>';
+		$response .= '<tr><td>Parent PID of '.encode_entities($CONFIG{'PROGRAM_NAME'}).'</td><td>'.encode_entities($proc_info{'ppid'}).'</td></tr>';
+		$response .= '<tr><td>'.encode_entities($CONFIG{'PROGRAM_NAME'}).' started at</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $proc_info{'start'})).'</td></tr>';
+		$response .= '<tr><td>'.encode_entities($CONFIG{'PROGRAM_NAME'}).' running with priority</td><td>'.encode_entities($proc_info{'priority'}).'</td></tr>';
 		if ($CONFIG{'OS'} ne 'freebsd')
 		{
-			$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.$proc_info{'pctcpu'}.' %</td></tr>';
+			$response .= '<tr><td>CPU Utilization Since Process Started</td><td>'.encode_entities($proc_info{'pctcpu'}).' %</td></tr>';
 		}
-			$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.PDLNA::Utils::convert_bytes($proc_info{'vmsize'}).'</td></tr>';
-			$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.PDLNA::Utils::convert_bytes($proc_info{'rssize'}).'</td></tr>';
+			$response .= '<tr><td>Current Virtual Memory Size (VMS)</td><td>'.encode_entities(PDLNA::Utils::convert_bytes($proc_info{'vmsize'})).'</td></tr>';
+			$response .= '<tr><td>Current Memory Utilization in RAM (RSS)</td><td>'.encode_entities(PDLNA::Utils::convert_bytes($proc_info{'rssize'})).'</td></tr>';
 		if ($CONFIG{'OS'} ne 'freebsd')
 		{
-			$response .= '<tr><td>Current Memory Utilization</td><td>'.$proc_info{'pctmem'}.' %</td></tr>';
+			$response .= '<tr><td>Current Memory Utilization</td><td>'.encode_entities($proc_info{'pctmem'}).' %</td></tr>';
 		}
 		$response .= '</tbody>';
 		$response .= '</table>';
@@ -252,7 +253,7 @@ sub show
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
 		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
-		$response .= '<tr><td>Media Items</td><td>'.$files_amount.' ('.PDLNA::Utils::convert_bytes($files_size).') in '.PDLNA::ContentLibrary::get_amount_directories($dbh).' directories</td></tr>';
+		$response .= '<tr><td>Media Items</td><td>'.encode_entities($files_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($files_size)).') in '.encode_entities(PDLNA::ContentLibrary::get_amount_directories($dbh)).' directories</td></tr>';
 
 		my $duration = PDLNA::Database::select_db_field_int(
 			$dbh,
@@ -261,14 +262,14 @@ sub show
 				'parameters' => [ ],
 			},
 		);
-		$response .= '<tr><td>Length of all Media Items</td><td>'.PDLNA::Utils::convert_duration($duration).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration($duration)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
 		foreach my $type ('image', 'audio', 'video')
 		{
 			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, $type);
-			$response .= '<tr><td>'.ucfirst($type).' Items</td><td>'.$type_amount.' ('.PDLNA::Utils::convert_bytes($type_size).')</td></tr>';
+			$response .= '<tr><td>'.encode_entities(ucfirst($type)).' Items</td><td>'.encode_entities($type_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($type_size)).')</td></tr>';
 		}
 
 		$response .= '</tbody>';
@@ -286,8 +287,8 @@ sub show
 		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 		$response .= '</thead>';
 		$response .= '<tbody>';
-		$response .= '<tr><td>pDLNA Version</td><td>'.PDLNA::Config::print_version().'</td></tr>';
-		$response .= '<tr><td>pDLNA Release Date</td><td>'.$CONFIG{'PROGRAM_DATE'}.'</td></tr>';
+		$response .= '<tr><td>pDLNA Version</td><td>'.encode_entities(PDLNA::Config::print_version()).'</td></tr>';
+		$response .= '<tr><td>pDLNA Release Date</td><td>'.encode_entities($CONFIG{'PROGRAM_DATE'}).'</td></tr>';
 		$response .= '</tbody>';
 		$response .= '</table>';
 
@@ -311,19 +312,19 @@ sub show
 				}
 				elsif ($xml->{'response'}->{'resultID'} == 3)
 				{
-					$response .= '<div class="info"><p>You are running the latest version of '.$CONFIG{'PROGRAM_NAME'}.'.</p></div>';
+					$response .= '<div class="info"><p>You are running the latest version of '.encode_entities($CONFIG{'PROGRAM_NAME'}).'.</p></div>';
 				}
 				elsif ($xml->{'response'}->{'resultID'} == 4)
 				{
 					$response .= '<div class="info">';
-					$response .= '<p>A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: <strong>'.$xml->{'response'}->{'NewVersion'}.'</strong>.</p>';
-					$response .= '<p>Check the <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'/cgi-bin/index.pl?menu=changelog&release='.$xml->{'response'}->{'NewVersion'}.'" target="_blank">Changelog</a> section on the project website for detailed information.</p>';
+					$response .= '<p>A new version of '.encode_entities($CONFIG{'PROGRAM_NAME'}).' is available: <strong>'.encode_entities($xml->{'response'}->{'NewVersion'}).'</strong>.</p>';
+					$response .= '<p>Check the <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'/cgi-bin/index.pl?menu=changelog&release='.encode_entities($xml->{'response'}->{'NewVersion'}).'" target="_blank">Changelog</a> section on the project website for detailed information.</p>';
 					$response .= '</div>';
 				}
 			}
 			else
 			{
-				$response .= '<div class="error"><p>Check4Updates was not successful: HTTP Status Code '.$http_response->status_line().'.</p></div>';
+				$response .= '<div class="error"><p>Check4Updates was not successful: HTTP Status Code '.encode_entities($http_response->status_line()).'.</p></div>';
 			}
 		}
 	}
@@ -334,7 +335,7 @@ sub show
 		$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 		$response .= '</thead>';
 		$response .= '<tbody>';
-		$response .= '<tr><td>FFmpeg Version</td><td>'.$CONFIG{'FFMPEG_VERSION'}.'</td></tr>';
+		$response .= '<tr><td>FFmpeg Version</td><td>'.encode_entities($CONFIG{'FFMPEG_VERSION'}).'</td></tr>';
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
 		my @results = ();
@@ -342,7 +343,7 @@ sub show
 		{
 			if (my $format = PDLNA::FFmpeg::get_beautiful_decode_format($_))
 			{
-				push(@results, $format);
+				push(@results, encode_entities($format));
 			}
 		}
 		$response .= '<tr><td>Supported decoding formats</td><td>'.join(', ', @results).'</td></tr>';
@@ -352,7 +353,7 @@ sub show
 		{
 			if (my $format = PDLNA::FFmpeg::get_beautiful_encode_format($_))
 			{
-				push(@results, $format);
+				push(@results, encode_entities($format));
 			}
 		}
 		$response .= '<tr><td>Supported encoding formats</td><td>'.join(', ', @results).'</td></tr>';
@@ -364,7 +365,7 @@ sub show
 		{
 			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_decode_codec($_))
 			{
-				push(@results, $codec);
+				push(@results, encode_entities($codec));
 			}
 		}
 		$response .= '<tr><td>Supported decoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
@@ -374,7 +375,7 @@ sub show
 		{
 			if (my $codec = PDLNA::FFmpeg::get_beautiful_audio_encode_codec($_))
 			{
-				 push(@results, $codec);
+				 push(@results, encode_entities($codec));
 			}
 		}
 		$response .= '<tr><td>Supported encoding audio codecs</td><td>'.join(', ', @results).'</td></tr>';
@@ -385,7 +386,7 @@ sub show
 	$response .= '</div>';
 
 	$response .= '<div id="footer">';
-	$response .= '<p>provided by <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'" target="_blank">'.$CONFIG{'PROGRAM_NAME'}.'</a> v'.PDLNA::Config::print_version().' | licensed under <a href="http://www.gnu.org/licenses/gpl.txt" target="_blank">GPL v3.0</a></p>';
+	$response .= '<p>provided by <a href="'.$CONFIG{'PROGRAM_WEBSITE'}.'" target="_blank">'.encode_entities($CONFIG{'PROGRAM_NAME'}).'</a> v'.encode_entities(PDLNA::Config::print_version()).' | licensed under <a href="http://www.gnu.org/licenses/gpl.txt" target="_blank">GPL v3.0</a></p>';
 	$response .= '</div>';
 
 	$response .= '</div>';
@@ -626,7 +627,7 @@ sub build_directory_tree
 	$response .= '<ul>';
 	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.$result->{ID}.'">'.$result->{NAME}.' ('.PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID}).')</a></li>';
+		$response .= '<li><a href="/webui/content/'.encode_entities($result->{ID}).'">'.encode_entities($result->{NAME}).' ('.encode_entities(PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID})).')</a></li>';
 		if (PDLNA::ContentLibrary::is_in_same_directory_tree($dbh, $result->{ID}, $end_id))
 		{
 			$response .= build_directory_tree($dbh, $result->{ID}, $end_id);
@@ -654,7 +655,7 @@ sub build_connected_devices
 	$response .= '<ul>';
 	foreach my $device_ip (@devices_ip)
 	{
-		$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'">'.$device_ip->{IP}.'</a></li>';
+		$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{ID}).'">'.encode_entities($device_ip->{IP}).'</a></li>';
 		my @devices_udn = ();
 		PDLNA::Database::select_db(
 			$dbh,
@@ -667,7 +668,7 @@ sub build_connected_devices
 		$response .= '<ul>';
 		foreach my $device_udn (@devices_udn)
 		{
-			$response .= '<li><a href="/webui/device/'.$device_ip->{ID}.'/'.$device_udn->{ID}.'">'.$device_udn->{UDN}.'</a></li>';
+			$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{ID}).'/'.encode_entities($device_udn->{ID}).'">'.encode_entities($device_udn->{UDN}).'</a></li>';
 		}
 		$response .= '</ul>';
 	}
@@ -682,20 +683,20 @@ sub show_graph
 
 	my $response = '';
 	$response .= '<div class="graph">';
-	$response .= '<img src="/webui/graphs/'.$$nav[2].'_'.$$nav[3].'.png" />';
+	$response .= '<img src="/webui/graphs/'.encode_entities($$nav[2]).'_'.encode_entities($$nav[3]).'.png" />';
 	$response .= '</div>';
 	$response .= '<div class="graphnav">';
 	$response .= '<p>|';
 	foreach my $period ('day', 'month', 'year')
 	{
-		$response .= ' <a href="/webui/'.$$nav[0].'/'.$$nav[1].'/'.$$nav[2].'/'.$period.'">';
+		$response .= ' <a href="/webui/'.encode_entities($$nav[0]).'/'.encode_entities($$nav[1]).'/'.encode_entities($$nav[2]).'/'.encode_entities($period).'">';
 		if ($period eq $$nav[3])
 		{
-			$response .= '<strong>'.$period.'</strong></a> |';
+			$response .= '<strong>'.encode_entities($period).'</strong></a> |';
 		}
 		else
 		{
-			$response .= $period.'</a> |';
+			$response .= encode_entities($period).'</a> |';
 		}
 	}
 	$response .= '</p>';

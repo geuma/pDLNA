@@ -25,28 +25,44 @@ use DBI;
 use PDLNA::Config;
 use PDLNA::Log;
 
-my $AUTOINCREMENT_STRING = 'AUTOINCREMENT';
+my %DBSTRING_AUTOINCREMENT = (
+	'SQLITE3' => 'AUTOINCREMENT',
+	'MYSQL' => 'AUTO_INCREMENT',
+);
+
+my %DBSTRING_CHARACTERSET = (
+	'SQLITE3' => '',
+	'MYSQL' => 'DEFAULT CHARACTER SET=utf8',
+);
 
 sub connect
 {
 	my $dsn = undef;
+	my %settings = (
+		PrintError => 0,
+		RaiseError => 0,
+	);
+
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
 	{
 		$dsn = 'dbi:SQLite:dbname='.$CONFIG{'DB_NAME'};
+		$settings{sqlite_unicode} = 1;
 	}
 	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
 	{
 		$dsn = 'dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost';
-		$AUTOINCREMENT_STRING = 'AUTO_INCREMENT';
+		$settings{mysql_enable_utf8} = 1;
 	}
 
-	my $dbh = DBI->connect($dsn, $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, {
-		PrintError => 0,
-		RaiseError => 0,
-	},);
+	my $dbh = DBI->connect($dsn, $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, \%settings);
 	unless (defined($dbh))
 	{
 		PDLNA::Log::fatal('Unable to connect to Database: '.$DBI::errstr);
+	}
+
+	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
+	{
+		$dbh->do('PRAGMA encoding="UTF-8";');
 	}
 
 	return $dbh;
@@ -121,7 +137,7 @@ sub initialize_db
 		$dbh->do("CREATE TABLE METADATA (
 				PARAM				VARCHAR(128) PRIMARY KEY,
 				VALUE				VARCHAR(128)
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 
 		insert_db(
@@ -150,7 +166,7 @@ sub initialize_db
 	unless (grep(/^FILES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILES (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
@@ -166,7 +182,7 @@ sub initialize_db
 
 				ROOT				INTEGER,
 				SEQUENCE			BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
@@ -193,7 +209,7 @@ sub initialize_db
 				GENRE				VARCHAR(128) DEFAULT 'n/A',
 				YEAR				VARCHAR(4) DEFAULT '0000',
 				TRACKNUM			INTEGER DEFAULT 0
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
@@ -206,7 +222,7 @@ sub initialize_db
 	unless (grep(/^DIRECTORIES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DIRECTORIES (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
@@ -214,14 +230,14 @@ sub initialize_db
 
 				ROOT				INTEGER,
 				TYPE				INTEGER
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^SUBTITLES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE SUBTITLES (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				FILEID_REF			INTEGER,
 
 				TYPE				VARCHAR(2048),
@@ -231,38 +247,38 @@ sub initialize_db
 
 				DATE				BIGINT,
 				SIZE				BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^DEVICE_IP$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_IP (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
 				IP					VARCHAR(15),
 				USER_AGENT			VARCHAR(128),
 				LAST_SEEN			BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^DEVICE_BM$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				DEVICE_IP_REF		INTEGER,
 
 				FILE_ID_REF			INTEGER,
 				POS_SECONDS			INTEGER
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^DEVICE_UDN$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				DEVICE_IP_REF		INTEGER,
 
 				UDN					VARCHAR(64),
@@ -274,26 +290,26 @@ sub initialize_db
 				TYPE				VARCHAR(256),
 				MODEL_NAME			VARCHAR(256),
 				FRIENDLY_NAME		VARCHAR(256)
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^DEVICE_NTS$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				DEVICE_UDN_REF		INTEGER,
 
 				TYPE				VARCHAR(128),
 				EXPIRE				BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
 	unless (grep(/^DEVICE_SERVICE$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID					INTEGER PRIMARY KEY $AUTOINCREMENT_STRING,
+				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				DEVICE_UDN_REF		INTEGER,
 
 				SERVICE_ID			VARCHAR(256),
@@ -301,7 +317,7 @@ sub initialize_db
 				CONTROL_URL			VARCHAR(512),
 				EVENT_URL			VARCHAR(512),
 				SCPD_URL			VARCHAR(512)
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
@@ -311,7 +327,7 @@ sub initialize_db
 				DATE				BIGINT PRIMARY KEY,
 				VMS					BIGINT,
 				RSS					BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
@@ -325,7 +341,7 @@ sub initialize_db
 				VIDEO_SIZE			BIGINT,
 				IMAGE				INTEGER,
 				IMAGE_SIZE			BIGINT
-			);"
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 

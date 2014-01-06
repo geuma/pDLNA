@@ -69,6 +69,7 @@ use_ok ('File::MimeInfo');
 use_ok ('GD');
 use_ok ('GD::Graph::area');
 use_ok ('Getopt::Long::Descriptive');
+use_ok ('HTML::Entities');
 use_ok ('Image::Info');
 use_ok ('IO::Interface::Simple');
 use_ok ('IO::Select');
