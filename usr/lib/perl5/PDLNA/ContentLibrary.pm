@@ -1107,7 +1107,11 @@ sub get_amount_size_of_items
 		},
 		\@result,
 	);
-	return ($result[0]->{AMOUNT}, $result[0]->{SIZE});
+
+	my ($amount, $size) = 0;
+	$amount = $result[0]->{AMOUNT} if $result[0]->{AMOUNT};
+	$size = $result[0]->{SIZE} if $result[0]->{SIZE};
+	return ($amount, $size);
 }
 
 sub get_amount_directories

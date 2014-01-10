@@ -12,6 +12,9 @@ xx-xx-2014
 
 - added the name and line of the file, which called the fatal() or log() subroutine, to the log messages (based on the idea of marc)
 - added LogFileRotation configuration parameter, so pDLNA is now able to rotate logfiles on his own (based on the idea of marc)
+- added masking special characters in WebUI
+- moved WebUI to UTF-8
+- fixed a bug in WebUI regarding uninitialized values in WebUI (thanks to marc)
 
 Version 0.64.3
 29-12-2013
