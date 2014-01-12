@@ -26,12 +26,12 @@ my ($opt, $usage) = describe_options(
 	'%c %o ',
 	[ 'prefix|p:s', 'define prefix for installation path of libraries', { default => '/opt' }, ],
 	[ 'install|i', 'checks for necessary requirements and installs pDLNA' ],
-	[ 'update|u', 'checks for necessary requirements and installs pDLNA (updating will be implemented later)' ],
+	[ 'update|u', 'checks for necessary requirements and updates pDLNA installation (does not overwrite existing /etc/pdlna.conf file)' ],
 	[ 'checkrequirements|c', 'checks for necessary requirements' ],
 	[], # just an empty line for the usage message
 	[ 'help|h', 'print usage method and exit' ],
 );
-print($usage->text), exit if $opt->help();
+print($usage->text()), exit if $opt->help();
 
 my $PREFIX = '/opt';
 $PREFIX = $opt->prefix() if (defined($opt->prefix()));
@@ -39,7 +39,7 @@ $PREFIX .= '/' unless $PREFIX =~ /\/$/;
 
 if (!$opt->checkrequirements() && !$opt->install() && !$opt->update())
 {
-	print($usage->text);
+	print($usage->text());
 	exit;
 }
 
@@ -122,14 +122,14 @@ unless (-d $PREFIX)
 }
 
 my %installation_files = (
-	'etc/init.d/pdlna' => ['f', '/', 0755],
-	'usr/sbin/pDLNA.pl' => ['f', $PREFIX, 0755],
-	'etc/pdlna.conf' => ['f', '/', 0644],
-	'usr/lib/perl5/PDLNA' => ['d', $PREFIX, 0755],
-	'external_programs' => ['d', $PREFIX, 0755],
-	'README' => ['f', $PREFIX, 0644],
-	'LICENSE' => ['f', $PREFIX, 0644],
-	'VERSION' => ['f', $PREFIX, 0644],
+	'etc/init.d/pdlna' => ['f', '/', 0755, 'i'],
+	'usr/sbin/pDLNA.pl' => ['f', $PREFIX, 0755, 'i'],
+	'etc/pdlna.conf' => ['f', '/', 0644, 'u'],
+	'usr/lib/perl5/PDLNA' => ['d', $PREFIX, 0755, 'i'],
+	'external_programs' => ['d', $PREFIX, 0755, 'i'],
+	'README' => ['f', $PREFIX, 0644, 'i'],
+	'LICENSE' => ['f', $PREFIX, 0644, 'i'],
+	'VERSION' => ['f', $PREFIX, 0644, 'i'],
 );
 
 foreach my $key (keys %installation_files)
@@ -138,21 +138,28 @@ foreach my $key (keys %installation_files)
 	{
 		if ($installation_files{$key}->[0] eq 'f' || $installation_files{$key}->[0] eq 'd')
 		{
-			if (rcopy('./'.$key, $installation_files{$key}->[1].$key))
+			unless ($opt->update() && $installation_files{$key}->[3] eq 'u' && -f $installation_files{$key}->[1].$key)
 			{
-				pass("Installed './$key' to '$installation_files{$key}->[1]$key'.");
-				if (chmod($installation_files{$key}->[2], $installation_files{$key}->[1].$key))
+				if (rcopy('./'.$key, $installation_files{$key}->[1].$key))
 				{
-					pass("Set rights for '$installation_files{$key}->[1]$key'.");
+					pass("Installed './$key' to '$installation_files{$key}->[1]$key'.");
+					if (chmod($installation_files{$key}->[2], $installation_files{$key}->[1].$key))
+					{
+						pass("Set rights for '$installation_files{$key}->[1]$key'.");
+					}
+					else
+					{
+						fail("Unable to set rights for '$installation_files{$key}->[1]$key': $!");
+					}
 				}
 				else
 				{
-					fail("Unable to set rights for '$installation_files{$key}->[1]$key': $!");
+					fail("Unable to install './$key' to '$installation_files{$key}->[1]$key': $!");
 				}
 			}
 			else
 			{
-				fail("Unable to install './$key' to '$installation_files{$key}->[1]$key': $!");
+				pass("Did not install './$key' to '$installation_files{$key}->[1]$key', since we are only upgrading the installation.");
 			}
 		}
 		else
