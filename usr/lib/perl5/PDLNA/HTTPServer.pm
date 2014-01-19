@@ -395,6 +395,14 @@ sub ctrl_content_directory_1
 			$browse_flag = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'BrowseFlag'}->{'content'};
 			$filter = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'Filter'}->{'content'};
 		}
+		elsif (defined($xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'})) # and Yamaha RX-V3067 this one
+		{
+			$object_id = $xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'};
+			$starting_index = $xml->{'s:Body'}->{'m:Browse'}->{'StartingIndex'};
+			$requested_count = $xml->{'s:Body'}->{'m:Browse'}->{'RequestedCount'};
+			$browse_flag = $xml->{'s:Body'}->{'m:Browse'}->{'BrowseFlag'};
+			$filter = $xml->{'s:Body'}->{'m:Browse'}->{'Filter'};
+		}
 		else
 		{
 			PDLNA::Log::log('ERROR: Unable to find (a known) ObjectID in XML (POSTDATA).', 0, 'httpdir');
