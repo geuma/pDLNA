@@ -103,7 +103,7 @@ sub index_directories_thread
 		$dbh->commit();
 		$timestamp_end = time();
 		$duration = $timestamp_end - $timestamp_start;
-		PDLNA::Log::log('Getting FFmpeg information for indexed media files '.$duration.' seconds.', 1, 'library');
+		PDLNA::Log::log('Getting FFmpeg information for indexed media files took '.$duration.' seconds.', 1, 'library');
 
 		PDLNA::Database::disconnect($dbh);
 

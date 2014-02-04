@@ -521,6 +521,9 @@ sub get_media_info
 	my $file = shift;
 	my $info = shift;
 
+	$$info{VIDEO_CODEC} = '';
+	$$info{AUDIO_CODEC} = '';
+	$$info{CONTAINER} = '';
 	$$info{DURATION} = 0;
 	$$info{HZ} = 0;
 	$$info{BITRATE} = 0;
@@ -534,41 +537,38 @@ sub get_media_info
 		{
 			$$info{DURATION} = 3600*$1+60*$2+$3; # ignore miliseconds
 		}
-		#elsif ($_ =~ /Stream\s+.+:\s+Audio:\s+([\w\d]+),\s+(\d+)\s+Hz,\s+.+{,\s+(\d+)\s+kb\/s/)
-		elsif ($_ =~ /Stream\s+.+:\s+Audio:\s+([\w\d]+),\s+(.*)/)
+		elsif ($_ =~ /Stream\s+.+:\s+(Video|Audio):\s+(.*)/)
 		{
-			$$info{AUDIO_CODEC} = $1;
-			my @tmp = split(/,/, $2);
-			foreach (@tmp)
+			my $type = $1;
+
+			my @information = split(',', $2);
+			$information[0] =~ s/(\s+\(.*\))$//; # delete information in brackets
+
+			if ($type eq 'Video')
 			{
-				if ($_ =~ /(\d+)\s+Hz/)
+				$$info{VIDEO_CODEC} = $information[0];
+				foreach my $element (@information)
 				{
-					$$info{HZ} = $1;
-				}
-				elsif ($_ =~ /(\d+)\s+kb\/s/)
-				{
-					$$info{BITRATE} = $1*1000;
-				}
-				else
-				{
-					# TODO
+					if ($element =~ /(\d+)x(\d+)/)
+					{
+						$$info{WIDTH} = $1;
+						$$info{HEIGHT} = $2;
+					}
 				}
 			}
-		}
-		elsif ($_ =~ /Stream\s+.+:\s+Video:\s+([\w\d]+),\s+(.*)/)
-		{
-			$$info{VIDEO_CODEC} = $1;
-			my @tmp = split(/,/, $2);
-			foreach (@tmp)
+			elsif ($type eq 'Audio')
 			{
-				if ($_ =~ /(\d+)x(\d+)/)
+				$$info{AUDIO_CODEC} = $information[0];
+				foreach my $element (@information)
 				{
-					$$info{WIDTH} = $1;
-					$$info{HEIGHT} = $2;
-				}
-				else
-				{
-					# TODO
+					if ($element =~ /(\d+)\s+Hz/)
+					{
+						$$info{HZ} = $1;
+					}
+					elsif ($element =~ /(\d+)\s+kb\/s/)
+					{
+						$$info{BITRATE} = $1*1000;
+					}
 				}
 			}
 		}

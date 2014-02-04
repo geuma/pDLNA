@@ -15,6 +15,10 @@ xx-xx-2014
 - added masking special characters in WebUI
 - moved WebUI to UTF-8
 - fixed a bug in WebUI regarding uninitialized values in WebUI (thanks to marc)
+- additional fix for issue #21 (https://github.com/geuma/pDLNA/issues/21) -aka- special characters in filenames break some regular expressions
+- the Yamaha RX-V3067 seems to use another XML structure
+- added codec information for DTS sound
+- improved codec and container detection via FFmpeg
 
 Version 0.64.3
 29-12-2013

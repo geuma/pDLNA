@@ -94,6 +94,7 @@ my %PLAYLISTS = (
 	'audio/x-ms-asx' => 'asx',
 	'video/x-ms-asf' => 'asf',
 	'application/xspf+xml' => 'xspf',
+	# '' => 'm3u8'
 );
 
 sub is_supported_playlist
@@ -108,6 +109,13 @@ sub parse_playlist
 {
 	my $file = shift;
 	my $mime_type = shift;
+
+	#
+	# TODO
+	# shall we open all playlist files with UTF-8 encoding ??
+	# or for instance only specific types of playlist files: m3u8 ??
+	# open(PLAYLIST, '<:encoding(UTF-8)', $file);
+	#
 
 	my @items = ();
 	if ($mime_type eq 'audio/x-scpls')
@@ -314,7 +322,7 @@ my %CONTAINER = (
 		},
 	},
 	'matroska' => {
-		'AudioCodecs' => [ 'ac3', ],
+		'AudioCodecs' => [ 'ac3', 'dca', 'aac', ],
 		'VideoCodecs' => [ 'h264', 'mpeg4', ],
 		'h264' => {
 			'MimeType' => 'video/x-matroska',
@@ -367,7 +375,7 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.', VideoCodec:'.$video_codec.'.', 1, 'library');
+			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec: '.$audio_codec.', VideoCodec: '.$video_codec.'.', 1, 'library');
 		}
 	}
 	elsif ($container && $audio_codec)
@@ -378,7 +386,7 @@ sub details
 		}
 		else
 		{
-			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec:'.$audio_codec.'.', 1, 'library');
+			PDLNA::Log::log('Unknown MediaInformation: Container: '.$container.', AudioCodec: '.$audio_codec.'.', 1, 'library');
 		}
 	}
 	else
