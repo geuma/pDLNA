@@ -369,6 +369,40 @@ sub get_browseresponse_item_detailed
 	push(@{$xml}, '&lt;/item&gt;');
 }
 
+#
+# This is not the most elegant solution,
+# but at least it is more generic
+#
+# TODO: make me more beautiful
+#
+sub lookup_elementvalue_in_xml
+{
+	my $xml = shift;
+	my $name = shift;
+
+	foreach my $key1 (%{$xml})
+	{
+		if ($key1 =~ /:Body$/)
+		{
+			foreach my $key2 (%{$xml->{$key1}})
+			{
+				if ($key2 =~ /:Browse$/)
+				{
+					if (ref($xml->{$key1}->{$key2}->{$name}) eq 'HASH')
+					{
+						return $xml->{$key1}->{$key2}->{$name}->{'content'};
+					}
+					else
+					{
+						return $xml->{$key1}->{$key2}->{$name};
+					}
+				}
+			}
+		}
+	}
+	return undef;
+}
+
 sub get_serverdescription
 {
 	my $user_agent = shift || '';

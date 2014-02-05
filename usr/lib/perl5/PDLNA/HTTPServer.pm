@@ -355,6 +355,160 @@ sub http_header
 	return join("\r\n", @response)."\r\n\r\n";
 }
 
+sub manage_browsefilters
+{
+	my $filter = shift;
+	my $browse_flag = shift;
+
+	my @browsefilters = split(',', $filter) if length($filter) > 0;
+	@browsefilters = () if $filter eq '*';
+
+	if ($browse_flag eq 'BrowseDirectChildren')
+	{
+		# these filter seem to be mandatory, so we need to put them always into the HTTP response
+		foreach my $filter ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class')
+		{
+			push(@browsefilters, $filter) unless grep(/^$filter$/, @browsefilters);
+		}
+
+		if ($filter eq '*')
+		{
+			push(@browsefilters, 'res@bitrate');
+			push(@browsefilters, 'res@duration');
+		}
+	}
+	elsif ($browse_flag eq 'BrowseMetadata')
+	{
+		if (grep(/^\@parentID$/, @browsefilters))
+		{
+			@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+		}
+		else
+		{
+			# these filter seem to be mandatory, so we need to put them always into the HTTP response
+			foreach my $filter ('@id', '@childCount', '@restricted', 'dc:title', 'upnp:class')
+			{
+				push(@browsefilters, $filter) unless grep(/^$filter$/, @browsefilters);
+			}
+		}
+	}
+	PDLNA::Log::log('Modified Filter: '.$filter.' to: '.join(', ', @browsefilters).')', 3, 'httpdir');
+
+	return @browsefilters;
+}
+
+sub build_BrowseMetadata_response
+{
+	my $params = shift;
+	PDLNA::Log::log('Starting to prepare BrowseMetadata XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+
+	#
+	# build the http response
+	#
+	my $response_xml = '';
+	$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+
+	$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(
+		$$params{'object_id'},
+		$$params{'browsefilters'},
+		$$params{'dbh'},
+		$$params{'peer_ip_addr'},
+		$$params{'user_agent'},
+	);
+
+	$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer(1, 1);
+
+	PDLNA::Log::log('Done preparing BrowseMetadata XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+	#
+	# return the http response
+	#
+	return $response_xml;
+}
+
+sub build_BrowseDirectChildren_response
+{
+	my $params = shift;
+	PDLNA::Log::log('Starting to prepare BrowseDirectChildren XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+
+	#
+	# get the subdirectories for the object_id requested
+	#
+	my @dire_elements = ();
+	PDLNA::ContentLibrary::get_subdirectories_by_id(
+		$$params{'dbh'},
+		$$params{'object_id'},
+		$$params{'starting_index'},
+		$$params{'requested_count'},
+		\@dire_elements,
+	);
+
+	#
+	# get the full amount of subdirectories for the object_id requested
+	#
+	my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($$params{'dbh'}, $$params{'object_id'});
+
+	$$params{'requested_count'} = $$params{'requested_count'} - scalar(@dire_elements); # amount of @dire_elements is already in answer
+	if ($$params{'starting_index'} >= $amount_directories)
+	{
+		$$params{'starting_index'} = $$params{'starting_index'} - $amount_directories;
+	}
+
+	#
+	# get the files for the directory requested
+	#
+	my @file_elements = ();
+	PDLNA::ContentLibrary::get_subfiles_by_id(
+		$$params{'dbh'},
+		$$params{'object_id'},
+		$$params{'starting_index'},
+		$$params{'requested_count'},
+		\@file_elements,
+	);
+
+	#
+	# get the full amount of files in the directory requested
+	#
+	my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($$params{'dbh'}, $$params{'object_id'});
+
+	#
+	# build the http response
+	#
+	my $response_xml = '';
+	$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
+
+	foreach my $directory (@dire_elements)
+	{
+		$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
+			$directory->{ID},
+			$directory->{NAME},
+			$$params{'browsefilters'},
+			$$params{'dbh'},
+		);
+	}
+
+	foreach my $file (@file_elements)
+	{
+		$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(
+			$file->{ID},
+			$$params{'browsefilters'},
+			$$params{'dbh'},
+			$$params{'peer_ip_addr'},
+			$$params{'user_agent'},
+		);
+	}
+
+	my $elements_in_listing = scalar(@dire_elements) + scalar(@file_elements);
+	my $elements_in_directory = $amount_directories + $amount_files;
+
+	$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
+
+	PDLNA::Log::log('Done preparing BrowseDirectChildren XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+	#
+	# return the http response
+	#
+	return $response_xml;
+}
+
 sub ctrl_content_directory_1
 {
 	my $xml = shift;
@@ -369,59 +523,55 @@ sub ctrl_content_directory_1
 
 	if ($action eq '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"')
 	{
-		my ($object_id, $starting_index, $requested_count, $filter, $browse_flag) = 0;
-		# determine which 'Browse' element was used
-		if (defined($xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'})) # coherence seems to use this one
+		my $object_id = PDLNA::HTTPXML::lookup_elementvalue_in_xml($xml, 'ObjectID');
+		my $browse_flag = PDLNA::HTTPXML::lookup_elementvalue_in_xml($xml, 'BrowseFlag');
+		my $starting_index = PDLNA::HTTPXML::lookup_elementvalue_in_xml($xml, 'StartingIndex') || 0;
+		my $requested_count = PDLNA::HTTPXML::lookup_elementvalue_in_xml($xml, 'RequestedCount') || 0;
+		my $filter = PDLNA::HTTPXML::lookup_elementvalue_in_xml($xml, 'Filter') || '';
+
+		#
+		# sanity check - we had to find an object_id and a browse_flag
+		#
+		unless (defined($object_id) && defined($browse_flag))
 		{
-			$object_id = $xml->{'s:Body'}->{'ns0:Browse'}->{'ObjectID'};
-			$starting_index = $xml->{'s:Body'}->{'ns0:Browse'}->{'StartingIndex'};
-			$requested_count = $xml->{'s:Body'}->{'ns0:Browse'}->{'RequestedCount'};
-			$browse_flag = $xml->{'s:Body'}->{'ns0:Browse'}->{'BrowseFlag'};
-			$filter = $xml->{'s:Body'}->{'ns0:Browse'}->{'Filter'};
-		}
-		elsif (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}))
-		{
-			$object_id = $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'};
-			$starting_index = $xml->{'s:Body'}->{'u:Browse'}->{'StartingIndex'};
-			$requested_count = $xml->{'s:Body'}->{'u:Browse'}->{'RequestedCount'};
-			$browse_flag = $xml->{'s:Body'}->{'u:Browse'}->{'BrowseFlag'};
-			$filter = $xml->{'s:Body'}->{'u:Browse'}->{'Filter'};
-		}
-		elsif (defined($xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'})) # and windows media player this one
-		{
-			$object_id = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'ObjectID'}->{'content'};
-			$starting_index = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'StartingIndex'}->{'content'};
-			$requested_count = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'RequestedCount'}->{'content'};
-			$browse_flag = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'BrowseFlag'}->{'content'};
-			$filter = $xml->{'SOAP-ENV:Body'}->{'m:Browse'}->{'Filter'}->{'content'};
-		}
-		elsif (defined($xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'})) # and Yamaha RX-V3067 this one
-		{
-			$object_id = $xml->{'s:Body'}->{'m:Browse'}->{'ObjectID'};
-			$starting_index = $xml->{'s:Body'}->{'m:Browse'}->{'StartingIndex'};
-			$requested_count = $xml->{'s:Body'}->{'m:Browse'}->{'RequestedCount'};
-			$browse_flag = $xml->{'s:Body'}->{'m:Browse'}->{'BrowseFlag'};
-			$filter = $xml->{'s:Body'}->{'m:Browse'}->{'Filter'};
-		}
-		else
-		{
-			PDLNA::Log::log('ERROR: Unable to find (a known) ObjectID in XML (POSTDATA).', 0, 'httpdir');
+			PDLNA::Log::log('ERROR: Unable to find ObjectID or BrowseFlag in XML (POSTDATA).', 0, 'httpdir');
 			return http_header({
 				'statuscode' => 501,
 				'content_type' => 'text/plain',
 			});
 		}
 
-		#
-		# validate BrowseFlag
-		#
-		my @browsefilters = split(',', $filter) if length($filter) > 0;
-		if ($browse_flag eq 'BrowseMetadata')
-		{
-			if (grep(/^\@parentID$/, @browsefilters))
-			{
-				@browsefilters = ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class');
+		PDLNA::Log::log('Starting to handle ContentDirectory:1#Browse request: (ObjectID: '.$object_id.'; BrowseFlag: '.$browse_flag.'; StartingIndex: '.$starting_index.'; RequestedCount: '.$requested_count.'; Filter: '.$filter.')', 3, 'httpdir');
 
+		my @browsefilters = manage_browsefilters($filter, $browse_flag);
+		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount (in our case 10)
+
+		#
+		# building the response
+		#
+		if ($browse_flag eq 'BrowseDirectChildren')
+		{
+			if ($object_id =~ /^\d+$/)
+			{
+				PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
+
+				$response_xml = build_BrowseDirectChildren_response(
+					{
+						dbh => $dbh,
+						object_id => $object_id,
+						starting_index => $starting_index,
+						requested_count => $requested_count,
+						browsefilters => \@browsefilters,
+						peer_ip_addr => $peer_ip_addr,
+						user_agent => $user_agent,
+					},
+				);
+			}
+		}
+		elsif ($browse_flag eq 'BrowseMetadata')
+		{
+			if (grep(/^\@parentID$/, @browsefilters) && $object_id =~ /^\d+$/)
+			{
 				# set object_id to parentid
 				my @directory_parent = ();
 				PDLNA::Database::select_db(
@@ -434,102 +584,82 @@ sub ctrl_content_directory_1
 				);
 				$directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
 				$object_id = $directory_parent[0]->{ID};
+
+				$response_xml = build_BrowseDirectChildren_response(
+					{
+						dbh => $dbh,
+						object_id => $object_id,
+						starting_index => $starting_index,
+						requested_count => $requested_count,
+						browsefilters => \@browsefilters,
+						peer_ip_addr => $peer_ip_addr,
+						user_agent => $user_agent,
+					},
+				);
 			}
-		}
-		elsif ($browse_flag eq 'BrowseDirectChildren')
-		{
-			if ($filter eq '*')
+			else
 			{
-				@browsefilters = ();
+				PDLNA::Log::log('A BrowseMetadata request with NO @parentID filter has been sent for: '.$object_id.'.', 3, 'httpdir');
+				$response_xml = build_BrowseMetadata_response(
+					{
+						dbh => $dbh,
+						object_id => $object_id,
+						starting_index => $starting_index,
+						requested_count => $requested_count,
+						browsefilters => \@browsefilters,
+						peer_ip_addr => $peer_ip_addr,
+						user_agent => $user_agent,
+					},
+				);
 			}
 
-			# these filter seem to be mandatory, so we need to put them always into the HTTP response
-			foreach my $filter ('@id', '@parentID', '@childCount', '@restricted', 'dc:title', 'upnp:class')
-			{
-				push(@browsefilters, $filter) unless grep(/^$filter$/, @browsefilters);
-			}
 
-			if ($filter eq '*')
-			{
-				push(@browsefilters, 'res@bitrate');
-				push(@browsefilters, 'res@duration');
-			}
+
+
+
+
+
+
+
+
+
 		}
 		else
 		{
-			PDLNA::Log::log('BrowseFlag: '.$browse_flag.' is NOT supported yet.', 2, 'httpdir');
+			PDLNA::Log::log('ERROR: BrowseFlag '.$browse_flag.' for ContentDirectory:1#Browse requests is NOT supported yet.', 0, 'httpdir');
 			return http_header({
 				'statuscode' => 501,
 				'content_type' => 'text/plain',
 			});
 		}
 
-		PDLNA::Log::log('Starting to handle Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
-		PDLNA::Log::log('StartingIndex: '.$starting_index.'.', 3, 'httpdir');
-		PDLNA::Log::log('RequestedCount: '.$requested_count.'.', 3, 'httpdir');
-		PDLNA::Log::log('BrowseFlag: '.$browse_flag.'.', 3, 'httpdir');
-		PDLNA::Log::log('Filter: '.join(', ', @browsefilters).'.', 3, 'httpdir');
+		PDLNA::Log::log('Finished handling ContentDirectory:1#Browse request for ObjectID: '.$object_id.'.', 3, 'httpdir');
 
-		$requested_count = 10 if $requested_count == 0; # if client asks for 0 items, we should return the 'default' amount (in our case 10)
+		#
+		# old code is coming again
+		#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 		if ($object_id =~ /^\d+$/)
 		{
-			PDLNA::Log::log('Received numeric Directory Listing request for: '.$object_id.'.', 2, 'httpdir');
-
-			#
-			# get the subdirectories for the object_id requested
-			#
-			my @dire_elements = ();
-			PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $object_id, $starting_index, $requested_count, \@dire_elements);
-
-			#
-			# get the full amount of subdirectories for the object_id requested
-			#
-			my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($dbh, $object_id);
-
-			$requested_count = $requested_count - scalar(@dire_elements); # amount of @dire_elements is already in answer
-			if ($starting_index >= $amount_directories)
-			{
-				$starting_index = $starting_index - $amount_directories;
-			}
-
-			#
-			# get the files for the directory requested
-			#
-			my @file_elements = ();
-			PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $object_id, $starting_index, $requested_count, \@file_elements);
-
-			#
-			# get the full amount of files in the directory requested
-			#
-			my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($dbh, $object_id);
-
-			#
-			# build the http response
-			#
-			$response_xml .= PDLNA::HTTPXML::get_browseresponse_header();
-
-			foreach my $directory (@dire_elements)
-			{
-				$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
-					$directory->{ID},
-					$directory->{NAME},
-					\@browsefilters,
-					$dbh,
-				);
-			}
-
-			foreach my $file (@file_elements)
-			{
-				$response_xml .= PDLNA::HTTPXML::get_browseresponse_item($file->{ID}, \@browsefilters, $dbh, $peer_ip_addr, $user_agent);
-			}
-
-			my $elements_in_listing = scalar(@dire_elements) + scalar(@file_elements);
-			my $elements_in_directory = $amount_directories + $amount_files;
-
-			$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
-			PDLNA::Log::log('Done preparing answer for numeric Directory Listing request for: '.$object_id.'.', 3, 'httpdir');
 		}
 		elsif ($object_id =~ /^(\w)\_(\w)\_{0,1}(\d*)\_{0,1}(\d*)/)
 		{
