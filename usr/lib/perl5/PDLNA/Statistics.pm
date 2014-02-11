@@ -87,9 +87,9 @@ sub write_statistics_periodic
 		#
 		# MEDIA ITEMS
 		#
-		my ($audio_amount, $audio_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'audio');
-		my ($image_amount, $image_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'image');
-		my ($video_amount, $video_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'video');
+		my ($audio_amount, $audio_size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'media_type', 'audio');
+		my ($image_amount, $image_size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'media_type', 'image');
+		my ($video_amount, $video_size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'media_type', 'video');
 		PDLNA::Database::insert_db(
 			$dbh,
 			{

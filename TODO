@@ -1,4 +1,3 @@
-- add more DB support (PostgreSQL will only be possible with a lot of changes and followed by incompatibility)
 - audio thumbnails (e.g. google search - what about limited requests by google)
 - audio thumbnails (images in the music folder?)
 - enable/disable webui (is it useful?)
@@ -14,7 +13,7 @@
 - transcoding of images
 - per client transcoding profiles (currently only per ip address)
 - per client directory configuration
-- use multiple threads to crawl directories (multiple DBI objects, since DBI is not threadsafe)
+- use multiple threads to crawl directories (multiple DBI objects, since DBI is not threadsafe, but glob is not threadsafe as well)
 - debian package, repo, rpm packages, ...
 - random music directory
 - more playlist support: Windows Media Player Playlist

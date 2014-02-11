@@ -97,7 +97,8 @@ sub show
 		$response .= '</thead>';
 
 		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.encode_entities(PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_size_items_by_parentid($dbh, $nav[1]))).'</td><td>&nbsp;</td></tr>';
+		my (undef, $size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'parent_id', $nav[1]);
+		$response .= '<tr><td>&nbsp;</td><td>'.encode_entities(PDLNA::Utils::convert_bytes($size)).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
 
 		$response .= '<tbody>';
@@ -252,8 +253,8 @@ sub show
 		);
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
-		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_items_by_itemtype($dbh, 1);
-		my ($directories_amount, undef) = PDLNA::ContentLibrary::get_amount_size_items_by_itemtype($dbh, 0);
+		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'item_type', 1);
+		my ($directories_amount, undef) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'item_type', 0);
 		$response .= '<tr><td>Media Items</td><td>'.encode_entities($files_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($files_size)).') in '.encode_entities($directories_amount).' directories</td></tr>';
 
 		# TODO
@@ -271,7 +272,7 @@ sub show
 
 		foreach my $type ('image', 'audio', 'video')
 		{
-			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, $type);
+			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'media_type', $type);
 			$response .= '<tr><td>'.encode_entities(ucfirst($type)).' Items</td><td>'.encode_entities($type_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($type_size)).')</td></tr>';
 		}
 
@@ -630,7 +631,8 @@ sub build_directory_tree
 	$response .= '<ul>';
 	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.encode_entities($result->{id}).'">'.encode_entities($result->{title}).' ('.encode_entities(PDLNA::ContentLibrary::get_amount_items_by_parentid($dbh, $result->{id})).')</a></li>';
+		my ($amount, undef) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'parent_id', $result->{id});
+		$response .= '<li><a href="/webui/content/'.encode_entities($result->{id}).'">'.encode_entities($result->{title}).' ('.encode_entities($amount).')</a></li>';
 		if (PDLNA::ContentLibrary::is_itemid_under_parentid($dbh, $result->{id}, $end_id))
 		{
 			$response .= build_directory_tree($dbh, $result->{id}, $end_id);

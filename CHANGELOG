@@ -7,7 +7,7 @@ Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
 
-Version 0.65.0
+Version 0.70.0
 xx-xx-2014
 
 - added the name and line of the file, which called the fatal() or log() subroutine, to the log messages (based on the idea of marc)
@@ -15,10 +15,12 @@ xx-xx-2014
 - added masking special characters in WebUI
 - moved WebUI to UTF-8
 - fixed a bug in WebUI regarding uninitialized values in WebUI (thanks to marc)
-- additional fix for issue #21 (https://github.com/geuma/pDLNA/issues/21) -aka- special characters in filenames break some regular expressions
-- the Yamaha RX-V3067 seems to use another XML structure
+- additional fix for issue #21 (https://github.com/geuma/pDLNA/issues/21) -aka- special characters in filenames break some regular expressions (thanks to marc)
+- the Yamaha RX-V3067 seems to use a different XML structure (implemented a more generic way to find elements in XML) (thanks to marc)
 - added codec information for DTS sound
 - improved codec and container detection via FFmpeg
+- added support for PostgreSQL
+- fixed issue #25 (https://github.com/geuma/pDLNA/issues/25) -aka- invalid BrowseMetadata response
 
 Version 0.64.3
 29-12-2013

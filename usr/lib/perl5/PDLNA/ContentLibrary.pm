@@ -105,7 +105,7 @@ sub index_directories_thread
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
-		my ($amount, $size) = get_amount_size_items_by_itemtype($dbh, 1);
+		my ($amount, $size) = get_amount_size_items_by($dbh, 'item_type', 1);
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		cleanup_contentlibrary($dbh);
@@ -1139,79 +1139,22 @@ sub get_items_by_parentid
 }
 
 #
-# NEW: returns amount of items based on their parent_id
+# NEW: returns amount and total_size of items based on their parent_id
 #
-sub get_amount_items_by_parentid
+sub get_amount_size_items_by
 {
 	my $dbh = shift;
-	my $parent_id = shift;
+	my $dbfield = shift;
+	my $dbvalue = shift;
 
-	my $amount = PDLNA::Database::select_db_field_int(
-		$dbh,
-		{
-			'query' => 'SELECT COUNT(id) FROM items WHERE parent_id = ?',
-			'parameters' => [ $parent_id, ],
-		},
-	);
-	return $amount || 0;
-}
-
-#
-# NEW: returns total_size of items based on their parent_id
-#
-sub get_size_items_by_parentid
-{
-	my $dbh = shift;
-	my $parent_id = shift;
-
-	my $size = PDLNA::Database::select_db_field_int(
-		$dbh,
-		{
-			'query' => 'SELECT SUM(size) FROM items WHERE parent_id = ?',
-			'parameters' => [ $parent_id, ],
-		},
-	);
-	return $size || 0;
-}
-
-#
-# NEW: returns amount and total_size of items in database based on the item_type
-#
-sub get_amount_size_items_by_itemtype
-{
-	my $dbh = shift;
-	my $item_type = shift;
+	return (0,0) unless $dbfield =~ /^(parent_id|item_type|media_type)$/; # SANITY CHECK
 
 	my @result = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT COUNT(id) AS amount, SUM(size) as size FROM items WHERE item_type = ?',
-			'parameters' => [ $item_type, ],
-		},
-		\@result,
-	);
-
-	my ($amount, $size) = 0;
-	$amount = $result[0]->{amount} if $result[0]->{amount};
-	$size = $result[0]->{size} if $result[0]->{size};
-	return ($amount, $size);
-}
-
-#
-# NEW: returns amount and total_size of items in database based on the media_type
-#
-sub get_amount_size_items_by_mediatype
-{
-	my $dbh = shift;
-	my $media_type = shift;
-
-	my @result = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT COUNT(id) AS amount, SUM(size) as size FROM items WHERE media_type = ?',
-			'parameters' => [ $media_type, ],
+			'query' => 'SELECT COUNT(id) AS amount, SUM(size) as size FROM items WHERE '.$dbfield.' = ?',
+			'parameters' => [ $dbvalue, ],
 		},
 		\@result,
 	);
@@ -1322,7 +1265,7 @@ sub _process_directory
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
 			{
 				PDLNA::Log::log('Adding playlist '.$item.' as directory.', 2, 'library');
-				# TODO
+				# TODO playlists
 			}
 			else
 			{
@@ -1369,7 +1312,7 @@ sub _add_media_item
 	}
 	else # item not in database
 	{
-		# add directory to database
+		# add item to database
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
