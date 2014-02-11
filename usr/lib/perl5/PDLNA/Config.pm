@@ -279,9 +279,9 @@ sub parse_config
 	# DATABASE PARSING
 	#
 	$CONFIG{'DB_TYPE'} = $cfg->get('DatabaseType') if defined($cfg->get('DatabaseType'));
-	unless ($CONFIG{'DB_TYPE'} =~ /^(SQLITE3|MYSQL)$/)
+	unless ($CONFIG{'DB_TYPE'} =~ /^(SQLITE3|MYSQL|PGSQL)$/)
 	{
-		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3|MYSQL]');
+		push(@{$errormsg}, 'Invalid DatabaseType: Available options [SQLITE3|MYSQL|PGSQL]');
 	}
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
@@ -302,7 +302,7 @@ sub parse_config
 			}
 		}
 	}
-	elsif ($CONFIG{'DB_TYPE'} eq 'MYSQL')
+	elsif ($CONFIG{'DB_TYPE'} =~ /^(MYSQL|PGSQL)$/)
 	{
 		if (defined($cfg->get('DatabaseName')))
 		{
@@ -315,17 +315,22 @@ sub parse_config
 		$CONFIG{'DB_USER'} = $cfg->get('DatabaseUsername') if defined($cfg->get('DatabaseUsername'));
 		$CONFIG{'DB_PASS'} = $cfg->get('DatabasePassword') if defined($cfg->get('DatabasePassword'));
 
-		my $dbh = DBI->connect('dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost', $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, {
+		my $dsn = '';
+		$dsn = 'dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost' if $CONFIG{'DB_TYPE'} eq 'MYSQL';
+		$dsn = 'dbi:Pg:dbname='.$CONFIG{'DB_NAME'}.';host=localhost' if $CONFIG{'DB_TYPE'} eq 'PGSQL';
+		my %settings = (
 			PrintError => 0,
 			RaiseError => 0,
-		},);
+		);
+
+		my $dbh = DBI->connect($dsn, $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, \%settings);
 		if (defined($dbh))
 		{
 			$dbh->disconnect();
 		}
 		else
 		{
-			 push(@{$errormsg}, 'Invalid MySQL Database Configuration: Unable to connect to Database: '.$DBI::errstr);
+			 push(@{$errormsg}, 'Invalid Database Configuration: Unable to connect to Database: '.$DBI::errstr);
 		}
 	}
 

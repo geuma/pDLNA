@@ -26,21 +26,23 @@ use PDLNA::Config;
 use PDLNA::Log;
 
 my %DBSTRING_AUTOINCREMENT = (
-	'SQLITE3' => 'AUTOINCREMENT',
-	'MYSQL' => 'AUTO_INCREMENT',
+	'SQLITE3' => 'INTEGER PRIMARY KEY AUTOINCREMENT',
+	'MYSQL' => 'INTEGER PRIMARY KEY AUTO_INCREMENT',
+	'PGSQL' => 'SERIAL PRIMARY KEY',
 );
 
 my %DBSTRING_CHARACTERSET = (
 	'SQLITE3' => '',
 	'MYSQL' => 'DEFAULT CHARACTER SET=utf8',
+	'PGSQL' => '',
 );
 
 sub connect
 {
 	my $dsn = undef;
 	my %settings = (
-		PrintError => 0,
-		RaiseError => 0,
+		PrintError => 1,
+		RaiseError => 1,
 	);
 
 	if ($CONFIG{'DB_TYPE'} eq 'SQLITE3')
@@ -52,6 +54,11 @@ sub connect
 	{
 		$dsn = 'dbi:mysql:dbname='.$CONFIG{'DB_NAME'}.';host=localhost';
 		$settings{mysql_enable_utf8} = 1;
+	}
+	elsif ($CONFIG{'DB_TYPE'} eq 'PGSQL')
+	{
+		$dsn = 'dbi:Pg:dbname='.$CONFIG{'DB_NAME'}.';host=localhost';
+		$settings{pg_enable_utf8} = 1;
 	}
 
 	my $dbh = DBI->connect($dsn, $CONFIG{'DB_USER'}, $CONFIG{'DB_PASS'}, \%settings);
@@ -79,94 +86,84 @@ sub initialize_db
 	my $dbh = PDLNA::Database::connect();
 
 	my @tables = select_db_tables($dbh);
-	if (grep(/^METADATA$/, @tables))
+	if (grep(/^metadata$/, @tables))
 	{
 		my @results = ();
 		select_db(
 			$dbh,
 			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE PARAM = ?',
+				'query' => 'SELECT value FROM metadata WHERE param = ?',
 				'parameters' => [ 'DBVERSION', ],
 			},
 			\@results,
 		);
 
 		# check if DB was build with a different database version of pDLNA
-		if (!defined($results[0]->{VALUE}) || $results[0]->{VALUE} ne $CONFIG{'PROGRAM_DBVERSION'})
+		if (!defined($results[0]->{value}) || $results[0]->{value} ne $CONFIG{'PROGRAM_DBVERSION'})
 		{
-			$dbh->do('DELETE FROM METADATA;');
+			$dbh->do('DELETE FROM metadata;');
 
-			insert_db(
-				$dbh,
-				{
-					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-					'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
-				},
-			);
-			insert_db(
-				$dbh,
-				{
-					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-					'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
-				},
-			);
-			insert_db(
-				$dbh,
-				{
-					'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-					'parameters' => [ 'TIMESTAMP', time(), ],
-				},
-			);
+			_insert_metadata($dbh, 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'});
+			_insert_metadata($dbh, 'VERSION', PDLNA::Config::print_version());
+			_insert_metadata($dbh, 'TIMESTAMP', time());
+
+			$dbh->do('DROP TABLE items;') if grep(/^items$/, @tables);
 
 			$dbh->do('DROP TABLE FILES;') if grep(/^FILES$/, @tables);
 			$dbh->do('DROP TABLE FILEINFO;') if grep(/^FILEINFO$/, @tables);
 			$dbh->do('DROP TABLE DIRECTORIES;') if grep(/^DIRECTORIES$/, @tables);
-			$dbh->do('DROP TABLE SUBTITLES;') if grep(/^SUBTITLES$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_IP;') if grep(/^DEVICE_IP$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_BM;') if grep(/^DEVICE_BM$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_UDN;') if grep(/^DEVICE_UDN$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_NTS;') if grep(/^DEVICE_NTS$/, @tables);
-			$dbh->do('DROP TABLE DEVICE_SERVICE;') if grep(/^DEVICE_SERVICE$/, @tables);
-			$dbh->do('DROP TABLE STAT_MEM;') if grep(/^STAT_MEM$/, @tables);
-			$dbh->do('DROP TABLE STAT_ITEMS;') if grep(/^STAT_ITEMS$/, @tables);
+			$dbh->do('DROP TABLE subtitles;') if grep(/^subtitles$/, @tables);
+
+			$dbh->do('DROP TABLE device_ip;') if grep(/^device_ip$/, @tables);
+			$dbh->do('DROP TABLE device_bm;') if grep(/^device_bm$/, @tables);
+			$dbh->do('DROP TABLE device_udn;') if grep(/^device_udn$/, @tables);
+			$dbh->do('DROP TABLE device_nts;') if grep(/^device_nts$/, @tables);
+			$dbh->do('DROP TABLE device_service;') if grep(/^device_service$/, @tables);
+			$dbh->do('DROP TABLE stat_mem;') if grep(/^stat_mem$/, @tables);
+			$dbh->do('DROP TABLE stat_items;') if grep(/^stat_items$/, @tables);
 			@tables = ();
 		}
 	}
 	else
 	{
-		$dbh->do("CREATE TABLE METADATA (
-				PARAM				VARCHAR(128) PRIMARY KEY,
-				VALUE				VARCHAR(128)
+		$dbh->do("CREATE TABLE metadata (
+				param				VARCHAR(128) PRIMARY KEY,
+				value				VARCHAR(128)
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 
-		insert_db(
-			$dbh,
-			{
-				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-				'parameters' => [ 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'}, ],
-			},
-		);
-		insert_db(
-			$dbh,
-			{
-				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-				'parameters' => [ 'VERSION', PDLNA::Config::print_version(), ],
-			},
-		);
-		insert_db(
-			$dbh,
-			{
-				'query' => 'INSERT INTO METADATA (PARAM, VALUE) VALUES (?,?)',
-				'parameters' => [ 'TIMESTAMP', time(), ],
-			},
+		_insert_metadata($dbh, 'DBVERSION', $CONFIG{'PROGRAM_DBVERSION'});
+		_insert_metadata($dbh, 'VERSION', PDLNA::Config::print_version());
+		_insert_metadata($dbh, 'TIMESTAMP', time());
+	}
+
+	unless (grep(/^items$/, @tables))
+	{
+		$dbh->do("CREATE TABLE items (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				parent_id			INTEGER,
+
+				item_type			INTEGER DEFAULT 0,
+				media_type			VARCHAR(12),
+
+				fullname			VARCHAR(2048),
+				title				VARCHAR(2048),
+
+				date				BIGINT,
+				size				BIGINT
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
+	#
+	# item_type VALUES
+	#  0 - directory
+	#  1 - media item (audio, video, image)
+	#
 
 	unless (grep(/^FILES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE FILES (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				ID					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
@@ -222,7 +219,7 @@ sub initialize_db
 	unless (grep(/^DIRECTORIES$/, @tables))
 	{
 		$dbh->do("CREATE TABLE DIRECTORIES (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				ID					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
 				NAME				VARCHAR(2048),
 				PATH				VARCHAR(2048),
@@ -234,113 +231,113 @@ sub initialize_db
 		);
 	}
 
-	unless (grep(/^SUBTITLES$/, @tables))
+	unless (grep(/^subtitles$/, @tables))
 	{
-		$dbh->do("CREATE TABLE SUBTITLES (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				FILEID_REF			INTEGER,
+		$dbh->do("CREATE TABLE subtitles (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				fileid_ref			INTEGER,
 
-				TYPE				VARCHAR(2048),
-				MIME_TYPE			VARCHAR(128),
-				NAME				VARCHAR(2048),
-				FULLNAME			VARCHAR(2048),
+				type				VARCHAR(2048),
+				mime_type			VARCHAR(128),
+				name				VARCHAR(2048),
+				fullname			VARCHAR(2048),
 
-				DATE				BIGINT,
-				SIZE				BIGINT
+				date				BIGINT,
+				size				BIGINT
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^DEVICE_IP$/, @tables))
+	unless (grep(/^device_ip$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_IP (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+		$dbh->do("CREATE TABLE device_ip (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 
-				IP					VARCHAR(15),
-				USER_AGENT			VARCHAR(128),
-				LAST_SEEN			BIGINT
+				ip					VARCHAR(15),
+				user_agent			VARCHAR(128),
+				last_seen			BIGINT
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^DEVICE_BM$/, @tables))
+	unless (grep(/^device_bm$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_BM (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				DEVICE_IP_REF		INTEGER,
+		$dbh->do("CREATE TABLE device_bm (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				device_ip_ref		INTEGER,
 
-				FILE_ID_REF			INTEGER,
-				POS_SECONDS			INTEGER
+				item_id_ref			INTEGER,
+				pos_seconds			INTEGER
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^DEVICE_UDN$/, @tables))
+	unless (grep(/^device_udn$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_UDN (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				DEVICE_IP_REF		INTEGER,
+		$dbh->do("CREATE TABLE device_udn (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				device_ip_ref		INTEGER,
 
-				UDN					VARCHAR(64),
-				SSDP_BANNER			VARCHAR(256),
-				DESC_URL			VARCHAR(512),
-				RELA_URL			VARCHAR(512),
-				BASE_URL			VARCHAR(512),
+				udn					VARCHAR(64),
+				ssdp_banner			VARCHAR(256),
+				desc_url			VARCHAR(512),
+				rela_url			VARCHAR(512),
+				base_url			VARCHAR(512),
 
-				TYPE				VARCHAR(256),
-				MODEL_NAME			VARCHAR(256),
-				FRIENDLY_NAME		VARCHAR(256)
+				type				VARCHAR(256),
+				model_name			VARCHAR(256),
+				friendly_name		VARCHAR(256)
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^DEVICE_NTS$/, @tables))
+	unless (grep(/^device_nts$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_NTS (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				DEVICE_UDN_REF		INTEGER,
+		$dbh->do("CREATE TABLE device_nts (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				device_udn_ref		INTEGER,
 
-				TYPE				VARCHAR(128),
-				EXPIRE				BIGINT
+				type				VARCHAR(128),
+				expire				BIGINT
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^DEVICE_SERVICE$/, @tables))
+	unless (grep(/^device_service$/, @tables))
 	{
-		$dbh->do("CREATE TABLE DEVICE_SERVICE (
-				ID					INTEGER PRIMARY KEY $DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				DEVICE_UDN_REF		INTEGER,
+		$dbh->do("CREATE TABLE device_service (
+				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
+				device_udn_ref		INTEGER,
 
-				SERVICE_ID			VARCHAR(256),
-				TYPE				VARCHAR(256),
-				CONTROL_URL			VARCHAR(512),
-				EVENT_URL			VARCHAR(512),
-				SCPD_URL			VARCHAR(512)
+				service_id			VARCHAR(256),
+				type				VARCHAR(256),
+				control_url			VARCHAR(512),
+				event_url			VARCHAR(512),
+				scpd_url			VARCHAR(512)
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^STAT_MEM$/, @tables))
+	unless (grep(/^stat_mem$/, @tables))
 	{
-		$dbh->do("CREATE TABLE STAT_MEM (
-				DATE				BIGINT PRIMARY KEY,
-				VMS					BIGINT,
-				RSS					BIGINT
+		$dbh->do("CREATE TABLE stat_mem (
+				date				BIGINT PRIMARY KEY,
+				vms					BIGINT,
+				rss					BIGINT
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
 
-	unless (grep(/^STAT_ITEMS$/, @tables))
+	unless (grep(/^stat_items$/, @tables))
 	{
-		$dbh->do("CREATE TABLE STAT_ITEMS (
-				DATE				BIGINT PRIMARY KEY,
-				AUDIO				INTEGER,
-				AUDIO_SIZE			BIGINT,
-				VIDEO				INTEGER,
-				VIDEO_SIZE			BIGINT,
-				IMAGE				INTEGER,
-				IMAGE_SIZE			BIGINT
+		$dbh->do("CREATE TABLE stat_items (
+				date				BIGINT PRIMARY KEY,
+				audio				INTEGER,
+				audio_size			BIGINT,
+				video				INTEGER,
+				video_size			BIGINT,
+				image				INTEGER,
+				image_size			BIGINT
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}
@@ -355,6 +352,7 @@ sub select_db_tables
 	my %queries = (
 		'SQLITE3' => "SELECT name FROM sqlite_master WHERE type = 'table'",
 		'MYSQL' => "SELECT table_name FROM information_schema.tables WHERE table_type = 'base table'",
+		'PGSQL' => "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
 	);
 
 	my @tables = ();
@@ -460,6 +458,21 @@ sub delete_db
 #
 # HELPER FUNCTIONS
 #
+
+sub _insert_metadata
+{
+	my $dbh = shift;
+	my $param = shift;
+	my $value = shift;
+
+	insert_db(
+		$dbh,
+		{
+			'query' => 'INSERT INTO metadata (param, value) VALUES (?,?)',
+			'parameters' => [ $param, $value, ],
+		},
+	);
+}
 
 sub _log_query
 {

@@ -79,7 +79,7 @@ sub write_statistics_periodic
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO STAT_MEM (DATE, VMS, RSS) VALUES (?,?,?)',
+				'query' => 'INSERT INTO stat_mem (date, vms, rss) VALUES (?,?,?)',
 				'parameters' => [ time(), $proc_info{'vmsize'}, $proc_info{'rssize'}, ],
 			},
 		);
@@ -87,13 +87,13 @@ sub write_statistics_periodic
 		#
 		# MEDIA ITEMS
 		#
-		my ($audio_amount, $audio_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'audio');
-		my ($image_amount, $image_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'image');
-		my ($video_amount, $video_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, 'video');
+		my ($audio_amount, $audio_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'audio');
+		my ($image_amount, $image_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'image');
+		my ($video_amount, $video_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, 'video');
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO STAT_ITEMS (DATE, AUDIO, AUDIO_SIZE, IMAGE, IMAGE_SIZE, VIDEO, VIDEO_SIZE) VALUES (?,?,?,?,?,?,?)',
+				'query' => 'INSERT INTO stat_items (date, audio, audio_size, image, image_size, video, video_size) VALUES (?,?,?,?,?,?,?)',
 				'parameters' => [ time(), $audio_amount, $audio_size, $image_amount, $image_size, $video_amount, $video_size, ],
 			},
 		);

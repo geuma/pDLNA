@@ -58,6 +58,7 @@ use_ok ('Config::ApacheFormat');
 use_ok ('Data::Dumper');
 use_ok ('Date::Format');
 use_ok ('DBD::mysql');
+use_ok ('DBD::Pg');
 use_ok ('DBD::SQLite');
 use_ok ('DBI');
 use_ok ('Digest::MD5');

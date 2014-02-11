@@ -825,35 +825,26 @@ sub ctrl_content_directory_1
 		PDLNA::Log::log('Handling X_SetBookmark request.', 2, 'httpdir');
 		if (defined($xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}) && defined($xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}))
 		{
-			my @device_ip = ();
-			PDLNA::Database::select_db(
-				$dbh,
-				{
-					'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
-					'parameters' => [ $peer_ip_addr, ],
-				},
-				\@device_ip,
-			);
-
-			if (defined($device_ip[0]->{ID}))
+			my $device_ip_id = PDLNA::Devices::get_device_ip_id_by_device_ip($dbh, $peer_ip_addr);
+			if (defined($device_ip_id))
 			{
 				my @device_bm = ();
 				PDLNA::Database::select_db(
 					$dbh,
 					{
-						'query' => 'SELECT POS_SECONDS FROM DEVICE_BM WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
-						'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, ],
+						'query' => 'SELECT pos_seconds FROM device_bm WHERE item_id_ref = ? AND device_ip_ref = ?',
+						'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip_id, ],
 					},
 					\@device_bm,
 				);
 
-				if (defined($device_bm[0]->{POS_SECONDS}))
+				if (defined($device_bm[0]->{pos_seconds}))
 				{
 					PDLNA::Database::update_db(
 						$dbh,
 						{
-							'query' => 'UPDATE DEVICE_BM SET POS_SECONDS = ? WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
-							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, ],
+							'query' => 'UPDATE device_bm SET pos_seconds = ? WHERE item_id_ref = ? AND device_ip_ref = ?',
+							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip_id, ],
 						}
 					);
 				}
@@ -862,8 +853,8 @@ sub ctrl_content_directory_1
 					PDLNA::Database::insert_db(
 						$dbh,
 						{
-							'query' => 'INSERT INTO DEVICE_BM (FILE_ID_REF, DEVICE_IP_REF, POS_SECONDS) VALUES (?,?,?)',
-							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip[0]->{ID}, $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, ],
+							'query' => 'INSERT INTO device_bm (item_id_ref, device_ip_ref, pos_seconds) VALUES (?,?,?)',
+							'parameters' => [ $xml->{'s:Body'}->{'u:Browse'}->{'ObjectID'}, $device_ip_id, $xml->{'s:Body'}->{'u:Browse'}->{'PosSecond'}, ],
 						}
 					);
 				}
@@ -877,7 +868,7 @@ sub ctrl_content_directory_1
 			}
 			else
 			{
-				PDLNA::Log::log('Unable to find matching DEVICE_IP database entry.', 2, 'httpdir');
+				PDLNA::Log::log('Unable to find matching entry in device_ip table.', 2, 'httpdir');
 				return http_header({
 					'statuscode' => 501,
 					'content_type' => 'text/plain',
@@ -951,14 +942,14 @@ sub deliver_subtitle
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT FULLNAME, SIZE FROM SUBTITLES WHERE ID = ? AND TYPE = ?',
+				'query' => 'SELECT fullname, size FROM subtitles WHERE id = ? AND type = ?',
 				'parameters' => [ $id, $type, ],
 			},
 			\@subtitles,
 		);
 		PDLNA::Database::disconnect($dbh);
 
-		if (defined($subtitles[0]->{FULLNAME}) && -f $subtitles[0]->{FULLNAME})
+		if (defined($subtitles[0]->{fullname}) && -f $subtitles[0]->{fullname})
 		{
 			my @additional_header = ();
 			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
@@ -971,14 +962,14 @@ sub deliver_subtitle
 			}
 
 			print $FH http_header({
-				'content_length' => $subtitles[0]->{SIZE},
+				'content_length' => $subtitles[0]->{size},
 				'content_type' => 'smi/caption',
 				'statuscode' => 200,
 				'additional_header' => \@additional_header,
 				'log' => 'httpstream',
 			});
 
-			sysopen(FILE, $subtitles[0]->{FULLNAME}, O_RDONLY);
+			sysopen(FILE, $subtitles[0]->{fullname}, O_RDONLY);
 			print $FH <FILE>;
 			close(FILE);
 		}
@@ -1059,7 +1050,7 @@ sub stream_media_beta
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+			'query' => 'SELECT id, type, fullname FROM subtitles WHERE fileid_ref = ?',
 			'parameters' => [ $id, ],
 		},
 		\@subtitles,
@@ -1117,9 +1108,9 @@ sub stream_media_beta
 			{
 				foreach my $subtitle (@subtitles)
 				{
-					if ($subtitle->{TYPE} eq 'srt' && -f $subtitle->{FULLNAME})
+					if ($subtitle->{type} eq 'srt' && -f $subtitle->{fullname})
 					{
-						push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.srt');
+						push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{id}.'.srt');
 					}
 				}
 			}
@@ -1548,16 +1539,16 @@ sub stream_media
 					PDLNA::Database::select_db(
 						$dbh,
 						{
-							'query' => 'SELECT ID, TYPE, FULLNAME FROM SUBTITLES WHERE FILEID_REF = ?',
+							'query' => 'SELECT id, type, fullname FROM subtitles WHERE fileid_ref = ?',
 							'parameters' => [ $id, ],
 						},
 						\@subtitles,
 					);
 					foreach my $subtitle (@subtitles)
 					{
-						if ($subtitle->{TYPE} eq 'srt' && -f $subtitle->{FULLNAME})
+						if ($subtitle->{type} eq 'srt' && -f $subtitle->{fullname})
 						{
-							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{ID}.'.srt');
+							push(@additional_header, 'CaptionInfo.sec: http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{id}.'.srt');
 						}
 					}
 				}

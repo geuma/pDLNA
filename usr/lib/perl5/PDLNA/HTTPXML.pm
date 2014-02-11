@@ -280,23 +280,14 @@ sub get_browseresponse_item_detailed
 		{
 			my $bookmark = 0;
 
-			my @device_ip = ();
-			PDLNA::Database::select_db(
-				$dbh,
-				{
-					'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
-					'parameters' => [ $client_ip, ],
-				},
-				\@device_ip,
-			);
-
-			if (defined($device_ip[0]->{ID}))
+			my $device_ip_id = PDLNA::Devices::get_device_ip_id_by_device_ip($dbh, $client_ip);
+			if (defined($device_ip_id))
 			{
 				$bookmark = PDLNA::Database::select_db_field_int(
 					$dbh,
 					{
-						'query' => 'SELECT POS_SECONDS FROM DEVICE_BM WHERE FILE_ID_REF = ? AND DEVICE_IP_REF = ?',
-						'parameters' => [ $item_id, $device_ip[0]->{ID}, ],
+						'query' => 'SELECT pos_seconds FROM device_bm WHERE item_id_ref = ? AND device_ip_ref = ?',
+						'parameters' => [ $item_id, $device_ip_id, ],
 					},
 				);
 			}
@@ -318,7 +309,7 @@ sub get_browseresponse_item_detailed
 	if ($item[0]->{TYPE} eq 'audio' || $item[0]->{TYPE} eq 'video')
 	{
 		push(@{$xml}, 'bitrate=&quot;'.PDLNA::Utils::encode_xml($iteminfo[0]->{BITRATE}).'&quot; ') if grep(/^res\@bitrate$/, @{$filter});
-		push(@{$xml}, 'duration=&quot;'.PDLNA::Utils::encode_xml(PDLNA::ContentLibrary::duration($iteminfo[0]->{DURATION})).'&quot; ') if grep(/^res\@duration$/, @{$filter});
+		push(@{$xml}, 'duration=&quot;'.PDLNA::Utils::encode_xml(PDLNA::Utils::convert_duration($iteminfo[0]->{DURATION})).'&quot; ') if grep(/^res\@duration$/, @{$filter});
 	}
 	if ($item[0]->{TYPE} eq 'image' || $item[0]->{TYPE} eq 'video')
 	{
@@ -353,7 +344,7 @@ sub get_browseresponse_item_detailed
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT ID, TYPE FROM SUBTITLES WHERE FILEID_REF = ?',
+				'query' => 'SELECT id, type FROM subtitles WHERE fileid_ref = ?',
 				'parameters' => [ $item_id, ],
 			},
 			\@subtitles,
@@ -361,8 +352,8 @@ sub get_browseresponse_item_detailed
 
 		foreach my $subtitle (@subtitles)
 		{
-			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.PDLNA::Utils::encode_xml($subtitle->{TYPE}).'&quot; &gt;');
-			push(@{$xml}, $url_scheme.'/subtitle/'.PDLNA::Utils::encode_xml($subtitle->{ID}).'.'.PDLNA::Utils::encode_xml($subtitle->{TYPE}));
+			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.PDLNA::Utils::encode_xml($subtitle->{type}).'&quot; &gt;');
+			push(@{$xml}, $url_scheme.'/subtitle/'.PDLNA::Utils::encode_xml($subtitle->{id}).'.'.PDLNA::Utils::encode_xml($subtitle->{type}));
 			push(@{$xml}, '&lt;/sec:CaptionInfoEx&gt;');
 		}
 	}

@@ -89,7 +89,7 @@ sub check_update
 				PDLNA::Database::select_db(
 					$dbh,
 					{
-						'query' => 'SELECT TYPE, CONTROL_URL FROM DEVICE_SERVICE WHERE SERVICE_ID = ?',
+						'query' => 'SELECT type, control_url FROM device_service WHERE service_id = ?',
 						'parameters' => [ 'urn:samsung.com:serviceId:MessageBoxService' ],
 					},
 					\@device_services,
@@ -98,9 +98,9 @@ sub check_update
 
 				foreach my $service (@device_services)
 				{
-					PDLNA::Log::log('Sending sms to '.$service->{CONTROL_URL}.'.', 1, 'default');
+					PDLNA::Log::log('Sending sms to '.$service->{control_urlL}.'.', 1, 'default');
 					my $message = 'A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: '.$xml->{'response'}->{'NewVersion'};
-					PDLNA::SOAPMessages::send_sms($service->{TYPE}, $service->{CONTROL_URL}, $message);
+					PDLNA::SOAPMessages::send_sms($service->{type}, $service->{control_url}, $message);
 				}
 			}
 		}

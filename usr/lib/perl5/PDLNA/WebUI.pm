@@ -97,18 +97,18 @@ sub show
 		$response .= '</thead>';
 
 		$response .= '<tfoot>';
-		$response .= '<tr><td>&nbsp;</td><td>'.encode_entities(PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_subfiles_size_by_id($dbh, $nav[1]))).'</td><td>&nbsp;</td></tr>';
+		$response .= '<tr><td>&nbsp;</td><td>'.encode_entities(PDLNA::Utils::convert_bytes(PDLNA::ContentLibrary::get_size_items_by_parentid($dbh, $nav[1]))).'</td><td>&nbsp;</td></tr>';
 		$response .= '</tfoot>';
 
 		$response .= '<tbody>';
 		my @files = ();
-		PDLNA::ContentLibrary::get_subfiles_by_id($dbh, $nav[1], undef, undef, \@files);
+		PDLNA::ContentLibrary::get_items_by_parentid($dbh, $nav[1], undef, undef, 1, \@files);
 		foreach my $id (@files)
 		{
 			$response .= '<tr>';
-			$response .= '<td title="'.encode_entities($id->{NAME}).'">'.encode_entities(PDLNA::Utils::string_shortener($id->{NAME}, 30)).'</td>';
-			$response .= '<td>'.encode_entities(PDLNA::Utils::convert_bytes($id->{SIZE})).'</td>';
-			$response .= '<td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $id->{DATE})).'</td>';
+			$response .= '<td title="'.encode_entities($id->{title}).'">'.encode_entities(PDLNA::Utils::string_shortener($id->{title}, 30)).'</td>';
+			$response .= '<td>'.encode_entities(PDLNA::Utils::convert_bytes($id->{size})).'</td>';
+			$response .= '<td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $id->{date})).'</td>';
 			$response .= '</tr>';
 		}
 		$response .= '</tbody>';
@@ -123,22 +123,22 @@ sub show
 			PDLNA::Database::select_db(
 				$dbh,
 				{
-					'query' => 'SELECT IP, USER_AGENT, LAST_SEEN FROM DEVICE_IP WHERE ID = ?',
+					'query' => 'SELECT ip, user_agent, last_seen FROM device_ip WHERE id = ?',
 					'parameters' => [ $nav[1], ],
 				},
 				\@device_ip,
 			);
 
-			if (defined($device_ip[0]->{IP}))
+			if (defined($device_ip[0]->{ip}))
 			{
 				$response .= '<table>';
 				$response .= '<thead>';
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>IP</td><td>'.encode_entities($device_ip[0]->{IP}).'</td></tr>';
-				$response .= '<tr><td>HTTP UserAgent</td><td>'.encode_entities($device_ip[0]->{USER_AGENT}).'</td></tr>' if defined($device_ip[0]->{USER_AGENT});
-				$response .= '<tr><td>Last seen at</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{LAST_SEEN})).'</td></tr>';
+				$response .= '<tr><td>IP</td><td>'.encode_entities($device_ip[0]->{ip}).'</td></tr>';
+				$response .= '<tr><td>HTTP UserAgent</td><td>'.encode_entities($device_ip[0]->{user_agent}).'</td></tr>' if defined($device_ip[0]->{user_agent});
+				$response .= '<tr><td>Last seen at</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $device_ip[0]->{last_seen})).'</td></tr>';
 				$response .= '</tbody>';
 				$response .= '</table>';
 			}
@@ -153,25 +153,25 @@ sub show
 			PDLNA::Database::select_db(
 				$dbh,
 				{
-					'query' => 'SELECT UDN, SSDP_BANNER, FRIENDLY_NAME, MODEL_NAME, TYPE, DESC_URL FROM DEVICE_UDN WHERE ID = ?',
+					'query' => 'SELECT udn, ssdp_banner, friendly_name, model_name, type, desc_url FROM device_udn WHERE id = ?',
 					'parameters' => [ $nav[2], ],
 				},
 				\@device_udn,
 			);
 
-			if (defined($device_udn[0]->{UDN}))
+			if (defined($device_udn[0]->{udn}))
 			{
 				$response .= '<table>';
 				$response .= '<thead>';
 				$response .= '<tr><td>&nbsp;</td><td>Information</td></tr>';
 				$response .= '</thead>';
 				$response .= '<tbody>';
-				$response .= '<tr><td>UDN</td><td>'.encode_entities($device_udn[0]->{UDN}).'</td></tr>';
-				$response .= '<tr><td>SSDP Banner</td><td>'.encode_entities($device_udn[0]->{SSDP_BANNER}).'</td></tr>' if defined($device_udn[0]->{SSDP_BANNER});
-				$response .= '<tr><td>Friendly Name</td><td>'.encode_entities($device_udn[0]->{FRIENDLY_NAME}).'</td></tr>' if defined($device_udn[0]->{FRIENDLY_NAME});
-				$response .= '<tr><td>Model Name</td><td>'.encode_entities($device_udn[0]->{MODEL_NAME}).'</td></tr>' if defined($device_udn[0]->{MODEL_NAME});
-				$response .= '<tr><td>Device Type</td><td>'.encode_entities($device_udn[0]->{TYPE}).'</td></tr>' if defined($device_udn[0]->{TYPE});
-				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{DESC_URL}.'" target="_blank">'.encode_entities($device_udn[0]->{DESC_URL}).'</a></td></tr>' if defined($device_udn[0]->{DESC_URL});
+				$response .= '<tr><td>UDN</td><td>'.encode_entities($device_udn[0]->{udn}).'</td></tr>';
+				$response .= '<tr><td>SSDP Banner</td><td>'.encode_entities($device_udn[0]->{ssdp_banner}).'</td></tr>' if defined($device_udn[0]->{ssdp_banner});
+				$response .= '<tr><td>Friendly Name</td><td>'.encode_entities($device_udn[0]->{friendly_name}).'</td></tr>' if defined($device_udn[0]->{friendly_name});
+				$response .= '<tr><td>Model Name</td><td>'.encode_entities($device_udn[0]->{model_name}).'</td></tr>' if defined($device_udn[0]->{model_name});
+				$response .= '<tr><td>Device Type</td><td>'.encode_entities($device_udn[0]->{type}).'</td></tr>' if defined($device_udn[0]->{type});
+				$response .= '<tr><td>Device Description URL</td><td><a href="'.$device_udn[0]->{desc_url}.'" target="_blank">'.encode_entities($device_udn[0]->{desc_url}).'</a></td></tr>' if defined($device_udn[0]->{desc_url});
 				$response .= '</tbody>';
 				$response .= '</table>';
 
@@ -186,14 +186,14 @@ sub show
 				PDLNA::Database::select_db(
 					$dbh,
 					{
-						'query' => 'SELECT TYPE, EXPIRE FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+						'query' => 'SELECT type, expire FROM device_nts WHERE device_udn_ref = ?',
 						'parameters' => [ $nav[2], ],
 					},
 					\@device_nts,
 				);
 				foreach my $nts (@device_nts)
 				{
-					$response .= '<tr><td>'.encode_entities($nts->{TYPE}).'</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $nts->{EXPIRE})).'</td></tr>';
+					$response .= '<tr><td>'.encode_entities($nts->{type}).'</td><td>'.encode_entities(time2str($CONFIG{'DATE_FORMAT'}, $nts->{expire})).'</td></tr>';
 				}
 				$response .= '</tbody>';
 				$response .= '</table>';
@@ -246,15 +246,17 @@ sub show
 		my $timestamp = PDLNA::Database::select_db_field_int(
 			$dbh,
 			{
-				'query' => 'SELECT VALUE FROM METADATA WHERE PARAM = ?',
+				'query' => 'SELECT value FROM metadata WHERE param = ?',
 				'parameters' => [ 'TIMESTAMP', ],
 			},
 		);
 		$response .= '<tr><td>Timestamp</td><td>'.time2str($CONFIG{'DATE_FORMAT'}, $timestamp).'</td></tr>';
 
-		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh);
-		$response .= '<tr><td>Media Items</td><td>'.encode_entities($files_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($files_size)).') in '.encode_entities(PDLNA::ContentLibrary::get_amount_directories($dbh)).' directories</td></tr>';
+		my ($files_amount, $files_size) = PDLNA::ContentLibrary::get_amount_size_items_by_itemtype($dbh, 1);
+		my ($directories_amount, undef) = PDLNA::ContentLibrary::get_amount_size_items_by_itemtype($dbh, 0);
+		$response .= '<tr><td>Media Items</td><td>'.encode_entities($files_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($files_size)).') in '.encode_entities($directories_amount).' directories</td></tr>';
 
+		# TODO
 		my $duration = PDLNA::Database::select_db_field_int(
 			$dbh,
 			{
@@ -262,13 +264,14 @@ sub show
 				'parameters' => [ ],
 			},
 		);
-		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration($duration)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration_detail($duration)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+		# END TODO
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
 		foreach my $type ('image', 'audio', 'video')
 		{
-			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_of_items($dbh, $type);
+			my ($type_amount, $type_size) = PDLNA::ContentLibrary::get_amount_size_items_by_mediatype($dbh, $type);
 			$response .= '<tr><td>'.encode_entities(ucfirst($type)).' Items</td><td>'.encode_entities($type_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($type_size)).')</td></tr>';
 		}
 
@@ -622,15 +625,15 @@ sub build_directory_tree
 	my $response = '';
 
 	my @results = ();
-	PDLNA::ContentLibrary::get_subdirectories_by_id($dbh, $start_id, undef, undef, \@results);
+	PDLNA::ContentLibrary::get_items_by_parentid($dbh, $start_id, undef, undef, 0, \@results);
 
 	$response .= '<ul>';
 	foreach my $result (@results)
 	{
-		$response .= '<li><a href="/webui/content/'.encode_entities($result->{ID}).'">'.encode_entities($result->{NAME}).' ('.encode_entities(PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $result->{ID})).')</a></li>';
-		if (PDLNA::ContentLibrary::is_in_same_directory_tree($dbh, $result->{ID}, $end_id))
+		$response .= '<li><a href="/webui/content/'.encode_entities($result->{id}).'">'.encode_entities($result->{title}).' ('.encode_entities(PDLNA::ContentLibrary::get_amount_items_by_parentid($dbh, $result->{id})).')</a></li>';
+		if (PDLNA::ContentLibrary::is_itemid_under_parentid($dbh, $result->{id}, $end_id))
 		{
-			$response .= build_directory_tree($dbh, $result->{ID}, $end_id);
+			$response .= build_directory_tree($dbh, $result->{id}, $end_id);
 		}
 	}
 	$response .= '</ul>';
@@ -647,7 +650,7 @@ sub build_connected_devices
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, IP FROM DEVICE_IP',
+			'query' => 'SELECT id, ip FROM device_ip',
 			'parameters' => [ ],
 		},
 		\@devices_ip,
@@ -655,20 +658,20 @@ sub build_connected_devices
 	$response .= '<ul>';
 	foreach my $device_ip (@devices_ip)
 	{
-		$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{ID}).'">'.encode_entities($device_ip->{IP}).'</a></li>';
+		$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{id}).'">'.encode_entities($device_ip->{ip}).'</a></li>';
 		my @devices_udn = ();
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT ID, UDN FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
-				'parameters' => [ $device_ip->{ID}, ],
+				'query' => 'SELECT id, udn FROM device_udn WHERE device_ip_ref = ?',
+				'parameters' => [ $device_ip->{id}, ],
 			},
 			\@devices_udn,
 		);
 		$response .= '<ul>';
 		foreach my $device_udn (@devices_udn)
 		{
-			$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{ID}).'/'.encode_entities($device_udn->{ID}).'">'.encode_entities($device_udn->{UDN}).'</a></li>';
+			$response .= '<li><a href="/webui/device/'.encode_entities($device_ip->{id}).'/'.encode_entities($device_udn->{id}).'">'.encode_entities($device_udn->{udn}).'</a></li>';
 		}
 		$response .= '</ul>';
 	}
@@ -736,13 +739,13 @@ sub graph
 	$data_options{'title'} = 'Memory usage' if $type eq 'memory';
 	$data_options{'title'} = 'Media items' if $type eq 'media';
 
-	$data_options{'dbtable'} = 'STAT_MEM' if $type eq 'memory';
-	$data_options{'dbtable'} = 'STAT_ITEMS' if $type eq 'media';
+	$data_options{'dbtable'} = 'stat_mem' if $type eq 'memory';
+	$data_options{'dbtable'} = 'stat_items' if $type eq 'media';
 
 	$data_options{'title'} .= ' by last '.$period;
 
-	$data_options{'dbfields'} = [ 'AVG(VMS)', 'AVG(RSS)', ] if $type eq 'memory';
-	$data_options{'dbfields'} = [ 'AVG(AUDIO)', 'AVG(IMAGE)', 'AVG(VIDEO)', ] if $type eq 'media';
+	$data_options{'dbfields'} = [ 'AVG(vms)', 'AVG(rss)', ] if $type eq 'memory';
+	$data_options{'dbfields'} = [ 'AVG(audio)', 'AVG(image)', 'AVG(video)', ] if $type eq 'media';
 
 	$data_options{'y_label'} = 'Bytes' if $type eq 'memory';
 
@@ -794,8 +797,9 @@ sub graph
 	my $dbh = PDLNA::Database::connect();
 
 	my %queries = (
-		'SQLITE3' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(DATE, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > strftime('%s', 'now', '-1 ".$period."', 'utc') GROUP BY datetime",
-		'MYSQL' => "SELECT date_format(FROM_UNIXTIME(DATE), '".$data_options{'dateformatstring'}."') as datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE DATE > UNIX_TIMESTAMP(DATE_SUB(now(), INTERVAL 1 ".$period.")) GROUP BY datetime",
+		'SQLITE3' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(date, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE date > strftime('%s', 'now', '-1 ".$period."', 'utc') GROUP BY datetime",
+		'MYSQL' => "SELECT date_format(FROM_UNIXTIME(date), '".$data_options{'dateformatstring'}."') as datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE date > UNIX_TIMESTAMP(DATE_SUB(now(), INTERVAL 1 ".$period.")) GROUP BY datetime",
+		'PGSQL' => '', # TODO
 	);
 
 	my @results = ();
@@ -837,7 +841,7 @@ sub graph
 	}
 	else
 	{
-		PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error, 0, 'library');
+		PDLNA::Log::log('ERROR: Unable to generate graph: '.$graph->error(), 0, 'library');
 		return PDLNA::HTTPServer::http_header({
 			'statuscode' => 404,
 		});

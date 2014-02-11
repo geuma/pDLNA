@@ -56,6 +56,19 @@ sub index_directories_thread
 					'rootdir' => 1,
 				},
 			);
+
+			_process_directory(
+				$dbh,
+				{
+					'fullname' => $directory->{'path'},
+					'media_type' => $directory->{'type'},
+					'recursion' => $directory->{'recursion'},
+					'exclude_dirs' => $directory->{'exclude_dirs'},
+					'exclude_items' => $directory->{'exclude_items'},
+					'allow_playlists' => $directory->{'allow_playlists'},
+					'parent_id' => 0,
+				},
+			);
 		}
 
 		my $i = 0;
@@ -79,12 +92,12 @@ sub index_directories_thread
 		$dbh->commit();
 		my $timestamp_end = time();
 
-		# add our timestamp when finished
+		# update our timestamp when finished
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => "UPDATE METADATA SET VALUE = ? WHERE PARAM = 'TIMESTAMP'",
-				'parameters' => [ $timestamp_end, ],
+				'query' => 'UPDATE metadata SET value = ? WHERE param = ?',
+				'parameters' => [ $timestamp_end, 'TIMESTAMP', ],
 			},
 		);
 		$dbh->commit();
@@ -92,7 +105,7 @@ sub index_directories_thread
 		my $duration = $timestamp_end - $timestamp_start;
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
-		my ($amount, $size) = get_amount_size_of_items($dbh);
+		my ($amount, $size) = get_amount_size_items_by_itemtype($dbh, 1);
 		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
 		cleanup_contentlibrary($dbh);
@@ -325,7 +338,7 @@ sub add_subtitle_to_db
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, DATE, SIZE FROM SUBTITLES WHERE FULLNAME = ? AND FILEID_REF = ? AND MIME_TYPE = ?',
+			'query' => 'SELECT id, date, size FROM subtitles WHERE fullname = ? AND fileid_ref = ? AND mime_type = ?',
 			'parameters' => [ $$params{'path'}, $$params{'file_id'}, $$params{'mimetype'}, ],
 		},
 		\@results,
@@ -333,15 +346,15 @@ sub add_subtitle_to_db
 
 	my @fileinfo = stat($$params{'path'});
 
-	if (defined($results[0]->{ID}))
+	if (defined($results[0]->{id}))
 	{
-		if ($results[0]->{SIZE} != $fileinfo[7] || $results[0]->{DATE} != $fileinfo[9])
+		if ($results[0]->{size} != $fileinfo[7] || $results[0]->{date} != $fileinfo[9])
 		{
 			# update the datbase entry (something changed)
 			PDLNA::Database::update_db(
 				$dbh,
 				{
-					'query' => 'UPDATE SUBTITLES SET DATE = ?, SIZE = ? WHERE ID = ?;',
+					'query' => 'UPDATE subtitles SET date = ?, size = ? WHERE id = ?;',
 					'parameters' => [ $fileinfo[9], $fileinfo[7], $results[0]->{ID}, ],
 				},
 			);
@@ -353,7 +366,7 @@ sub add_subtitle_to_db
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO SUBTITLES (FILEID_REF, FULLNAME, NAME, TYPE, MIME_TYPE, DATE, SIZE) VALUES (?,?,?,?,?,?,?)',
+				'query' => 'INSERT INTO subtitles (fileid_ref, fullname, name, type, mime_type, date, size) VALUES (?,?,?,?,?,?,?)',
 				'parameters' => [ $$params{'file_id'}, $$params{'path'}, basename($$params{'path'}), $$params{'type'}, $$params{'mimetype'}, $fileinfo[9], $fileinfo[7], ],
 			},
 		);
@@ -504,20 +517,20 @@ sub cleanup_contentlibrary
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, FULLNAME FROM SUBTITLES',
+			'query' => 'SELECT id, fullname FROM subtitles',
 			'parameters' => [ ],
 		},
 		\@subtitles,
 	);
 	foreach my $subtitle (@subtitles)
 	{
-		unless (-f $subtitle->{FULLNAME})
+		unless (-f $subtitle->{fullname})
 		{
 			PDLNA::Database::delete_db(
 				$dbh,
 				{
-					'query' => 'DELETE FROM SUBTITLES WHERE ID = ?',
-					'parameters' => [ $subtitle->{ID}, ],
+					'query' => 'DELETE FROM subtitles WHERE id = ?',
+					'parameters' => [ $subtitle->{id}, ],
 				},
 			);
 		}
@@ -661,7 +674,7 @@ sub delete_all_by_itemid
 	PDLNA::Database::delete_db(
 		$dbh,
 			{
-			'query' => 'DELETE FROM SUBTITLES WHERE FILEID_REF = ?',
+			'query' => 'DELETE FROM subtitles WHERE fileid_ref = ?',
 			'parameters' => [ $object_id, ],
 		},
 	);
@@ -853,10 +866,6 @@ sub get_fileinfo
 		}
 	}
 }
-
-#
-# various function for getting information about the ContentLibrary from the DB
-#
 
 sub get_subdirectories_by_id
 {
@@ -1070,90 +1079,353 @@ sub get_parent_of_item_by_id
 	return $item_parent[0]->{ID};
 }
 
-sub is_in_same_directory_tree
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+# HELPER FUNCTIONS
+#
+
+#
+# NEW: fills array reference with items based on their parent_id and their item_type
+#
+sub get_items_by_parentid
+{
+	my $dbh = shift;
+	my $item_id = shift;
+	my $starting_index = shift;
+	my $requested_count = shift;
+	my $item_type = shift;
+	my $elements = shift;
+
+	my $sql_query = 'SELECT id, title, size, date FROM items WHERE parent_id = ? AND item_type = ? ORDER BY title';
+	if (defined($starting_index) && defined($requested_count))
+	{
+		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
+	}
+
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => $sql_query,
+			'parameters' => [ $item_id, $item_type, ]
+		},
+		$elements,
+	);
+}
+
+#
+# NEW: returns amount of items based on their parent_id
+#
+sub get_amount_items_by_parentid
 {
 	my $dbh = shift;
 	my $parent_id = shift;
-	my $child_id = shift;
 
-	while ($child_id != 0)
-	{
-		return 1 if $parent_id eq $child_id;
-		$child_id = get_parent_of_directory_by_id($dbh, $child_id);
-	}
-
-	return 0;
+	my $amount = PDLNA::Database::select_db_field_int(
+		$dbh,
+		{
+			'query' => 'SELECT COUNT(id) FROM items WHERE parent_id = ?',
+			'parameters' => [ $parent_id, ],
+		},
+	);
+	return $amount || 0;
 }
 
-sub get_amount_size_of_items
+#
+# NEW: returns total_size of items based on their parent_id
+#
+sub get_size_items_by_parentid
 {
 	my $dbh = shift;
-	my $type = shift || undef;
+	my $parent_id = shift;
 
-	my $sql_query = 'SELECT COUNT(ID) AS AMOUNT, SUM(SIZE) AS SIZE FROM FILES';
-	my @sql_param = ();
-	if (defined($type))
-	{
-		$sql_query .= ' WHERE TYPE = ? GROUP BY TYPE';
-		push(@sql_param, $type);
-	}
+	my $size = PDLNA::Database::select_db_field_int(
+		$dbh,
+		{
+			'query' => 'SELECT SUM(size) FROM items WHERE parent_id = ?',
+			'parameters' => [ $parent_id, ],
+		},
+	);
+	return $size || 0;
+}
+
+#
+# NEW: returns amount and total_size of items in database based on the item_type
+#
+sub get_amount_size_items_by_itemtype
+{
+	my $dbh = shift;
+	my $item_type = shift;
 
 	my @result = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => $sql_query,
-			'parameters' => \@sql_param,
+			'query' => 'SELECT COUNT(id) AS amount, SUM(size) as size FROM items WHERE item_type = ?',
+			'parameters' => [ $item_type, ],
 		},
 		\@result,
 	);
 
 	my ($amount, $size) = 0;
-	$amount = $result[0]->{AMOUNT} if $result[0]->{AMOUNT};
-	$size = $result[0]->{SIZE} if $result[0]->{SIZE};
+	$amount = $result[0]->{amount} if $result[0]->{amount};
+	$size = $result[0]->{size} if $result[0]->{size};
 	return ($amount, $size);
 }
 
-sub get_amount_directories
+#
+# NEW: returns amount and total_size of items in database based on the media_type
+#
+sub get_amount_size_items_by_mediatype
 {
 	my $dbh = shift;
+	my $media_type = shift;
 
 	my @result = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DIRECTORIES',
-			'parameters' => [ ],
+			'query' => 'SELECT COUNT(id) AS amount, SUM(size) as size FROM items WHERE media_type = ?',
+			'parameters' => [ $media_type, ],
 		},
 		\@result,
 	);
-	return $result[0]->{AMOUNT};
+
+	my ($amount, $size) = 0;
+	$amount = $result[0]->{amount} if $result[0]->{amount};
+	$size = $result[0]->{size} if $result[0]->{size};
+	return ($amount, $size);
 }
 
 #
-# helper functions
+# NEW: returns the parent_id of an item by id
 #
-
-# TODO make it more beautiful
-sub duration
+sub get_parentid_by_id
 {
-	my $duration_seconds = shift || 0;
+	my $dbh = shift;
+	my $item_id = shift;
 
-	my $seconds = $duration_seconds;
-	my $minutes = 0;
-	$minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60 if $seconds;
-	my $hours = 0;
-	$hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60 if $hours;
-
-	my $string = '';
-	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':';
-	$string .= PDLNA::Utils::add_leading_char($minutes,2,'0').':';
-	$string .= PDLNA::Utils::add_leading_char($seconds,2,'0');
-
-	return $string;
+	my $parent_id = PDLNA::Database::select_db_field_int(
+		$dbh,
+		{
+			'query' => 'SELECT parent_id FROM items WHERE id = ?',
+			'parameters' => [ $item_id, ],
+		},
+	);
+	return $parent_id;
 }
+
+#
+# NEW: return true if an item_id is under a parent_id
+#
+sub is_itemid_under_parentid
+{
+	my $dbh = shift;
+	my $parent_id = shift;
+	my $item_id = shift;
+
+	while ($item_id != 0)
+	{
+		return 1 if $parent_id eq $item_id;
+		$item_id = get_parentid_by_id($dbh, $item_id);
+	}
+
+	return 0;
+}
+
+#
+# HELPER FUNCTIONS END
+#
+
+#
+# INTERNAL HELPER FUNCTIONS
+#
+
+sub _process_directory
+{
+	my $dbh = shift;
+	my $params = shift;
+	$$params{'fullname'} =~ s/\/$//;
+
+	my $directory_id = _add_directory_item($dbh, $params);
+	$dbh->commit();
+
+	$$params{'fullname'} = PDLNA::Utils::escape_brackets($$params{'fullname'});
+	PDLNA::Log::log('Globbing directory: '.PDLNA::Utils::create_filesystem_path([ $$params{'fullname'}, '*', ]).'.', 2, 'library');
+	my @items = bsd_glob(PDLNA::Utils::create_filesystem_path([ $$params{'fullname'}, '*', ]));
+	foreach my $item (sort @items)
+	{
+		my $item_basename = basename($item);
+		if (-d $item && $item =~ /lost\+found$/)
+		{
+			PDLNA::Log::log('Skipping '.$item.' directory.', 2, 'library');
+		}
+		elsif (-d $item && $$params{'recursion'} eq 'yes' && !grep(/^\Q$item_basename\E$/, @{$$params{'exclude_dirs'}}))
+		{
+			PDLNA::Log::log('Processing directory '.$item.'.', 2, 'library');
+
+			$$params{'parent_id'} = $directory_id;
+			$$params{'fullname'} = $item;
+			_process_directory($dbh, $params);
+		}
+		elsif (-f $item && !grep(/^\Q$item_basename\E$/, @{$$params{'exclude_items'}}))
+		{
+			my $mime_type = mimetype($item);
+			PDLNA::Log::log('Processing '.$item.' with MimeType '.$mime_type.'.', 2, 'library');
+
+			if (PDLNA::Media::is_supported_mimetype($mime_type))
+			{
+				my $media_type = PDLNA::Media::return_type_by_mimetype($mime_type);
+				if ($media_type && ($media_type eq $$params{'media_type'} || $$params{'media_type'} eq 'all'))
+				{
+					PDLNA::Log::log('Adding '.$media_type.' item '.$item.'.', 2, 'library');
+
+					my $item_id = _add_media_item(
+						$dbh,
+						{
+							'fullname' => $item,
+							'parent_id' => $directory_id,
+							'item_type' => 1,
+							'mime_type' => $mime_type,
+							'media_type' => $media_type,
+						}
+					);
+
+					# TODO subtitles for video files
+				}
+			}
+			elsif (PDLNA::Media::is_supported_playlist($mime_type))
+			{
+				PDLNA::Log::log('Adding playlist '.$item.' as directory.', 2, 'library');
+				# TODO
+			}
+			else
+			{
+				PDLNA::Log::log('Item '.$item.' skipped. Unsupported MimeType '.$mime_type.'.', 2, 'library');
+			}
+		}
+		else
+		{
+			PDLNA::Log::log('Item '.$item.' skipped. Inlcuded in ExcludeList.', 2, 'library');
+		}
+	}
+}
+
+sub _add_media_item
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	# gather size and date for item
+	my @fileinfo = stat($$params{'fullname'});
+
+	# select from database
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id, size, date FROM items WHERE fullname = ?',
+			'parameters' => [ $$params{'fullname'}, ],
+		},
+		\@results,
+	);
+
+	if (defined($results[0]->{id})) # check if item is already in db
+	{
+		if ($results[0]->{size} != $fileinfo[7] || $results[0]->{date} != $fileinfo[9]) # item has changed
+		{
+			# TODO
+			PDLNA::Log::log('Updated media item '.$$params{'fullname'}.' in ContentLibrary.', 2, 'library');
+		}
+		else # item has not changed
+		{
+			PDLNA::Log::log('No need to update media item '.$$params{'fullname'}.' in ContentLibrary.', 3, 'library');
+		}
+	}
+	else # item not in database
+	{
+		# add directory to database
+		PDLNA::Database::insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO items (parent_id, item_type, media_type, fullname, title, size, date) VALUES (?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'parent_id'}, $$params{'item_type'}, $$params{'media_type'}, $$params{'fullname'}, basename($$params{'fullname'}), $fileinfo[7], $fileinfo[9], ],
+			},
+		);
+		PDLNA::Log::log('Added media item '.$$params{'fullname'}.' to ContentLibrary.', 2, 'library');
+	}
+
+	return _get_itemid_by_fullname($dbh, $$params{'fullname'});
+}
+
+sub _add_directory_item
+{
+	my $dbh = shift;
+	my $params = shift;
+
+	unless (_get_itemid_by_fullname($dbh, $$params{'fullname'})) # check if item is already in db
+	{
+		# add directory to database
+		PDLNA::Database::insert_db(
+			$dbh,
+			{
+				'query' => 'INSERT INTO items (parent_id, fullname, title) VALUES (?,?,?)',
+				'parameters' => [ $$params{'parent_id'}, $$params{'fullname'}, basename($$params{'fullname'}), ],
+			},
+		);
+		PDLNA::Log::log('Added directory item '.$$params{'fullname'}.' to ContentLibrary.', 2, 'library');
+	}
+
+	return _get_itemid_by_fullname($dbh, $$params{'fullname'});
+}
+
+sub _get_itemid_by_fullname
+{
+	my $dbh = shift;
+	my $fullname = shift;
+
+	my @results = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id FROM items WHERE fullname = ?',
+			'parameters' => [ $fullname, ],
+		},
+		\@results,
+	);
+
+	return $results[0]->{id} if defined($results[0]->{id});
+	return undef;
+}
+
+#
+# INTERNAL HELPER FUNCTIONS END
+#
 
 1;
 

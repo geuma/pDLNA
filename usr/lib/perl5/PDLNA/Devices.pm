@@ -35,13 +35,13 @@ sub add_device
 	#
 	# BEGIN OF IP
 	#
-	my $device_ip_id = _get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
+	my $device_ip_id = get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
 	if (defined($device_ip_id))
 	{
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => 'UPDATE DEVICE_IP SET LAST_SEEN = ? WHERE ID = ?',
+				'query' => 'UPDATE device_ip SET last_seen = ? WHERE id = ?',
 				'parameters' => [ time(), $device_ip_id, ],
 			},
 		);
@@ -51,23 +51,23 @@ sub add_device
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO DEVICE_IP (IP, LAST_SEEN) VALUES (?,?)',
+				'query' => 'INSERT INTO device_ip (ip, last_seen) VALUES (?,?)',
 				'parameters' => [ $$params{'ip'}, time(), ],
 			},
 		);
-		$device_ip_id = _get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
+		$device_ip_id = get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
 	}
 	#
 	# END OF IP
 	#
 
-	# set the user agent string of defined
+	# set the user agent string if defined
 	if (defined($$params{'http_useragent'}))
 	{
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => 'UPDATE DEVICE_IP SET USER_AGENT = ? WHERE ID = ?',
+				'query' => 'UPDATE device_ip SET user_agent = ? WHERE id = ?',
 				'parameters' => [ $$params{'http_useragent'}, $device_ip_id, ],
 			},
 		);
@@ -112,7 +112,7 @@ sub add_device
 					$device_udn_modelname = $xml->{'device'}->{'modelName'} if defined($xml->{'device'}->{'modelName'});
 					$device_udn_friendlyname = $xml->{'device'}->{'friendlyName'} if defined($xml->{'device'}->{'friendlyName'});
 
-					# add DEVICE_SERVICE
+					# add device_service
 					if (ref($xml->{'device'}->{'serviceList'}->{'service'}) eq 'ARRAY') # we need to check if it is an array
 					{
 						foreach my $service (@{$xml->{'device'}->{'serviceList'}->{'service'}})
@@ -164,13 +164,13 @@ sub add_device
 			PDLNA::Database::insert_db(
 				$dbh,
 				{
-					'query' => 'INSERT INTO DEVICE_UDN (DEVICE_IP_REF, UDN, SSDP_BANNER, DESC_URL, RELA_URL, BASE_URL, TYPE, MODEL_NAME, FRIENDLY_NAME) VALUES (?,?,?,?,?,?,?,?,?)',
+					'query' => 'INSERT INTO device_udn (device_ip_ref, udn, ssdp_banner, desc_url, rela_url, base_url, type, model_name, friendly_name) VALUES (?,?,?,?,?,?,?,?,?)',
 					'parameters' => [ $device_ip_id, $$params{'udn'}, $$params{'ssdp_banner'}, $$params{'device_description_location'}, $device_udn_base_url, $device_udn_rela_url, $device_udn_devicetype, $device_udn_modelname, $device_udn_friendlyname, ],
 				},
 			);
 			$device_udn_id = _get_device_udn_id_by_device_ip_id($dbh, $device_ip_id, $$params{'udn'});
 
-			# create the DEVICE_SERVICE entries
+			# create the device_service entries
 			foreach my $service (keys %services)
 			{
 				if (defined($services{$service}->{'serviceId'}) && defined($services{$service}->{'controlURL'}) && defined($services{$service}->{'eventSubURL'}) && defined($services{$service}->{'SCPDURL'}))
@@ -178,7 +178,7 @@ sub add_device
 					PDLNA::Database::insert_db(
 						$dbh,
 						{
-							'query' => 'INSERT INTO DEVICE_SERVICE (DEVICE_UDN_REF, SERVICE_ID, TYPE, CONTROL_URL, EVENT_URL, SCPD_URL) VALUES (?,?,?,?,?,?)',
+							'query' => 'INSERT INTO device_service (device_udn_ref, service_id, type, control_url, event_url, scpd_url) VALUES (?,?,?,?,?,?)',
 							'parameters' => [ $device_udn_id, $services{$service}->{'serviceId'}, $services{$service}->{'serviceType'}, $services{$service}->{'controlURL'}, $services{$service}->{'eventSubURL'}, $services{$service}->{'SCPDURL'}, ],
 						},
 					);
@@ -202,7 +202,7 @@ sub add_device
 		PDLNA::Database::update_db(
 			$dbh,
 			{
-				'query' => 'UPDATE DEVICE_NTS SET EXPIRE = ? WHERE ID = ? AND TYPE = ?',
+				'query' => 'UPDATE device_nts SET expire = ? WHERE id = ? AND type = ?',
 				'parameters' => [ $$params{'nt_time_of_expire'}, $device_nts_id, $$params{'nt'}, ],
 			},
 		);
@@ -212,7 +212,7 @@ sub add_device
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO DEVICE_NTS (DEVICE_UDN_REF, TYPE, EXPIRE) VALUES (?,?,?)',
+				'query' => 'INSERT INTO device_nts (device_udn_ref, type, expire) VALUES (?,?,?)',
 				'parameters' => [ $device_udn_id, $$params{'nt'}, $$params{'nt_time_of_expire'}, ],
 			},
 		);
@@ -229,39 +229,39 @@ sub delete_expired_devices
 
 	my $time = time();
 
-	# delete expired DEVICE_NTS entries
+	# delete expired device_nts entries
 	my @device_nts = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, EXPIRE FROM DEVICE_NTS',
+			'query' => 'SELECT id, expire FROM device_nts',
 			'parameters' => [ ],
 		},
 		\@device_nts,
 	);
 	foreach my $nts (@device_nts)
 	{
-		if ($nts->{EXPIRE} < $time)
+		if ($nts->{expire} < $time)
 		{
-			_delete_device_nts_by_id($dbh, $nts->{ID});
+			_delete_device_nts_by_id($dbh, $nts->{id});
 		}
 	}
 
-	# delete DEVICE_UDN entries with no NTS entries
+	# delete device_udn entries with no NTS entries
 	my @device_udn = ();
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID FROM DEVICE_UDN',
+			'query' => 'SELECT id FROM device_udn',
 			'parameters' => [ ],
 		},
 		\@device_udn,
 	);
 	foreach my $udn (@device_udn)
 	{
-		if (_get_device_nts_amount_by_device_udn_id($dbh, $udn->{ID}) == 0)
+		if (_get_device_nts_amount_by_device_udn_id($dbh, $udn->{id}) == 0)
 		{
-			_delete_device_udn_by_id($dbh, $udn->{ID});
+			_delete_device_udn_by_id($dbh, $udn->{id});
 		}
 	}
 
@@ -277,7 +277,7 @@ sub delete_device
 	return 0 if !defined($$params{'udn'});
 	return 0 if !defined($$params{'nt'});
 
-	my $device_ip_id = _get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
+	my $device_ip_id = get_device_ip_id_by_device_ip($dbh, $$params{'ip'});
 	my $device_udn_id = _get_device_udn_id_by_device_ip_id($dbh, $device_ip_id, $$params{'udn'}) if defined($device_ip_id);
 	my $device_nts_id = _get_device_nts_id_by_device_udn_id($dbh, $device_udn_id, $$params{'nt'}) if defined($device_udn_id);
 
@@ -300,7 +300,7 @@ sub get_modelname_by_devicetype
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID, MODEL_NAME FROM DEVICE_UDN WHERE DEVICE_IP_REF IN (SELECT ID FROM DEVICE_IP WHERE IP = ?)',
+			'query' => 'SELECT id, model_name FROM device_udn WHERE device_ip_ref IN (SELECT id FROM device_ip WHERE ip = ?)',
 			'parameters' => [ $ip, ],
 		},
 		\@modelnames,
@@ -311,18 +311,36 @@ sub get_modelname_by_devicetype
 		PDLNA::Database::select_db(
 			$dbh,
 			{
-				'query' => 'SELECT DEVICE_UDN_REF FROM DEVICE_NTS WHERE TYPE = ?',
+				'query' => 'SELECT device_udn_ref FROM device_nts WHERE type = ?',
 				'parameters' => [ $devicetype, ],
 			},
 			\@device_udns,
 		);
 
-		if (defined($device_udns[0]->{DEVICE_UDN_REF}) && $device_udns[0]->{DEVICE_UDN_REF} == $modelname->{ID})
+		if (defined($device_udns[0]->{device_udn_ref}) && $device_udns[0]->{device_udn_ref} == $modelname->{id})
 		{
-			return $modelname->{MODEL_NAME};
+			return $modelname->{model_name};
 		}
 	}
 	return '';
+}
+
+sub get_device_ip_id_by_device_ip
+{
+	my $dbh = shift;
+	my $ip = shift;
+
+	my @devices = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id FROM device_ip WHERE ip = ?',
+			'parameters' => [ $ip, ],
+		},
+		\@devices,
+	);
+
+	return $devices[0]->{id};
 }
 
 #
@@ -337,7 +355,7 @@ sub _delete_device_nts_by_id
 	PDLNA::Database::delete_db(
 		$dbh,
 		{
-			'query' => 'DELETE FROM DEVICE_NTS WHERE ID = ?',
+			'query' => 'DELETE FROM device_nts WHERE id = ?',
 			'parameters' => [ $device_nts_id, ],
 		},
 	);
@@ -353,13 +371,13 @@ sub _get_device_nts_id_by_device_udn_id
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ? AND TYPE = ?',
+			'query' => 'SELECT id FROM device_nts WHERE device_udn_ref = ? AND type = ?',
 			'parameters' => [ $device_udn_id, $device_nts_type, ],
 		},
 		\@device_nts,
 	);
 
-	return $device_nts[0]->{ID};
+	return $device_nts[0]->{id};
 }
 
 sub _get_device_nts_amount_by_device_udn_id
@@ -371,13 +389,13 @@ sub _get_device_nts_amount_by_device_udn_id
 	PDLNA::Database::select_db(
 	$dbh,
 		{
-			'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DEVICE_NTS WHERE DEVICE_UDN_REF = ?',
+			'query' => 'SELECT COUNT(id) AS amount FROM device_nts WHERE device_udn_ref = ?',
 			'parameters' => [ $device_udn_id, ],
 		},
 		\@device_nts_amount,
 	);
 
-	return $device_nts_amount[0]->{AMOUNT};
+	return $device_nts_amount[0]->{amount};
 }
 
 sub _delete_device_udn_by_id
@@ -388,16 +406,16 @@ sub _delete_device_udn_by_id
 	PDLNA::Database::delete_db(
 		$dbh,
 		{
-			'query' => 'DELETE FROM DEVICE_UDN WHERE ID = ?',
+			'query' => 'DELETE FROM device_udn WHERE id = ?',
 			'parameters' => [ $device_udn_id, ],
 		},
 	);
 
-	# delete the DEVICE_SERVICE entries
+	# delete the device_service entries
 	PDLNA::Database::delete_db(
 		$dbh,
 		{
-			'query' => 'DELETE FROM DEVICE_SERVICE WHERE DEVICE_UDN_REF = ?',
+			'query' => 'DELETE FROM device_service WHERE device_udn_ref = ?',
 			'parameters' => [ $device_udn_id, ],
 		},
 	);
@@ -413,13 +431,13 @@ sub _get_device_udn_id_by_device_ip_id
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT ID FROM DEVICE_UDN WHERE DEVICE_IP_REF = ? AND UDN = ?',
+			'query' => 'SELECT id FROM device_udn WHERE device_ip_ref = ? AND udn = ?',
 			'parameters' => [ $device_ip_id, $device_udn, ],
 		},
 		\@device_udn,
 	);
 
-	return $device_udn[0]->{ID};
+	return $device_udn[0]->{id};
 }
 
 sub _get_device_udn_amount_by_device_ip_id
@@ -431,31 +449,13 @@ sub _get_device_udn_amount_by_device_ip_id
 	PDLNA::Database::select_db(
 	$dbh,
 		{
-			'query' => 'SELECT COUNT(ID) AS AMOUNT FROM DEVICE_UDN WHERE DEVICE_IP_REF = ?',
+			'query' => 'SELECT COUNT(id) AS amount FROM device_udn WHERE device_ip_ref = ?',
 			'parameters' => [ $device_ip_id, ],
 		},
 		\@device_udn_amount,
 	);
 
-	return $device_udn_amount[0]->{AMOUNT};
-}
-
-sub _get_device_ip_id_by_device_ip
-{
-	my $dbh = shift;
-	my $ip = shift;
-
-	my @devices = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT ID FROM DEVICE_IP WHERE IP = ?',
-			'parameters' => [ $ip, ],
-		},
-		\@devices,
-	);
-
-	return $devices[0]->{ID};
+	return $device_udn_amount[0]->{amount};
 }
 
 sub _delete_device_ip_by_id
@@ -466,7 +466,7 @@ sub _delete_device_ip_by_id
 	PDLNA::Database::delete_db(
 		$dbh,
 		{
-			'query' => 'DELETE FROM DEVICE_IP WHERE ID = ?',
+			'query' => 'DELETE FROM device_ip WHERE id = ?',
 			'parameters' => [ $device_ip_id, ],
 		},
 	);
