@@ -83,58 +83,10 @@ sub convert_bytes
 }
 
 # TODO make it more beautiful
-sub convert_duration_detail
-{
-	my $duration_seconds = shift || 0;
-
-	my $seconds = $duration_seconds;
-	my $minutes = 0;
-	$minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60 if $seconds;
-	my $hours = 0;
-	$hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60 if $hours;
-	my $days = 0;
-	$days = int($hours / 24) if $hours > 23;
-	$hours -= $days * 24 if $days;
-	my $weeks = 0;
-	$weeks = int($days / 7) if $days > 6;
-	$days -= $weeks * 7 if $weeks;
-
-	my $string = '';
-	$string .= $weeks.'w ' if $weeks;
-	$string .= $days.'d ' if $days;
-	$string .= add_leading_char($hours,2,'0').':';
-	$string .= add_leading_char($minutes,2,'0').':';
-	$string .= add_leading_char($seconds,2,'0');
-
-	return $string;
-}
-
-# TODO make it more beautiful
 sub convert_duration
 {
 	my $duration_seconds = shift || 0;
-
-	my $seconds = $duration_seconds;
-	my $minutes = 0;
-	$minutes = int($seconds / 60) if $seconds > 59;
-	$seconds -= $minutes * 60 if $seconds;
-	my $hours = 0;
-	$hours = int($minutes / 60) if $minutes > 59;
-	$minutes -= $hours * 60 if $hours;
-
-	my $string = '';
-	$string .= PDLNA::Utils::add_leading_char($hours,2,'0').':';
-	$string .= PDLNA::Utils::add_leading_char($minutes,2,'0').':';
-	$string .= PDLNA::Utils::add_leading_char($seconds,2,'0');
-
-	return $string;
-}
-
-sub convert_seek_duration
-{
-	my $duration_seconds = shift || 0;
+	my $detailed = shift || 0;
 
 	my ($seconds, $minutes, $hours) = 0;
 
@@ -144,7 +96,24 @@ sub convert_seek_duration
 	$hours = int($minutes / 60) if $minutes > 59;
 	$minutes -= $hours * 60 if $hours;
 
-	return add_leading_char($hours, 2, 0).':'.add_leading_char($minutes, 2, 0).':'.add_leading_char($seconds, 2, 0);
+	my $string = '';
+	if ($detailed)
+	{
+		my ($days, $weeks) = 0;
+
+		$days = int($hours / 24) if $hours > 23;
+		$hours -= $days * 24 if $days;
+		$weeks = int($days / 7) if $days > 6;
+		$days -= $weeks * 7 if $weeks;
+
+		$string .= $weeks.'w ' if $weeks;
+		$string .= $days.'d ' if $days;
+	}
+	$string .= add_leading_char($hours,2,'0').':';
+	$string .= add_leading_char($minutes,2,'0').':';
+	$string .= add_leading_char($seconds,2,'0');
+
+	return $string;
 }
 
 # well, it is not real random ... but it's adequate

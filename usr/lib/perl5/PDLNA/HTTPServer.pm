@@ -1216,8 +1216,8 @@ sub stream_media_beta
 
 
 
-					push(@additional_header, 'TimeSeekRange.dlna.org: npt='.PDLNA::Utils::convert_seek_duration($startseek).'-'.PDLNA::Utils::convert_seek_duration($endseek).'/'.PDLNA::Utils::convert_seek_duration($iteminfo[0]->{DURATION}));
-					push(@additional_header, 'X-Seek-Range: npt='.PDLNA::Utils::convert_seek_duration($startseek).'-'.PDLNA::Utils::convert_seek_duration($endseek).'/'.PDLNA::Utils::convert_seek_duration($iteminfo[0]->{DURATION}));
+					push(@additional_header, 'TimeSeekRange.dlna.org: npt='.PDLNA::Utils::convert_duration($startseek).'-'.PDLNA::Utils::convert_duration($endseek).'/'.PDLNA::Utils::convert_duration($iteminfo[0]->{DURATION}));
+					push(@additional_header, 'X-Seek-Range: npt='.PDLNA::Utils::convert_duration($startseek).'-'.PDLNA::Utils::convert_duration($endseek).'/'.PDLNA::Utils::convert_duration($iteminfo[0]->{DURATION}));
 
 
 

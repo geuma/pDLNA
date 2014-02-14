@@ -265,7 +265,7 @@ sub show
 				'parameters' => [ ],
 			},
 		);
-		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration_detail($duration)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
+		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration($duration, 1)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
 		# END TODO
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
