@@ -403,6 +403,70 @@ sub details
 sub get_dlnacontentfeatures
 {
 	my $item = shift;
+
+	my $contentfeatures = '';
+
+	# DLNA.ORG_PN - media profile
+	if (defined($item))
+	{
+		$contentfeatures .= 'DLNA.ORG_PN=WMABASE;' if $item->{mime_type} eq 'audio/x-ms-wma';
+		$contentfeatures .= 'DLNA.ORG_PN=MP3;' if $item->{mime_type} eq 'audio/mpeg';
+		$contentfeatures .= 'DLNA.ORG_PN=JPEG_LRG;' if $item->{mime_type} eq 'image/jpeg';
+	}
+	else
+	{
+#		$contentfeatures .= 'DLNA.ORG_PN=JPEG_TN;' if $type eq 'JPEG_TN';
+#		$contentfeatures .= 'DLNA.ORG_PN=JPEG_SM;' if $type eq 'JPEG_SM';
+	}
+
+	# DLNA.ORG_OP=ab
+	#   a - server supports TimeSeekRange
+	#   b - server supports RANGE
+	if (defined($item))
+	{
+		if ($item->{media_type} eq 'image')
+		{
+			$contentfeatures .= 'DLNA.ORG_OP=00;'; # no seeking for images
+		}
+		else
+		{
+			$contentfeatures .= 'DLNA.ORG_OP=01;'; # activate seeking by RANGE command
+		}
+	}
+	else
+	{
+		$contentfeatures .= 'DLNA.ORG_OP=00;'; # no seeking
+	}
+
+	# DLNA.ORG_PS - supported play speeds
+	# TODO
+
+	# DLNA.ORG_CI - for transcoded media items it is set to 1
+	$contentfeatures .= 'DLNA.ORG_CI=0;';
+
+	# DLNA.ORG_FLAGS - binary flags with device parameters
+	if (defined($item))
+	{
+		if ($item->{media_type} eq 'image')
+		{
+			$contentfeatures .= 'DLNA.ORG_FLAGS=00D00000000000000000000000000000';
+		}
+		else
+		{
+			$contentfeatures .= 'DLNA.ORG_FLAGS=01500000000000000000000000000000';
+		}
+	}
+	else
+	{
+		$contentfeatures .= 'DLNA.ORG_FLAGS=00D00000000000000000000000000000';
+	}
+
+	return $contentfeatures;
+}
+
+sub get_dlnacontentfeatures_old
+{
+	my $item = shift;
 	my $transcode = shift;
 	my $type = shift;
 

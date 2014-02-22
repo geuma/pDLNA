@@ -88,7 +88,7 @@ sub convert_duration
 	my $duration_seconds = shift || 0;
 	my $detailed = shift || 0;
 
-	my ($seconds, $minutes, $hours) = 0;
+	my ($seconds, $minutes, $hours) = (0, 0, 0);
 
 	$seconds = $duration_seconds;
 	$minutes = int($seconds / 60) if $seconds > 59;
@@ -99,7 +99,7 @@ sub convert_duration
 	my $string = '';
 	if ($detailed)
 	{
-		my ($days, $weeks) = 0;
+		my ($days, $weeks) = (0, 0);
 
 		$days = int($hours / 24) if $hours > 23;
 		$hours -= $days * 24 if $days;
@@ -187,6 +187,16 @@ sub escape_brackets
 
 	$string =~ s/\[/\\[/g;
 	$string =~ s/\]/\\]/g;
+
+	return $string;
+}
+
+# TODO windows part (if needed)
+sub delete_trailing_slash
+{
+	my $string = shift;
+
+	$string =~ s/\/$//;
 
 	return $string;
 }

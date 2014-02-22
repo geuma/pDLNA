@@ -591,7 +591,8 @@ sub parse_config
 		my $allow_playlists = eval_binary_value($block->get('AllowPlaylists')) if defined($block->get('AllowPlaylists'));
 
 		push(@{$CONFIG{'DIRECTORIES'}}, {
-				'path' => $directory_block->[1],
+				'path' => PDLNA::Utils::delete_trailing_slash($directory_block->[1]),
+				#'path' => $directory_block->[1],
 				'type' => $block->get('MediaType'),
 				'recursion' => $recursion,
 				'exclude_dirs' => \@exclude_dirs,

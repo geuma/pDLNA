@@ -142,15 +142,29 @@ sub initialize_db
 		$dbh->do("CREATE TABLE items (
 				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				parent_id			INTEGER,
+				media_attributes	INTEGER DEFAULT 0,
 
 				item_type			INTEGER DEFAULT 0,
 				media_type			VARCHAR(12),
+				mime_type			VARCHAR(128),
 
 				fullname			VARCHAR(2048),
 				title				VARCHAR(2048),
+				file_extension		VARCHAR(4),
 
 				date				BIGINT,
-				size				BIGINT
+				size				BIGINT,
+
+				width				INTEGER DEFAULT 0,
+				height				INTEGER DEFAULT 0,
+
+				duration			INTEGER DEFAULT 0,
+				bitrate				INTEGER DEFAULT 0,
+				vbr					INTEGER DEFAULT 0,
+
+				container			VARCHAR(128),
+				audio_codec			VARCHAR(128),
+				video_codec			VARCHAR(128)
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
 	}

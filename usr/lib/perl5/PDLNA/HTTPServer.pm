@@ -419,6 +419,7 @@ sub build_BrowseMetadata_response
 	$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer(1, 1);
 
 	PDLNA::Log::log('Done preparing BrowseMetadata XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+
 	#
 	# return the http response
 	#
@@ -434,18 +435,20 @@ sub build_BrowseDirectChildren_response
 	# get the subdirectories for the object_id requested
 	#
 	my @dire_elements = ();
-	PDLNA::ContentLibrary::get_subdirectories_by_id(
+	PDLNA::ContentLibrary::get_items_by_parentid(
 		$$params{'dbh'},
 		$$params{'object_id'},
 		$$params{'starting_index'},
 		$$params{'requested_count'},
+		0,
 		\@dire_elements,
 	);
 
 	#
 	# get the full amount of subdirectories for the object_id requested
 	#
-	my $amount_directories = PDLNA::ContentLibrary::get_amount_subdirectories_by_id($$params{'dbh'}, $$params{'object_id'});
+
+	my $amount_directories = PDLNA::ContentLibrary::get_amount_items_by_parentid_n_itemtype($$params{'dbh'}, $$params{'object_id'}, 0);
 
 	$$params{'requested_count'} = $$params{'requested_count'} - scalar(@dire_elements); # amount of @dire_elements is already in answer
 	if ($$params{'starting_index'} >= $amount_directories)
@@ -457,18 +460,19 @@ sub build_BrowseDirectChildren_response
 	# get the files for the directory requested
 	#
 	my @file_elements = ();
-	PDLNA::ContentLibrary::get_subfiles_by_id(
+	PDLNA::ContentLibrary::get_items_by_parentid(
 		$$params{'dbh'},
 		$$params{'object_id'},
 		$$params{'starting_index'},
 		$$params{'requested_count'},
+		1,
 		\@file_elements,
 	);
 
 	#
 	# get the full amount of files in the directory requested
 	#
-	my $amount_files = PDLNA::ContentLibrary::get_amount_subfiles_by_id($$params{'dbh'}, $$params{'object_id'});
+	my $amount_files = PDLNA::ContentLibrary::get_amount_items_by_parentid_n_itemtype($$params{'dbh'}, $$params{'object_id'}, 1);
 
 	#
 	# build the http response
@@ -478,9 +482,9 @@ sub build_BrowseDirectChildren_response
 
 	foreach my $directory (@dire_elements)
 	{
-		$response_xml .= PDLNA::HTTPXML::get_browseresponse_directory(
-			$directory->{ID},
-			$directory->{NAME},
+		$response_xml .= PDLNA::HTTPXML::get_browseresponse_container(
+			$directory->{id},
+			$directory->{title},
 			$$params{'browsefilters'},
 			$$params{'dbh'},
 		);
@@ -489,7 +493,7 @@ sub build_BrowseDirectChildren_response
 	foreach my $file (@file_elements)
 	{
 		$response_xml .= PDLNA::HTTPXML::get_browseresponse_item(
-			$file->{ID},
+			$file->{id},
 			$$params{'browsefilters'},
 			$$params{'dbh'},
 			$$params{'peer_ip_addr'},
@@ -503,6 +507,7 @@ sub build_BrowseDirectChildren_response
 	$response_xml .= PDLNA::HTTPXML::get_browseresponse_footer($elements_in_listing, $elements_in_directory);
 
 	PDLNA::Log::log('Done preparing BrowseDirectChildren XML response for ObjectID: '.$$params{'object_id'}, 3, 'httpdir');
+
 	#
 	# return the http response
 	#
@@ -572,23 +577,12 @@ sub ctrl_content_directory_1
 		{
 			if (grep(/^\@parentID$/, @browsefilters) && $object_id =~ /^\d+$/)
 			{
-				# set object_id to parentid
-				my @directory_parent = ();
-				PDLNA::Database::select_db(
-					$dbh,
-					{
-						'query' => 'SELECT ID FROM DIRECTORIES WHERE PATH IN ( SELECT DIRNAME FROM DIRECTORIES WHERE ID = ? );',
-						'parameters' => [ $object_id, ],
-					},
-					\@directory_parent,
-				);
-				$directory_parent[0]->{ID} = 0 if !defined($directory_parent[0]->{ID});
-				$object_id = $directory_parent[0]->{ID};
-
+				# set object_id to parent_id
+				my $parent_id = PDLNA::ContentLibrary::get_parentid_by_id($dbh, $object_id);
 				$response_xml = build_BrowseDirectChildren_response(
 					{
 						dbh => $dbh,
-						object_id => $object_id,
+						object_id => $parent_id,
 						starting_index => $starting_index,
 						requested_count => $requested_count,
 						browsefilters => \@browsefilters,
@@ -1402,6 +1396,220 @@ sub stream_media_beta
 }
 
 sub stream_media
+{
+	my $content_id = shift;
+	my $method = shift;
+	my $CGI = shift;
+	my $FH = shift;
+	my $model_name = shift;
+	my $client_ip = shift;
+	my $user_agent = shift;
+
+	if ($content_id =~ /^(\d+)\.(\w+)$/)
+	{
+		my $id = $1;
+
+		#
+		# getting information from database
+		#
+		my $dbh = PDLNA::Database::connect();
+
+		my @item = ();
+		PDLNA::Database::select_db(
+			$dbh,
+			{
+				'query' => 'SELECT mime_type, fullname, title, size FROM items WHERE id = ?',
+				'parameters' => [ $id, ],
+			},
+			\@item,
+		);
+
+		PDLNA::Database::disconnect($dbh);
+
+		#
+		# sanity checks
+		#
+		unless (defined($item[0]->{fullname}))
+		{
+			PDLNA::Log::log('Item with ID '.$id.' NOT found (in media library).', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+			return;
+		}
+		unless (-f $item[0]->{fullname})
+		{
+			PDLNA::Log::log('Item with ID '.$id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 1, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+			return;
+		}
+
+		#
+		# for streaming relevant code starts here
+		#
+
+		my @additional_header = ();
+		push(@additional_header, 'Content-Type: '.PDLNA::Media::get_mimetype_by_modelname($item[0]->{mime_type}, $model_name));
+		push(@additional_header, 'Content-Length: '.$item[0]->{size});
+		push(@additional_header, 'Content-Disposition: attachment; filename="'.$item[0]->{title}.'"');
+		push(@additional_header, 'Accept-Ranges: bytes');
+
+		# Streaming of content is NOT working with SAMSUNG without this response header
+		if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}))
+		{
+			if ($$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
+			{
+				push(@additional_header, 'contentFeatures.dlna.org: '.PDLNA::Media::get_dlnacontentfeatures($item[0]));
+			}
+			else
+			{
+				PDLNA::Log::log('Invalid contentFeatures.dlna.org:'.$$CGI{'GETCONTENTFEATURES.DLNA.ORG'}.'.', 1, 'httpstream');
+				print $FH http_header({
+					'statuscode' => 400,
+					'content_type' => 'text/plain',
+				});
+			}
+		}
+
+		if ($method eq 'HEAD') # handling HEAD requests
+		{
+			PDLNA::Log::log('Delivering content information (HEAD Request) for: '.$item[0]->{title}.'.', 1, 'httpstream');
+
+			print $FH http_header({
+				'statuscode' => 200,
+				'additional_header' => \@additional_header,
+				'log' => 'httpstream',
+			});
+		}
+		elsif ($method eq 'GET') # handling GET requests
+		{
+			# for clients, which are not sending the Streaming value for the transferMode.dlna.org parameter
+			# we set it, because they seem to ignore it
+			if (defined($$CGI{'USER-AGENT'}))
+			{
+				if (
+					$$CGI{'USER-AGENT'} =~ /^foobar2000/ || # since foobar2000 is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^vlc/i || # since vlc is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^stagefright/ || # since UPnPlay is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^gvfs/ || # since Totem Movie Player is NOT sending any TRANSFERMODE.DLNA.ORG param
+					$$CGI{'USER-AGENT'} =~ /^\(null\)/
+					)
+				{
+					$$CGI{'TRANSFERMODE.DLNA.ORG'} = 'Streaming';
+				}
+			}
+
+			# transferMode handling
+			if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}))
+			{
+				if ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Streaming') # for immediate rendering of audio or video content
+				{
+					push(@additional_header, 'transferMode.dlna.org: Streaming');
+
+					my $statuscode = 200;
+					my ($lowrange, $highrange) = 0;
+					if (
+							defined($$CGI{'RANGE'}) &&						# if RANGE is defined as HTTP header
+							$$CGI{'RANGE'} =~ /^bytes=(\d+)-(\d*)$/			# if RANGE looks like
+						)
+					{
+						PDLNA::Log::log('Delivering content for: '.$item[0]->{fullname}.' with RANGE Request.', 1, 'httpstream');
+						my $statuscode = 206;
+
+						$lowrange = int($1);
+						$highrange = $2 ? int($2) : 0;
+						$highrange = $item[0]->{size}-1 if $highrange == 0;
+						$highrange = $item[0]->{size}-1 if ($highrange >= $item[0]->{size});
+
+						my $bytes_to_ship = $highrange - $lowrange + 1;
+
+						$additional_header[1] = 'Content-Length: '.$bytes_to_ship; # we need to change the Content-Length
+						push(@additional_header, 'Content-Range: bytes '.$lowrange.'-'.$highrange.'/'.$item[0]->{size});
+					}
+
+					#
+					# sending the response
+					#
+					sysopen(ITEM, $item[0]->{fullname}, O_RDONLY);
+					sysseek(ITEM, $lowrange, 0) if $lowrange;
+
+					print $FH http_header({
+						'statuscode' => $statuscode,
+						'additional_header' => \@additional_header,
+						'log' => 'httpstream',
+					});
+
+					my $buf = undef;
+					while (sysread(ITEM, $buf, $CONFIG{'BUFFER_SIZE'}))
+					{
+						PDLNA::Log::log('Adding '.bytes::length($buf).' bytes to Streaming connection.', 3, 'httpstream');
+						print $FH $buf or return 1;
+					}
+					close(ITEM);
+
+					return 1;
+				}
+				elsif ($$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Interactive') # for immediate rendering of images or playlist files
+				{
+					PDLNA::Log::log('Delivering (Interactive) content for: '.$item[0]->{fullname}.'.', 1, 'httpstream');
+					push(@additional_header, 'transferMode.dlna.org: Interactive');
+
+					# Delivering interactive content as a whole
+					print $FH http_header({
+						'statuscode' => 200,
+						'additional_header' => \@additional_header,
+					});
+					sysopen(FILE, $item[0]->{fullname}, O_RDONLY);
+					print $FH <FILE>;
+					close(FILE);
+				}
+				else # unknown TRANSFERMODE.DLNA.ORG is set
+				{
+					PDLNA::Log::log('Transfermode '.$$CGI{'TRANSFERMODE.DLNA.ORG'}.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
+					print $FH http_header({
+						'statuscode' => 501,
+						'content_type' => 'text/plain',
+					});
+				}
+			}
+			else # no TRANSFERMODE.DLNA.ORG is set
+			{
+				PDLNA::Log::log('Delivering content information (no Transfermode) for: '.$item[0]->{FULLNAME}.'.', 1, 'httpstream');
+				print $FH http_header({
+					'statuscode' => 200,
+					'additional_header' => \@additional_header,
+					'log' => 'httpstream',
+				});
+			}
+		}
+		else # not implemented HTTP method
+		{
+			PDLNA::Log::log('HTTP Method '.$method.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
+			print $FH http_header({
+				'statuscode' => 501,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+		}
+	}
+	else
+	{
+		PDLNA::Log::log('ContentID '.$content_id.' for Streaming Items is NOT supported yet.', 2, 'httpstream');
+		print $FH http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+	}
+}
+
+sub stream_media_old
 {
 	my $content_id = shift;
 	my $method = shift;

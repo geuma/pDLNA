@@ -44,19 +44,6 @@ sub index_directories_thread
 		my $timestamp_start = time();
 		foreach my $directory (@{$CONFIG{'DIRECTORIES'}}) # we are not able to run this part in threads - since glob seems to be NOT thread safe
 		{
-			process_directory(
-				$dbh,
-				{
-					'path' => $directory->{'path'},
-					'type' => $directory->{'type'},
-					'recursion' => $directory->{'recursion'},
-					'exclude_dirs' => $directory->{'exclude_dirs'},
-					'exclude_items' => $directory->{'exclude_items'},
-					'allow_playlists' => $directory->{'allow_playlists'},
-					'rootdir' => 1,
-				},
-			);
-
 			_process_directory(
 				$dbh,
 				{
@@ -71,24 +58,24 @@ sub index_directories_thread
 			);
 		}
 
-		my $i = 0;
-		foreach my $external (@{$CONFIG{'EXTERNALS'}})
-		{
-			add_file_to_db(
-				$dbh,
-				{
-					'element' => $external->{'command'} || $external->{'streamurl'},
-					'media_type' => $external->{'type'},
-					'mime_type' => '', # need to determine
-					'element_basename' => $external->{'name'},
-					'element_dirname' => '', # set the directory to nothing - no parent
-					'external' => 1,
-					'sequence' => $i,
-					'root' => 1,
-				},
-			);
-			$i++;
-		}
+#		my $i = 0;
+#		foreach my $external (@{$CONFIG{'EXTERNALS'}})
+#		{
+#			add_file_to_db(
+#				$dbh,
+#				{
+#					'element' => $external->{'command'} || $external->{'streamurl'},
+#					'media_type' => $external->{'type'},
+#					'mime_type' => '', # need to determine
+#					'element_basename' => $external->{'name'},
+#					'element_dirname' => '', # set the directory to nothing - no parent
+#					'external' => 1,
+#					'sequence' => $i,
+#					'root' => 1,
+#				},
+#			);
+#			$i++;
+#		}
 		$dbh->commit();
 		my $timestamp_end = time();
 
@@ -106,17 +93,17 @@ sub index_directories_thread
 		PDLNA::Log::log('Indexing configured media directories took '.$duration.' seconds.', 1, 'library');
 
 		my ($amount, $size) = get_amount_size_items_by($dbh, 'item_type', 1);
-		PDLNA::Log::log('Configured media directories include '.$amount.' with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
+		PDLNA::Log::log('Configured media directories include '.$amount.' items with '.PDLNA::Utils::convert_bytes($size).' of size.', 1, 'library');
 
-		cleanup_contentlibrary($dbh);
+		_cleanup_contentlibrary($dbh);
 		$dbh->commit();
 
 		$timestamp_start = time();
-		get_fileinfo($dbh);
+		_fetch_media_attributes($dbh);
 		$dbh->commit();
 		$timestamp_end = time();
 		$duration = $timestamp_end - $timestamp_start;
-		PDLNA::Log::log('Getting FFmpeg information for indexed media files took '.$duration.' seconds.', 1, 'library');
+		PDLNA::Log::log('Getting media attributes for indexed media items took '.$duration.' seconds.', 1, 'library');
 
 		PDLNA::Database::disconnect($dbh);
 
@@ -1122,7 +1109,7 @@ sub get_items_by_parentid
 	my $item_type = shift;
 	my $elements = shift;
 
-	my $sql_query = 'SELECT id, title, size, date FROM items WHERE parent_id = ? AND item_type = ? ORDER BY title';
+	my $sql_query = 'SELECT id, fullname, title, size, date FROM items WHERE parent_id = ? AND item_type = ? ORDER BY title';
 	if (defined($starting_index) && defined($requested_count))
 	{
 		$sql_query .= ' LIMIT '.$starting_index.', '.$requested_count;
@@ -1163,6 +1150,46 @@ sub get_amount_size_items_by
 	$amount = $result[0]->{amount} if $result[0]->{amount};
 	$size = $result[0]->{size} if $result[0]->{size};
 	return ($amount, $size);
+}
+
+#
+# NEW: returns amount of items based on their parent_id and item_type
+#
+sub get_amount_items_by_parentid_n_itemtype
+{
+	my $dbh = shift;
+	my $parent_id = shift;
+	my $item_type = shift;
+
+	my @result = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT COUNT(id) AS amount FROM items WHERE parent_id = ? AND item_type = ?',
+			'parameters' => [ $parent_id, $item_type, ],
+		},
+		\@result,
+	);
+
+	return $result[0]->{amount} || 0;
+}
+
+#
+# NEW: returns total duration of items
+#
+sub get_duration_items
+{
+	my $dbh = shift;
+
+	my $duration = PDLNA::Database::select_db_field_int(
+		$dbh,
+		{
+			'query' => 'SELECT SUM(duration) FROM items',
+			'parameters' => [ ],
+		},
+	);
+
+	return $duration;
 }
 
 #
@@ -1213,7 +1240,7 @@ sub _process_directory
 {
 	my $dbh = shift;
 	my $params = shift;
-	$$params{'fullname'} =~ s/\/$//;
+	$$params{'fullname'} = PDLNA::Utils::delete_trailing_slash($$params{'fullname'});
 
 	my $directory_id = _add_directory_item($dbh, $params);
 	$dbh->commit();
@@ -1286,6 +1313,7 @@ sub _add_media_item
 
 	# gather size and date for item
 	my @fileinfo = stat($$params{'fullname'});
+	my $file_extension = $1 if $$params{'fullname'} =~ /(\w{3,4})$/;
 
 	# select from database
 	my @results = ();
@@ -1302,7 +1330,14 @@ sub _add_media_item
 	{
 		if ($results[0]->{size} != $fileinfo[7] || $results[0]->{date} != $fileinfo[9]) # item has changed
 		{
-			# TODO
+			# TODO - CHECK IF I'M WORKING
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE items SET media_attributes = ?, size = ?, date = ? WHERE id = ?',
+					'parameters' => [ 0, $fileinfo[7], $fileinfo[9], $results[0]->{id}, ],
+				},
+			);
 			PDLNA::Log::log('Updated media item '.$$params{'fullname'}.' in ContentLibrary.', 2, 'library');
 		}
 		else # item has not changed
@@ -1316,8 +1351,8 @@ sub _add_media_item
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO items (parent_id, item_type, media_type, fullname, title, size, date) VALUES (?,?,?,?,?,?,?)',
-				'parameters' => [ $$params{'parent_id'}, $$params{'item_type'}, $$params{'media_type'}, $$params{'fullname'}, basename($$params{'fullname'}), $fileinfo[7], $fileinfo[9], ],
+				'query' => 'INSERT INTO items (parent_id, item_type, media_type, mime_type, fullname, title, size, date, file_extension) VALUES (?,?,?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'parent_id'}, $$params{'item_type'}, $$params{'media_type'}, $$params{'mime_type'}, $$params{'fullname'}, basename($$params{'fullname'}), $fileinfo[7], $fileinfo[9], $file_extension, ],
 			},
 		);
 		PDLNA::Log::log('Added media item '.$$params{'fullname'}.' to ContentLibrary.', 2, 'library');
@@ -1347,6 +1382,20 @@ sub _add_directory_item
 	return _get_itemid_by_fullname($dbh, $$params{'fullname'});
 }
 
+sub _delete_item_by_id
+{
+	my $dbh = shift;
+	my $item_id = shift;
+
+	PDLNA::Database::delete_db(
+		$dbh,
+		{
+			'query' => 'DELETE FROM items WHERE id = ?',
+			'parameters' => [ $item_id, ],
+		},
+	);
+}
+
 sub _get_itemid_by_fullname
 {
 	my $dbh = shift;
@@ -1364,6 +1413,202 @@ sub _get_itemid_by_fullname
 
 	return $results[0]->{id} if defined($results[0]->{id});
 	return undef;
+}
+
+sub _cleanup_contentlibrary
+{
+	my $dbh = shift;
+
+	PDLNA::Log::log('Started to clean up ContentLibrary.', 1, 'library');
+
+	#
+	# delete items, which aren't present any more (if any)
+	#
+	my @items = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id, fullname, item_type FROM items',
+			'parameters' => [ ],
+		},
+		\@items,
+	);
+	foreach my $item (@items)
+	{
+		if ($item->{item_type} == 0) # directory
+		{
+			unless (-d $item->{fullname})
+			{
+				_delete_item_by_id($dbh, $item->{id});
+			}
+		}
+		elsif ($item->{item_type} == 1) # file (audio, video, image)
+		{
+			unless (-f $item->{fullname})
+			{
+				_delete_item_by_id($dbh, $item->{id});
+			}
+		}
+	}
+
+	#
+	# delete directory items, which aren't configured any more (if any)
+	#
+	@items = ();
+	get_items_by_parentid($dbh, 0, undef, undef, 0, \@items);
+
+	my @conf_directories = ();
+	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
+	{
+		push(@conf_directories, $directory->{'path'});
+	}
+
+	foreach my $item (@items)
+	{
+		unless (grep(/^$item->{fullname}$/, @conf_directories))
+		{
+			# TODO subitems
+			_delete_item_by_id($dbh, $item->{id});
+		}
+	}
+
+	#
+	# delete external items, if LOW_RESOURCE_MODE is enabled (if any)
+	#
+	if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
+	{
+	}
+
+	#
+	# delete external items, which aren't configured any more (if any)
+	#
+
+	#
+	# delete items, which are excluded (if any)
+	#
+	foreach my $directory (@{$CONFIG{'DIRECTORIES'}})
+	{
+		my $directory_id = _get_itemid_by_fullname($dbh, $directory->{'path'});
+		if (defined($directory_id))
+		{
+			foreach my $excl_directory (@{$$directory{'exclude_dirs'}})
+			{
+				@items = ();
+				PDLNA::Database::select_db(
+					$dbh,
+					{
+						'query' => 'SELECT id, title FROM items WHERE title = ? AND item_type = ?',
+						'parameters' => [ $excl_directory, 0, ],
+					},
+					\@items,
+				);
+
+				foreach my $item (@items)
+				{
+					if (is_itemid_under_parentid($dbh, $directory_id, $item->{id}))
+					{
+						# TODO subitems
+						_delete_item_by_id($dbh, $item->{id});
+					}
+				}
+			}
+
+			# TODO media items
+			foreach my $excl_item (@{$$directory{'exclude_items'}})
+			{
+			}
+		}
+	}
+
+	#
+	# delete directory items, which don't have any subitems (if any)
+	#
+	@items = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id, fullname FROM items WHERE item_type = ?',
+			'parameters' => [ 0, ],
+		},
+		\@items,
+	);
+
+	foreach my $item (@items)
+	{
+		my ($amount, undef) = get_amount_size_items_by($dbh, 'parent_id', $item->{id});
+		if ($amount == 0)
+		{
+			_delete_item_by_id($dbh, $item->{id});
+		}
+	}
+}
+
+
+sub _fetch_media_attributes
+{
+	my $dbh = shift;
+
+	PDLNA::Log::log('Started to fetch attributes for media items.', 1, 'library');
+
+	my @items = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id, media_type, fullname FROM items WHERE media_attributes = ? AND item_type != ?',
+			'parameters' => [ 0, 0, ],
+		},
+		\@items,
+	);
+
+	my $counter = 0;
+	foreach my $item (@items)
+	{
+		#
+		# FILL METADATA OF IMAGES
+		#
+		if ($item->{media_type} eq 'image')
+		{
+			my ($width, $height) = PDLNA::Media::get_image_fileinfo($item->{fullname});
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE items SET width = ?, height = ?, media_attributes = ? WHERE id = ?',
+					'parameters' => [ $width, $height, 1, $item->{id}, ],
+				},
+			);
+			next;
+		}
+
+		#
+		# IN LOW_RESOURCE_MODE WE ARE NOT GOING TO OPEN EVERY SINGLE FILE
+		#
+		if ($CONFIG{'LOW_RESOURCE_MODE'} == 1)
+		{
+			next;
+		}
+
+		#
+		# FILL FFmpeg DATA OF VIDEO OR AUDIO FILES
+		#
+		if ($item->{media_type} eq 'video' || $item->{media_type} eq 'audio')
+		{
+			my %info = ();
+			PDLNA::FFmpeg::get_media_info($item->{fullname}, \%info);
+			PDLNA::Database::update_db(
+				$dbh,
+				{
+					'query' => 'UPDATE items SET width = ?, height = ?, duration = ?, media_attributes = ? WHERE id = ?',
+					'parameters' => [ $info{WIDTH}, $info{HEIGHT}, $info{DURATION}, 1, $item->{id}, ],
+				},
+			);
+		}
+
+		$counter++;
+		unless ($counter % 50) # after 50 files, we are doing a commit
+		{
+			$dbh->commit();
+		}
+	}
 }
 
 #

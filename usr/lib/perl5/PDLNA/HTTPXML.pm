@@ -112,24 +112,24 @@ sub get_browseresponse_item_specific
 	return join('', @xml);
 }
 
-sub get_browseresponse_directory
+sub get_browseresponse_container
 {
-	my $directory_id = shift;
-	my $directory_name = shift;
+	my $id = shift;
+	my $title = shift;
 	my $filter = shift;
 	my $dbh = shift;
 
-	my $directory_parent_id = PDLNA::ContentLibrary::get_parent_of_directory_by_id($dbh, $directory_id);
-	my $directory_elements_amount = PDLNA::ContentLibrary::get_amount_elements_by_id($dbh, $directory_id);
+	my $parent_id = PDLNA::ContentLibrary::get_parentid_by_id($dbh, $id);
+	my $amount = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'parent_id', $id);
 
 	my @xml = ();
 	push(@xml, '&lt;container ');
-	push(@xml, 'id=&quot;'.PDLNA::Utils::encode_xml($directory_id).'&quot; ') if grep(/^\@id$/, @{$filter});
-	push(@xml, 'parentID=&quot;'.PDLNA::Utils::encode_xml($directory_parent_id).'&quot; ') if grep(/^\@parentID$/, @{$filter});
+	push(@xml, 'id=&quot;'.PDLNA::Utils::encode_xml($id).'&quot; ') if grep(/^\@id$/, @{$filter});
+	push(@xml, 'parentID=&quot;'.PDLNA::Utils::encode_xml($parent_id).'&quot; ') if grep(/^\@parentID$/, @{$filter});
 #	searchable=&quot;0&quot;
 	push(@xml, 'restricted=&quot;1&quot; ') if grep(/^\@restricted$/, @{$filter});
-	push(@xml, 'childCount=&quot;'.PDLNA::Utils::encode_xml($directory_elements_amount).'&quot;&gt;') if grep(/^\@childCount$/, @{$filter});
-	push(@xml, '&lt;dc:title&gt;'.PDLNA::Utils::encode_xml($directory_name).'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
+	push(@xml, 'childCount=&quot;'.PDLNA::Utils::encode_xml($amount).'&quot;&gt;') if grep(/^\@childCount$/, @{$filter});
+	push(@xml, '&lt;dc:title&gt;'.PDLNA::Utils::encode_xml($title).'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
 	push(@xml, '&lt;upnp:class&gt;object.container&lt;/upnp:class&gt;') if grep(/^upnp:class$/, @{$filter});
 #	&lt;upnp:objectUpdateID&gt;5&lt;/upnp:objectUpdateID&gt;
 #	&lt;sec:initUpdateID&gt;5&lt;/sec:initUpdateID&gt;
@@ -144,32 +144,93 @@ sub get_browseresponse_directory
 
 sub get_browseresponse_item
 {
-	my $item_id = shift;
+	my $id = shift;
 	my $filter = shift;
 	my $dbh = shift;
 	my $client_ip = shift;
 	my $user_agent = shift;
 
 	my @xml = ();
-	push(@xml, '&lt;item ');
-	push(@xml, 'id=&quot;'.PDLNA::Utils::encode_xml($item_id).'&quot; ') if grep(/^\@id$/, @{$filter});
-	my $item_parent_id = PDLNA::ContentLibrary::get_parent_of_item_by_id($dbh, $item_id);
-	push(@xml, 'parentID=&quot;'.PDLNA::Utils::encode_xml($item_parent_id).'&quot; ') if grep(/^\@parentID$/, @{$filter});
 
-	get_browseresponse_item_detailed($item_id, $filter, $dbh, $client_ip, $user_agent, \@xml);
+	push(@xml, '&lt;item ');
+	push(@xml, 'id=&quot;'.PDLNA::Utils::encode_xml($id).'&quot; ') if grep(/^\@id$/, @{$filter});
+	get_browseresponse_item_detailed($id, $filter, $dbh, $client_ip, $user_agent, \@xml);
+	push(@xml, '&lt;/item&gt;');
+
 	return join('', @xml);
 }
 
 sub get_browseresponse_item_detailed
 {
-	my $item_id = shift;
+	my $id = shift;
 	my $filter = shift;
 	my $dbh = shift;
 	my $client_ip = shift;
 	my $user_agent = shift;
 	my $xml = shift;
 
+	my @item = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT media_type, mime_type, title, size, file_extension FROM items where id = ?',
+			'parameters' => [ $id, ],
+		},
+		\@item,
+	);
+
+	#
+	# GENERAL ITEM DESCRIPTION
+	#
+	push(@{$xml}, 'parentID=&quot;'.PDLNA::Utils::encode_xml($item[0]->{parent_id}).'&quot; ') if grep(/^\@parentID$/, @{$filter});
 	push(@{$xml}, 'restricted=&quot;1&quot;&gt;') if grep(/^\@restricted$/, @{$filter});
+	push(@{$xml}, '&lt;dc:title&gt;'.PDLNA::Utils::encode_xml($item[0]->{title}).'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
+	push(@{$xml}, '&lt;upnp:class&gt;object.item.'.PDLNA::Utils::encode_xml($item[0]->{media_type}).'Item&lt;/upnp:class&gt;') if grep(/^upnp:class$/, @{$filter});
+	my $date = time2str("%Y-%m-%d", $item[0]->{date});
+	push(@{$xml}, '&lt;dc:date&gt;'.PDLNA::Utils::encode_xml($date).'&lt;/dc:date&gt;') if grep(/^dc:date$/, @{$filter});
+	push(@{$xml}, '&lt;sec:modifiationDate&gt;'.PDLNA::Utils::encode_xml($date).'&lt;/sec:modifiationDate&gt;') if grep(/^sec:modifiationDate$/, @{$filter});
+
+	if (grep(/^sec:dcmInfo$/, @{$filter}))
+	{
+		my @infos = ();
+
+		if ($item[0]->{media_type} eq 'image')
+		{
+			push(@infos, 'WIDTH='.PDLNA::Utils::encode_xml($item[0]->{width}));
+			push(@infos, 'HEIGHT='.PDLNA::Utils::encode_xml($item[0]->{height}));
+		}
+		push(@infos, 'CREATIONDATE='.PDLNA::Utils::encode_xml($item[0]->{date}));
+
+		push(@{$xml}, '&lt;sec:dcmInfo&gt;'.join(',', @infos).'&lt;/sec:dcmInfo&gt;');
+	}
+
+	#
+	# RESOURCE ITEM DESCRIPTION
+	#
+	my $url_scheme = 'http://'.PDLNA::Utils::encode_xml($CONFIG{'LOCAL_IPADDR'}).':'.PDLNA::Utils::encode_xml($CONFIG{'HTTP_PORT'});
+
+	push(@{$xml}, '&lt;res ');
+	if ($item[0]->{media_type} eq 'audio' || $item[0]->{media_type} eq 'video')
+	{
+		my $duration = PDLNA::Utils::convert_duration($item[0]->{duration});
+		push(@{$xml}, 'duration=&quot;'.PDLNA::Utils::encode_xml($duration).'&quot; ') if grep(/^res\@duration$/, @{$filter});
+	}
+	push(@{$xml}, 'size=&quot;'.PDLNA::Utils::encode_xml($item[0]->{size}).'&quot; ') if grep(/^res\@size$/, @{$filter});
+	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.PDLNA::Utils::encode_xml($item[0]->{mime_type}).':'.PDLNA::Media::get_dlnacontentfeatures($item[0]).'&quot; ');
+	push(@{$xml}, '&gt;');
+	push(@{$xml}, $url_scheme.'/media/'.PDLNA::Utils::encode_xml($id).'.'.PDLNA::Utils::encode_xml($item[0]->{file_extension}));
+	push(@{$xml}, '&lt;/res&gt;');
+
+	#
+	#
+	#
+}
+sub foo {
+
+	my $item_id = 0;
+	my $xml;
+	my $dbh;
+	my ($client_ip, $user_agent, $filter);
 
 	my @item = ();
 	PDLNA::Database::select_db(
@@ -180,13 +241,6 @@ sub get_browseresponse_item_detailed
 		},
 		\@item,
 	);
-
-	push(@{$xml}, '&lt;dc:title&gt;'.PDLNA::Utils::encode_xml($item[0]->{NAME}).'&lt;/dc:title&gt;') if grep(/^dc:title$/, @{$filter});
-
-	if (grep(/^upnp:class$/, @{$filter}))
-	{
-		push(@{$xml}, '&lt;upnp:class&gt;object.item.'.PDLNA::Utils::encode_xml($item[0]->{TYPE}).'Item&lt;/upnp:class&gt;');
-	}
 
 	my @iteminfo = ();
 	PDLNA::Database::select_db(

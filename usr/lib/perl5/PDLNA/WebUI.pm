@@ -257,16 +257,8 @@ sub show
 		my ($directories_amount, undef) = PDLNA::ContentLibrary::get_amount_size_items_by($dbh, 'item_type', 0);
 		$response .= '<tr><td>Media Items</td><td>'.encode_entities($files_amount).' ('.encode_entities(PDLNA::Utils::convert_bytes($files_size)).') in '.encode_entities($directories_amount).' directories</td></tr>';
 
-		# TODO
-		my $duration = PDLNA::Database::select_db_field_int(
-			$dbh,
-			{
-				'query' => 'SELECT SUM(DURATION) AS SUMDURATION FROM FILEINFO',
-				'parameters' => [ ],
-			},
-		);
+		my $duration = PDLNA::ContentLibrary::get_duration_items($dbh);
 		$response .= '<tr><td>Length of all Media Items</td><td>'.encode_entities(PDLNA::Utils::convert_duration($duration, 1)).' ('.$duration.' seconds)</td></tr>' if !$CONFIG{'LOW_RESOURCE_MODE'};
-		# END TODO
 
 		$response .= '<tr><td colspan="2">&nbsp;</td></tr>';
 
