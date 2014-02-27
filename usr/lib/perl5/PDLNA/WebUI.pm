@@ -729,6 +729,12 @@ sub graph
 	$data_options{'dateformatstring'} = '%Y-%m-%d %H:00' if $period eq 'day';
 	$data_options{'dateformatstring'} = '%Y-%m-%d' if $period eq 'month';
 	$data_options{'dateformatstring'} = '%Y-%m' if $period eq 'year';
+	if ($CONFIG{'DB_TYPE'} eq 'PGSQL')
+	{
+		$data_options{'dateformatstring'} = 'YYYY-MM-DD HH24:00' if $period eq 'day';
+		$data_options{'dateformatstring'} = 'YYYY-MM-DD' if $period eq 'month';
+		$data_options{'dateformatstring'} = 'YYYY-MM' if $period eq 'year';
+	}
 
 	$data_options{'title'} = 'Memory usage' if $type eq 'memory';
 	$data_options{'title'} = 'Media items' if $type eq 'media';
@@ -738,8 +744,12 @@ sub graph
 
 	$data_options{'title'} .= ' by last '.$period;
 
-	$data_options{'dbfields'} = [ 'AVG(vms)', 'AVG(rss)', ] if $type eq 'memory';
-	$data_options{'dbfields'} = [ 'AVG(audio)', 'AVG(image)', 'AVG(video)', ] if $type eq 'media';
+	$data_options{'dbfields'} = [ 'AVG(vms) AS avgvms', 'AVG(rss) AS avgrss', ] if $type eq 'memory';
+	$data_options{'datafields'} = [ 'avgvms', 'avgrss', ] if $type eq 'memory';
+	$data_options{'datadesc'} = [ 'vms', 'rss', ] if $type eq 'memory';
+	$data_options{'dbfields'} = [ 'AVG(audio) AS avgaudio', 'AVG(image) AS avgimage', 'AVG(video) AS avgvideo', ] if $type eq 'media';
+	$data_options{'datafields'} = [ 'avgaudio', 'avgimage', 'avgvideo', ] if $type eq 'media';
+	$data_options{'datadesc'} = [ 'audio', 'image', 'video', ] if $type eq 'media';
 
 	$data_options{'y_label'} = 'Bytes' if $type eq 'memory';
 
@@ -782,7 +792,7 @@ sub graph
 	$graph->set_title_font(GD::gdMediumBoldFont);
 	$graph->set_x_axis_font(GD::gdMediumBoldFont);
 	$graph->set_y_axis_font(GD::gdMediumBoldFont);
-	$graph->set_legend(@{$data_options{'dbfields'}});
+	$graph->set_legend(@{$data_options{'datadesc'}});
 
 	#
 	# DATA GATHERING
@@ -793,7 +803,7 @@ sub graph
 	my %queries = (
 		'SQLITE3' => "SELECT strftime('".$data_options{'dateformatstring'}."', datetime(date, 'unixepoch', 'localtime')) AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE date > strftime('%s', 'now', '-1 ".$period."', 'utc') GROUP BY datetime",
 		'MYSQL' => "SELECT date_format(FROM_UNIXTIME(date), '".$data_options{'dateformatstring'}."') as datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE date > UNIX_TIMESTAMP(DATE_SUB(now(), INTERVAL 1 ".$period.")) GROUP BY datetime",
-		'PGSQL' => '', # TODO
+		'PGSQL' => "SELECT to_char(to_timestamp(date), '".$data_options{'dateformatstring'}."') AS datetime, ".join(', ', @{$data_options{'dbfields'}})." FROM ".$data_options{'dbtable'}." WHERE to_timestamp(date) > (now() - interval '1 ".$period."') GROUP BY datetime",
 	);
 
 	my @results = ();
@@ -811,7 +821,7 @@ sub graph
 	{
 		$data[0][$i] = $results[$i]->{datetime};
 		my $j = 1;
-		foreach my $field (@{$data_options{'dbfields'}})
+		foreach my $field (@{$data_options{'datafields'}})
 		{
 			$data[$j][$i] = $results[$i]->{$field};
 			$j++;

@@ -1277,124 +1277,133 @@ sub handle_getcontentfeatures_header
 
 sub preview_media
 {
-	my $content_id = shift;
+	my $id = shift;
 
-	if ($content_id =~ /^(\d+)\./)
+	#
+	# sanity check for ID
+	#
+	my $item_id = undef;
+	$item_id = $1 if $id =~ /^(\d+)\.(\w+)$/;
+
+	unless (defined($item_id))
 	{
-		my $id = $1;
-
-		my $dbh = PDLNA::Database::connect();
-		my @item_info = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT NAME,FULLNAME,PATH,FILE_EXTENSION,SIZE,MIME_TYPE,TYPE,EXTERNAL FROM FILES WHERE ID = ?',
-				'parameters' => [ $id, ],
-			},
-			\@item_info,
-		);
-		PDLNA::Database::disconnect($dbh);
-
-		if (defined($item_info[0]->{FULLNAME}))
-		{
-			unless (-f $item_info[0]->{FULLNAME})
-			{
-				PDLNA::Log::log('Delivering preview for NON EXISTING Item is NOT supported.', 2, 'httpstream');
-				return http_header({
-					'statuscode' => 404,
-					'content_type' => 'text/plain',
-				});
-			}
-
-			if ($item_info[0]->{EXTERNAL})
-			{
-				PDLNA::Log::log('Delivering preview for EXTERNAL Item is NOT supported yet.', 2, 'httpstream');
-				return http_header({
-					'statuscode' => 501,
-					'content_type' => 'text/plain',
-				});
-			}
-
-			if ($item_info[0]->{TYPE} eq 'audio')
-			{
-				PDLNA::Log::log('Delivering preview for Audio Item is NOT supported yet.', 2, 'httpstream');
-				return http_header({
-					'statuscode' => 501,
-					'content_type' => 'text/plain',
-				});
-			}
-
-			PDLNA::Log::log('Delivering preview for: '.$item_info[0]->{FULLNAME}.'.', 2, 'httpstream');
-
-			my $randid = '';
-			my $path = $item_info[0]->{FULLNAME};
-			if ($item_info[0]->{TYPE} eq 'video') # we need to create the thumbnail
-			{
-				$randid = PDLNA::Utils::get_randid();
-				mkdir($CONFIG{'TMP_DIR'}.'/'.$randid);
-				my $thumbnail_path = $CONFIG{'TMP_DIR'}.'/'.$randid.'/thumbnail.jpg';
-				system($CONFIG{'FFMPEG_BIN'}.' -y -ss 20 -i "'.$path.'" -vcodec mjpeg -vframes 1 -an -f rawvideo "'.$thumbnail_path.'" > /dev/null 2>&1');
-
-				$path = $thumbnail_path;
-				unless (-f $path)
-				{
-					PDLNA::Log::log('ERROR: Unable to create image for Item Preview.', 0, 'httpstream');
-					return http_header({
-						'statuscode' => 404,
-						'content_type' => 'text/plain',
-					});
-				}
-			}
-
-			# image scaling stuff
-			GD::Image->trueColor(1);
-			my $image = GD::Image->new($path);
-			unless ($image)
-			{
-				PDLNA::Log::log('ERROR: Unable to create GD::Image object for Item Preview.', 0, 'httpstream');
-				return http_header({
-					'statuscode' => 501,
-					'content_type' => 'text/plain',
-				});
-			}
-			my $height = $image->height / ($image->width/160);
-			my $preview = GD::Image->new(160, $height);
-			$preview->copyResampled($image, 0, 0, 0, 0, 160, $height, $image->width, $image->height);
-
-			# remove tmp files from thumbnail generation
-			if ($item_info[0]->{TYPE} eq 'video')
-			{
-				unlink($path);
-				rmdir("$CONFIG{'TMP_DIR'}/$randid");
-			}
-
-			# the response itself
-			my $response = http_header({
-				'statuscode' => 200,
-				'content_type' => 'image/jpeg',
-			});
-			$response .= $preview->jpeg();
-			$response .= "\r\n";
-
-			return $response;
-		}
-		else
-		{
-			PDLNA::Log::log('ContentID '.$id.' NOT found.', 2, 'httpstream');
-			return http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
-			});
-		}
+		PDLNA::Log::log('ERROR: ID '.$id.' for preview items is NOT supported yet.', 0, 'httpstream');
+		return http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+		return;
 	}
-	else
+
+	#
+	# getting information from database
+	#
+	my $dbh = PDLNA::Database::connect();
+
+	my @item = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT media_type, fullname FROM items WHERE id = ?',
+			'parameters' => [ $id, ],
+		},
+		\@item,
+	);
+
+	PDLNA::Database::disconnect($dbh);
+
+	#
+	# sanity check for media item
+	#
+	unless (defined($item[0]->{fullname}))
 	{
-		PDLNA::Log::log('ContentID '.$content_id.' for Item Preview is NOT supported yet.', 2, 'httpstream');
+		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (in media library).', 0, 'httpstream');
 		return http_header({
 			'statuscode' => 404,
 			'content_type' => 'text/plain',
+			'log' => 'httpstream',
 		});
 	}
+	unless (-f $item[0]->{fullname})
+	{
+		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 0, 'httpstream');
+		return http_header({
+			'statuscode' => 404,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+	}
+
+	if ($item[0]->{media_type} eq 'audio')
+	{
+		PDLNA::Log::log('ERROR: Delivering preview for audio item is NOT supported yet.', 0, 'httpstream');
+		return http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+	}
+
+	#
+	#
+	#
+	PDLNA::Log::log('Delivering preview for: '.$item[0]->{fullname}.'.', 2, 'httpstream');
+
+	my $randid = '';
+	my $path = $item[0]->{fullname};
+	if ($item[0]->{media_type} eq 'video') # we need to create the thumbnail
+	{
+		$randid = PDLNA::Utils::get_randid();
+		mkdir($CONFIG{'TMP_DIR'}.'/'.$randid);
+		my $thumbnail_path = $CONFIG{'TMP_DIR'}.'/'.$randid.'/thumbnail.jpg';
+		system($CONFIG{'FFMPEG_BIN'}.' -y -ss 20 -i "'.$path.'" -vcodec mjpeg -vframes 1 -an -f rawvideo "'.$thumbnail_path.'" > /dev/null 2>&1');
+
+		$path = $thumbnail_path;
+		unless (-f $path)
+		{
+			PDLNA::Log::log('ERROR: Unable to create image for item preview.', 0, 'httpstream');
+			return http_header({
+				'statuscode' => 404,
+				'content_type' => 'text/plain',
+				'log' => 'httpstream',
+			});
+		}
+	}
+
+	# image scaling stuff
+	GD::Image->trueColor(1);
+	my $image = GD::Image->new($path);
+	unless ($image)
+	{
+		PDLNA::Log::log('ERROR: Unable to create GD::Image object for item preview.', 0, 'httpstream');
+		return http_header({
+			'statuscode' => 501,
+			'content_type' => 'text/plain',
+			'log' => 'httpstream',
+		});
+	}
+	my $height = $image->height / ($image->width/160);
+	my $preview = GD::Image->new(160, $height);
+	$preview->copyResampled($image, 0, 0, 0, 0, 160, $height, $image->width, $image->height);
+
+	# remove tmp files from thumbnail generation
+	if ($item[0]->{media_type} eq 'video')
+	{
+		unlink($path);
+		rmdir("$CONFIG{'TMP_DIR'}/$randid");
+	}
+
+	# the response itself
+	my $response = http_header({
+		'statuscode' => 200,
+		'content_type' => 'image/jpeg',
+		'log' => 'httpstream',
+	});
+	$response .= $preview->jpeg();
+	$response .= "\r\n";
+
+	return $response;
 }
 
 sub logo

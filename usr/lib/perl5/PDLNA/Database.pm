@@ -71,6 +71,11 @@ sub connect
 	{
 		$dbh->do('PRAGMA encoding="UTF-8";');
 	}
+	elsif ($CONFIG{'DB_TYPE'} eq 'PGSQL')
+	{
+		$dbh->do('set client_encoding = "utf-8";');
+		$dbh->do('set client_encoding = "iso8859-2";'); # a crapy workaround to get our umlaute working for now - setting client encoding to Latin2 # TODO FIX ME
+	}
 
 	return $dbh;
 }
@@ -108,12 +113,6 @@ sub initialize_db
 			_insert_metadata($dbh, 'TIMESTAMP', time());
 
 			$dbh->do('DROP TABLE items;') if grep(/^items$/, @tables);
-
-			$dbh->do('DROP TABLE FILES;') if grep(/^FILES$/, @tables);
-			$dbh->do('DROP TABLE FILEINFO;') if grep(/^FILEINFO$/, @tables);
-			$dbh->do('DROP TABLE DIRECTORIES;') if grep(/^DIRECTORIES$/, @tables);
-			$dbh->do('DROP TABLE subtitles;') if grep(/^subtitles$/, @tables);
-
 			$dbh->do('DROP TABLE device_ip;') if grep(/^device_ip$/, @tables);
 			$dbh->do('DROP TABLE device_bm;') if grep(/^device_bm$/, @tables);
 			$dbh->do('DROP TABLE device_udn;') if grep(/^device_udn$/, @tables);
@@ -142,6 +141,7 @@ sub initialize_db
 		$dbh->do("CREATE TABLE items (
 				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
 				parent_id			INTEGER,
+				ref_id				INTEGER,
 				media_attributes	INTEGER DEFAULT 0,
 
 				item_type			INTEGER DEFAULT 0,
@@ -174,94 +174,6 @@ sub initialize_db
 	#  1 - media item (audio, video, image)
 	#  2 - subtitles
 	#
-
-	unless (grep(/^FILES$/, @tables))
-	{
-		$dbh->do("CREATE TABLE FILES (
-				ID					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-
-				NAME				VARCHAR(2048),
-				PATH				VARCHAR(2048),
-				FULLNAME			VARCHAR(2048),
-				FILE_EXTENSION		VARCHAR(4),
-
-				DATE				BIGINT,
-				SIZE				BIGINT,
-
-				MIME_TYPE			VARCHAR(128),
-				TYPE				VARCHAR(12),
-				EXTERNAL			INTEGER,
-
-				ROOT				INTEGER,
-				SEQUENCE			BIGINT
-			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
-		);
-	}
-
-	unless (grep(/^FILEINFO$/, @tables))
-	{
-		$dbh->do("CREATE TABLE FILEINFO (
-				FILEID_REF			INTEGER PRIMARY KEY,
-				VALID				INTEGER,
-
-				WIDTH				INTEGER DEFAULT 0,
-				HEIGHT				INTEGER DEFAULT 0,
-
-				DURATION			INTEGER DEFAULT 0,
-				BITRATE				INTEGER DEFAULT 0,
-				VBR					INTEGER DEFAULT 0,
-
-				CONTAINER			VARCHAR(128),
-				AUDIO_CODEC			VARCHAR(128),
-				VIDEO_CODEC			VARCHAR(128),
-
-				ARTIST				VARCHAR(128) DEFAULT 'n/A',
-				ALBUM				VARCHAR(128) DEFAULT 'n/A',
-				TITLE				VARCHAR(128) DEFAULT 'n/A',
-				GENRE				VARCHAR(128) DEFAULT 'n/A',
-				YEAR				VARCHAR(4) DEFAULT '0000',
-				TRACKNUM			INTEGER DEFAULT 0
-			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
-		);
-	}
-
-	#
-	# TABLE DESCRIPTION
-	#
-	# TYPE
-	# 	0		directory
-	# 	1		playlist
-	unless (grep(/^DIRECTORIES$/, @tables))
-	{
-		$dbh->do("CREATE TABLE DIRECTORIES (
-				ID					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-
-				NAME				VARCHAR(2048),
-				PATH				VARCHAR(2048),
-				DIRNAME				VARCHAR(2048),
-
-				ROOT				INTEGER,
-				TYPE				INTEGER
-			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
-		);
-	}
-
-	unless (grep(/^subtitles$/, @tables))
-	{
-		$dbh->do("CREATE TABLE subtitles (
-				id					$DBSTRING_AUTOINCREMENT{$CONFIG{'DB_TYPE'}},
-				fileid_ref			INTEGER,
-
-				type				VARCHAR(2048),
-				mime_type			VARCHAR(128),
-				name				VARCHAR(2048),
-				fullname			VARCHAR(2048),
-
-				date				BIGINT,
-				size				BIGINT
-			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
-		);
-	}
 
 	unless (grep(/^device_ip$/, @tables))
 	{
