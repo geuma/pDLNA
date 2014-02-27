@@ -173,7 +173,7 @@ sub get_browseresponse_item_detailed
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT media_type, mime_type, title, size, file_extension FROM items where id = ?',
+			'query' => 'SELECT media_type, mime_type, title, size, file_extension, date, duration, width, height FROM items where id = ?',
 			'parameters' => [ $id, ],
 		},
 		\@item,
@@ -218,12 +218,22 @@ sub get_browseresponse_item_detailed
 	push(@{$xml}, 'size=&quot;'.PDLNA::Utils::encode_xml($item[0]->{size}).'&quot; ') if grep(/^res\@size$/, @{$filter});
 	push(@{$xml}, 'protocolInfo=&quot;http-get:*:'.PDLNA::Utils::encode_xml($item[0]->{mime_type}).':'.PDLNA::Media::get_dlnacontentfeatures($item[0]).'&quot; ');
 	push(@{$xml}, '&gt;');
-	push(@{$xml}, $url_scheme.'/media/'.PDLNA::Utils::encode_xml($id).'.'.PDLNA::Utils::encode_xml($item[0]->{file_extension}));
+	push(@{$xml}, $url_scheme.'/media/'.PDLNA::Utils::encode_xml($id.'.'.$item[0]->{file_extension}));
 	push(@{$xml}, '&lt;/res&gt;');
 
 	#
+	# SUBTITLES
 	#
-	#
+	if ($item[0]->{media_type} eq 'video' && grep(/^sec:CaptionInfoEx$/, @{$filter}))
+	{
+		my @subtitles = PDLNA::ContentLibrary::get_subtitles_by_refid($dbh, $id);
+		foreach my $subtitle (@subtitles)
+		{
+			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.PDLNA::Utils::encode_xml($subtitle->{media_type}).'&quot; &gt;');
+			push(@{$xml}, $url_scheme.'/subtitle/'.PDLNA::Utils::encode_xml($subtitle->{id}.'.'.$subtitle->{file_extension}));
+			push(@{$xml}, '&lt;/sec:CaptionInfoEx&gt;');
+		}
+	}
 }
 sub foo {
 

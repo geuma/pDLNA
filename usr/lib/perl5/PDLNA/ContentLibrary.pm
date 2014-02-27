@@ -1098,6 +1098,26 @@ sub get_parent_of_item_by_id
 #
 
 #
+# NEW: returns array with subtitle items based on their ref_id
+#
+sub get_subtitles_by_refid
+{
+	my $dbh = shift;
+	my $ref_id = shift;
+
+	my @subtitles = ();
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT id, media_type, fullname, file_extension FROM items WHERE item_type = ? AND ref_id = ?',
+			'parameters' => [ 2, $ref_id, ],
+		},
+		\@subtitles,
+	);
+	return @subtitles;
+}
+
+#
 # NEW: fills array reference with items based on their parent_id and their item_type
 #
 sub get_items_by_parentid
@@ -1283,10 +1303,35 @@ sub _process_directory
 							'item_type' => 1,
 							'mime_type' => $mime_type,
 							'media_type' => $media_type,
-						}
+						},
 					);
 
-					# TODO subtitles for video files
+					# subtitles for video files
+					if ($media_type eq 'video')
+					{
+						my $tmp = $1 if $item =~ /^(.+)\.\w{3,4}$/;
+						foreach my $extension ('srt')
+						{
+							if (-f $tmp.'.'.$extension)
+							{
+								my $subtitle_mimetype = mimetype($tmp.'.'.$extension);
+								if (PDLNA::Media::is_supported_subtitle($subtitle_mimetype))
+								{
+									my $subtitle_id = _add_media_item(
+										$dbh,
+										{
+											'fullname' => $tmp.'.'.$extension,
+											'parent_id' => $directory_id,
+											'ref_id' => $item_id,
+											'item_type' => 2,
+											'mime_type' => $subtitle_mimetype,
+											'media_type' => $extension,
+										},
+									);
+								}
+							}
+						}
+					}
 				}
 			}
 			elsif (PDLNA::Media::is_supported_playlist($mime_type))
@@ -1351,8 +1396,8 @@ sub _add_media_item
 		PDLNA::Database::insert_db(
 			$dbh,
 			{
-				'query' => 'INSERT INTO items (parent_id, item_type, media_type, mime_type, fullname, title, size, date, file_extension) VALUES (?,?,?,?,?,?,?,?,?)',
-				'parameters' => [ $$params{'parent_id'}, $$params{'item_type'}, $$params{'media_type'}, $$params{'mime_type'}, $$params{'fullname'}, basename($$params{'fullname'}), $fileinfo[7], $fileinfo[9], $file_extension, ],
+				'query' => 'INSERT INTO items (parent_id, ref_id, item_type, media_type, mime_type, fullname, title, size, date, file_extension) VALUES (?,?,?,?,?,?,?,?,?,?)',
+				'parameters' => [ $$params{'parent_id'}, $$params{'ref_id'}, $$params{'item_type'}, $$params{'media_type'}, $$params{'mime_type'}, $$params{'fullname'}, basename($$params{'fullname'}), $fileinfo[7], $fileinfo[9], $file_extension, ],
 			},
 		);
 		PDLNA::Log::log('Added media item '.$$params{'fullname'}.' to ContentLibrary.', 2, 'library');
@@ -1443,6 +1488,13 @@ sub _cleanup_contentlibrary
 			}
 		}
 		elsif ($item->{item_type} == 1) # file (audio, video, image)
+		{
+			unless (-f $item->{fullname})
+			{
+				_delete_item_by_id($dbh, $item->{id});
+			}
+		}
+		elsif ($item->{item_type} == 2) # subtitles
 		{
 			unless (-f $item->{fullname})
 			{
@@ -1554,8 +1606,8 @@ sub _fetch_media_attributes
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT id, media_type, fullname FROM items WHERE media_attributes = ? AND item_type != ?',
-			'parameters' => [ 0, 0, ],
+			'query' => 'SELECT id, media_type, fullname FROM items WHERE media_attributes = ? AND item_type = ?',
+			'parameters' => [ 0, 1, ],
 		},
 		\@items,
 	);

@@ -172,6 +172,7 @@ sub initialize_db
 	# item_type VALUES
 	#  0 - directory
 	#  1 - media item (audio, video, image)
+	#  2 - subtitles
 	#
 
 	unless (grep(/^FILES$/, @tables))
