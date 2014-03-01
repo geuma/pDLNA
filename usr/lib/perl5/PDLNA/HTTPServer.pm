@@ -1354,7 +1354,7 @@ sub preview_media
 	my $path = $item[0]->{fullname};
 	if ($item[0]->{media_type} eq 'video') # we need to create the thumbnail
 	{
-		$randid = PDLNA::Utils::get_randid();
+		$randid = $CONFIG{'PROGRAM_NAME'}.'-'.PDLNA::Utils::get_randid();
 		mkdir($CONFIG{'TMP_DIR'}.'/'.$randid);
 		my $thumbnail_path = $CONFIG{'TMP_DIR'}.'/'.$randid.'/thumbnail.jpg';
 		system($CONFIG{'FFMPEG_BIN'}.' -y -ss 20 -i "'.$path.'" -vcodec mjpeg -vframes 1 -an -f rawvideo "'.$thumbnail_path.'" > /dev/null 2>&1');
@@ -1374,7 +1374,9 @@ sub preview_media
 	# image scaling stuff
 	GD::Image->trueColor(1);
 	my $image = GD::Image->new($path);
-	unless ($image)
+	$image = newFromJpeg GD::Image($path) unless ($image); # if  GD::Image->new doesn't work, try newFromJpeg
+
+	unless ($image) # and if both ways did not work
 	{
 		PDLNA::Log::log('ERROR: Unable to create GD::Image object for item preview.', 0, 'httpstream');
 		return http_header({
@@ -1391,7 +1393,7 @@ sub preview_media
 	if ($item[0]->{media_type} eq 'video')
 	{
 		unlink($path);
-		rmdir("$CONFIG{'TMP_DIR'}/$randid");
+		rmdir("$CONFIG{'TMP_DIR'}/$randid"); # TODO Windows specific
 	}
 
 	# the response itself
