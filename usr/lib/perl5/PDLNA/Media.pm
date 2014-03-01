@@ -400,14 +400,16 @@ sub details
 # OTHER FUNCTIONS
 #
 
+# TODO find a more elegant way to handle this
 sub get_dlnacontentfeatures
 {
 	my $item = shift;
+	my $transcode = shift || 0;
 
 	my $contentfeatures = '';
 
 	# DLNA.ORG_PN - media profile
-	if (defined($item))
+	if (ref($item) eq 'HASH')
 	{
 		$contentfeatures .= 'DLNA.ORG_PN=WMABASE;' if $item->{mime_type} eq 'audio/x-ms-wma';
 		$contentfeatures .= 'DLNA.ORG_PN=MP3;' if $item->{mime_type} eq 'audio/mpeg';
@@ -415,14 +417,14 @@ sub get_dlnacontentfeatures
 	}
 	else
 	{
-#		$contentfeatures .= 'DLNA.ORG_PN=JPEG_TN;' if $type eq 'JPEG_TN';
-#		$contentfeatures .= 'DLNA.ORG_PN=JPEG_SM;' if $type eq 'JPEG_SM';
+		$contentfeatures .= 'DLNA.ORG_PN=JPEG_TN;' if $item eq 'JPEG_TN';
+		$contentfeatures .= 'DLNA.ORG_PN=JPEG_SM;' if $item eq 'JPEG_SM';
 	}
 
 	# DLNA.ORG_OP=ab
 	#   a - server supports TimeSeekRange
 	#   b - server supports RANGE
-	if (defined($item))
+	if (ref($item) eq 'HASH')
 	{
 		if ($item->{media_type} eq 'image')
 		{
@@ -442,10 +444,10 @@ sub get_dlnacontentfeatures
 	# TODO
 
 	# DLNA.ORG_CI - for transcoded media items it is set to 1
-	$contentfeatures .= 'DLNA.ORG_CI=0;';
+	$contentfeatures .= 'DLNA.ORG_CI='.$transcode.';';
 
 	# DLNA.ORG_FLAGS - binary flags with device parameters
-	if (defined($item))
+	if (ref($item) eq 'HASH')
 	{
 		if ($item->{media_type} eq 'image')
 		{

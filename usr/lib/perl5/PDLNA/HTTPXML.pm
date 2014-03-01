@@ -222,6 +222,18 @@ sub get_browseresponse_item_detailed
 	push(@{$xml}, '&lt;/res&gt;');
 
 	#
+	# THUMBNAILS
+	#
+	if (($item[0]->{media_type} eq 'image' && $CONFIG{'IMAGE_THUMBNAILS'}) || ($item[0]->{media_type} && $CONFIG{'VIDEO_THUMBNAILS'}))
+	{
+		push(@{$xml}, '&lt;res protocolInfo=');
+		push(@{$xml}, '&quot;http-get:*:image/jpeg:'.PDLNA::Utils::encode_xml(PDLNA::Media::get_dlnacontentfeatures('JPEG_TN', 1)).'&quot; ');
+		push(@{$xml}, '&gt;');
+		push(@{$xml}, $url_scheme.'/preview/'.PDLNA::Utils::encode_xml($id).'.jpg');
+		push(@{$xml}, '&lt;/res&gt;');
+	}
+
+	#
 	# SUBTITLES
 	#
 	if ($item[0]->{media_type} eq 'video' && grep(/^sec:CaptionInfoEx$/, @{$filter}))

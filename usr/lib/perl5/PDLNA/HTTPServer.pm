@@ -1095,7 +1095,7 @@ sub stream_item
 				'additional_header' => \@additional_header,
 				'log' => 'httpstream',
 			});
-			sysopen(FILE, $item[0]->{FULLNAME}, O_RDONLY);
+			sysopen(FILE, $item[0]->{fullname}, O_RDONLY);
 			print $FH <FILE>;
 			close(FILE);
 			return;
@@ -1108,7 +1108,7 @@ sub stream_item
 				'additional_header' => \@additional_header,
 				'log' => 'httpstream',
 			});
-			sysopen(FILE, $item[0]->{FULLNAME}, O_RDONLY);
+			sysopen(FILE, $item[0]->{fullname}, O_RDONLY);
 			print $FH <FILE>;
 			close(FILE);
 		}
