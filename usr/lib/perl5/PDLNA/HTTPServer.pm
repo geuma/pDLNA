@@ -940,7 +940,7 @@ sub stream_item
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT media_type, mime_type, fullname, title, size, duration FROM items WHERE id = ?',
+			'query' => 'SELECT item_type, media_type, mime_type, fullname, title, size, duration FROM items WHERE id = ?',
 			'parameters' => [ $id, ],
 		},
 		\@item,
@@ -993,6 +993,7 @@ sub stream_item
 			'content_type' => 'text/plain',
 			'log' => 'httpstream',
 		});
+		return;
 	}
 
 	unless (handle_getcaptioninfo_header($CGI, \@additional_header, $item[0]->{media_type}, \@subtitles, $dlna_contentfeatures))
@@ -1213,7 +1214,7 @@ sub handle_getcaptioninfo_header
 				{
 					if ($subtitle->{media_type} eq 'srt' && -f $subtitle->{fullname})
 					{
-						my $url = 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/subtitle/'.$subtitle->{id}.'.srt';
+						my $url = 'http://'.$CONFIG{'LOCAL_IPADDR'}.':'.$CONFIG{'HTTP_PORT'}.'/media/'.$subtitle->{id}.'.srt';
 						push(@{$additional_header}, 'CaptionInfo.sec: '.$url);
 					}
 				}
@@ -1450,77 +1451,6 @@ sub logo
 	}
 
 	return $response;
-}
-
-#
-# this functions handels delivering the subtitle files
-#
-sub deliver_subtitle
-{
-	my $content_id = shift;
-	my $method = shift;
-	my $CGI = shift;
-	my $FH = shift;
-	my $model_name = shift;
-
-	if ($content_id =~ /^(\d+)\.(\w+)$/)
-	{
-		my $id = $1;
-		my $type = $2;
-
-		PDLNA::Log::log('Delivering subtitle: '.$id.'.'.$type.'.', 3, 'httpstream');
-
-		my $dbh = PDLNA::Database::connect();
-		my @subtitles = ();
-		PDLNA::Database::select_db(
-			$dbh,
-			{
-				'query' => 'SELECT fullname, size FROM items WHERE id = ? AND media_type = ?',
-				'parameters' => [ $id, $type, ],
-			},
-			\@subtitles,
-		);
-		PDLNA::Database::disconnect($dbh);
-
-		if (defined($subtitles[0]->{fullname}) && -f $subtitles[0]->{fullname})
-		{
-			my @additional_header = ();
-			if (defined($$CGI{'GETCONTENTFEATURES.DLNA.ORG'}) && $$CGI{'GETCONTENTFEATURES.DLNA.ORG'} == 1)
-			{
-				push(@additional_header, 'contentFeatures.dlna.org: DLNA.ORG_OP=00;DLNA.ORG_CI=0;');
-			}
-			if (defined($$CGI{'TRANSFERMODE.DLNA.ORG'}) && $$CGI{'TRANSFERMODE.DLNA.ORG'} eq 'Background')
-			{
-				push(@additional_header, 'transferMode.dlna.org: Background');
-			}
-
-			print $FH http_header({
-				'content_length' => $subtitles[0]->{size},
-				'content_type' => 'smi/caption',
-				'statuscode' => 200,
-				'additional_header' => \@additional_header,
-				'log' => 'httpstream',
-			});
-
-			sysopen(FILE, $subtitles[0]->{fullname}, O_RDONLY);
-			print $FH <FILE>;
-			close(FILE);
-		}
-		else
-		{
-			print $FH http_header({
-				'statuscode' => 404,
-				'content_type' => 'text/plain',
-			});
-		}
-	}
-	else
-	{
-		print $FH http_header({
-			'statuscode' => 501,
-			'content_type' => 'text/plain',
-		});
-	}
 }
 
 1;

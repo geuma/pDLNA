@@ -173,7 +173,7 @@ sub get_browseresponse_item_detailed
 	PDLNA::Database::select_db(
 		$dbh,
 		{
-			'query' => 'SELECT media_type, mime_type, title, size, file_extension, date, duration, width, height FROM items where id = ?',
+			'query' => 'SELECT item_type, media_type, mime_type, title, size, file_extension, date, duration, width, height FROM items WHERE id = ?',
 			'parameters' => [ $id, ],
 		},
 		\@item,
@@ -242,7 +242,7 @@ sub get_browseresponse_item_detailed
 		foreach my $subtitle (@subtitles)
 		{
 			push(@{$xml}, '&lt;sec:CaptionInfoEx sec:type=&quot;'.PDLNA::Utils::encode_xml($subtitle->{media_type}).'&quot; &gt;');
-			push(@{$xml}, $url_scheme.'/subtitle/'.PDLNA::Utils::encode_xml($subtitle->{id}.'.'.$subtitle->{file_extension}));
+			push(@{$xml}, $url_scheme.'/media/'.PDLNA::Utils::encode_xml($subtitle->{id}.'.'.$subtitle->{file_extension}));
 			push(@{$xml}, '&lt;/sec:CaptionInfoEx&gt;');
 		}
 	}

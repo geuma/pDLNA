@@ -79,7 +79,9 @@ sub get_mimetype_by_modelname
 	{
 		return 'video/x-mkv' if $mimetype eq 'video/x-matroska';
 		return 'video/x-avi' if $mimetype eq 'video/x-msvideo';
+		return 'smi/caption' if $mimetype eq 'application/x-subrip';
 	}
+
 	return $mimetype;
 }
 
@@ -426,9 +428,9 @@ sub get_dlnacontentfeatures
 	#   b - server supports RANGE
 	if (ref($item) eq 'HASH')
 	{
-		if ($item->{media_type} eq 'image')
+		if ($item->{media_type} eq 'image' || $item->{item_type} == 2)
 		{
-			$contentfeatures .= 'DLNA.ORG_OP=00;'; # no seeking for images
+			$contentfeatures .= 'DLNA.ORG_OP=00;'; # no seeking for images or subtitles
 		}
 		else
 		{
@@ -452,6 +454,10 @@ sub get_dlnacontentfeatures
 		if ($item->{media_type} eq 'image')
 		{
 			$contentfeatures .= 'DLNA.ORG_FLAGS=00D00000000000000000000000000000';
+		}
+		elsif ($item->{item_type} == 2)
+		{
+			# do not add something to our contentfeatures
 		}
 		else
 		{
