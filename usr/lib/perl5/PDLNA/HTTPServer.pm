@@ -935,19 +935,8 @@ sub stream_item
 	# getting information from database
 	#
 	my $dbh = PDLNA::Database::connect();
-
-	my @item = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT item_type, media_type, mime_type, fullname, title, size, duration FROM items WHERE id = ?',
-			'parameters' => [ $id, ],
-		},
-		\@item,
-	);
-
+	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $id, [ 'item_type', 'media_type', 'mime_type', 'fullname', 'title', 'size', 'duration' ]);
 	my @subtitles = PDLNA::ContentLibrary::get_subtitles_by_refid($dbh, $id);
-
 	PDLNA::Database::disconnect($dbh);
 
 	#
@@ -1301,17 +1290,7 @@ sub preview_media
 	# getting information from database
 	#
 	my $dbh = PDLNA::Database::connect();
-
-	my @item = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT media_type, fullname FROM items WHERE id = ?',
-			'parameters' => [ $id, ],
-		},
-		\@item,
-	);
-
+	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $id, [ 'media_type', 'fullname' ]);
 	PDLNA::Database::disconnect($dbh);
 
 	#

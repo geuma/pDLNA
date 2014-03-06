@@ -1146,7 +1146,40 @@ sub get_items_by_parentid
 }
 
 #
-# NEW: returns amount and total_size of items based on their parent_id
+# NEW: returns specified DB columns of an item based on its id
+#
+sub get_item_by_id
+{
+	my $dbh = shift;
+	my $item_id = shift;
+	my $dbfields = shift;
+
+	my @items = ();
+
+	# SANITY CHECK - otherwise we are VULNERABLE to SQL Injections (if somebody is able to manipulate dbfields values)
+	foreach my $dbfield (@{$dbfields})
+	{
+		unless ($dbfield =~ /^(parent_id|item_type|media_type|mime_type|fullname|title|file_extension|date|size|width|height|duration)$/)
+		{
+			PDLNA::Log::log('ERROR: Parameter '.$dbfield.' as DB column is NOT valid. Possible SQL Injection attempt.', 0, 'default');
+			return @items;
+		}
+	}
+
+	PDLNA::Database::select_db(
+		$dbh,
+		{
+			'query' => 'SELECT '.join(', ', @{$dbfields}).' FROM items WHERE id = ?',
+			'parameters' => [ $item_id ],
+		},
+		\@items,
+	);
+
+	return @items;
+}
+
+#
+# NEW: returns amount and total_size of items based on their (parent_id|item_type|media_type)
 #
 sub get_amount_size_items_by
 {
@@ -1154,7 +1187,12 @@ sub get_amount_size_items_by
 	my $dbfield = shift;
 	my $dbvalue = shift;
 
-	return (0,0) unless $dbfield =~ /^(parent_id|item_type|media_type)$/; # SANITY CHECK
+	# SANITY CHECK - otherwise we are VULNERABLE to SQL Injections (if somebody is able to manipulate dbfields values)
+	unless ($dbfield =~ /^(parent_id|item_type|media_type)$/)
+	{
+		PDLNA::Log::log('ERROR: Parameter '.$dbfield.' as DB column is NOT valid. Possible SQL Injection attempt.', 0, 'default');
+		return (0,0);
+	}
 
 	my @result = ();
 	PDLNA::Database::select_db(

@@ -169,15 +169,7 @@ sub get_browseresponse_item_detailed
 	my $user_agent = shift;
 	my $xml = shift;
 
-	my @item = ();
-	PDLNA::Database::select_db(
-		$dbh,
-		{
-			'query' => 'SELECT item_type, media_type, mime_type, title, size, file_extension, date, duration, width, height FROM items WHERE id = ?',
-			'parameters' => [ $id, ],
-		},
-		\@item,
-	);
+	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $id, [ 'item_type', 'media_type', 'mime_type', 'title', 'size', 'file_extension', 'date', 'duration', 'width', 'height' ]);
 
 	#
 	# GENERAL ITEM DESCRIPTION
