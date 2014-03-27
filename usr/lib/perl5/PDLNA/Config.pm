@@ -63,6 +63,7 @@ our %CONFIG = (
 	'CHECK_UPDATES' => 1,
 	'CHECK_UPDATES_NOTIFICATION' => 1,
 	'ENABLE_GENERAL_STATISTICS' => 1,
+	'ENABLE_DATABASE_STATISTICS' => 0,
 	'RESCAN_MEDIA' => 86400,
 	'UUID' => 'Version4',
 	'TMP_DIR' => '/tmp',
@@ -423,6 +424,11 @@ sub parse_config
 	# ENABLE_GENERAL_STATISTICS
 	#
 	$CONFIG{'ENABLE_GENERAL_STATISTICS'} = eval_binary_value($cfg->get('EnableGeneralStatistics')) if defined($cfg->get('EnableGeneralStatistics'));
+
+	#
+	# ENABLE_DATABASE_STATISTICS
+	#
+	$CONFIG{'ENABLE_DATABASE_STATISTICS'} = eval_binary_value($cfg->get('EnableDBStatistics')) if defined($cfg->get('EnableDBStatistics'));
 
 	#
 	# RESCAN_MEDIA

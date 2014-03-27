@@ -99,6 +99,7 @@ sub initialize_db
 			{
 				'query' => 'SELECT value FROM metadata WHERE param = ?',
 				'parameters' => [ 'DBVERSION', ],
+				'perfdata' => 0, # disable writing perfdata
 			},
 			\@results,
 		);
@@ -120,6 +121,7 @@ sub initialize_db
 			$dbh->do('DROP TABLE device_service;') if grep(/^device_service$/, @tables);
 			$dbh->do('DROP TABLE stat_mem;') if grep(/^stat_mem$/, @tables);
 			$dbh->do('DROP TABLE stat_items;') if grep(/^stat_items$/, @tables);
+			$dbh->do('DROP TABLE stat_db;') if grep(/^stat_db$/, @tables);
 			@tables = ();
 		}
 	}
@@ -167,6 +169,13 @@ sub initialize_db
 				video_codec			VARCHAR(128)
 			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
 		);
+
+		# CREATE INDEX TO IMPROVE DB PERFORMANCE
+		$dbh->do('CREATE INDEX parent_id ON items (parent_id)');
+		$dbh->do('CREATE INDEX ref_id ON items (ref_id)');
+		$dbh->do('CREATE INDEX item_type ON items (item_type)');
+		$dbh->do('CREATE INDEX fullname ON items (fullname)');
+		$dbh->do('CREATE INDEX title ON items (title)');
 	}
 	#
 	# item_type VALUES
@@ -269,6 +278,17 @@ sub initialize_db
 		);
 	}
 
+	unless (grep(/^stat_db$/, @tables))
+	{
+		$dbh->do("CREATE TABLE stat_db (
+				date				BIGINT,
+				query_type			VARCHAR(6),
+				query				VARCHAR(512),
+				exec_time			INTEGER
+			) $DBSTRING_CHARACTERSET{$CONFIG{'DB_TYPE'}};"
+		);
+	}
+
 	PDLNA::Database::disconnect($dbh);
 }
 
@@ -288,6 +308,7 @@ sub select_db_tables
 		{
 			'query' => $queries{$CONFIG{'DB_TYPE'}},
 			'parameters' => [ ],
+			'perfdata' => 0, # disable writing perfdata
 		},
 		\@tables,
 	);
@@ -300,6 +321,9 @@ sub select_db_array
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
@@ -310,20 +334,23 @@ sub select_db_array
 	}
 	PDLNA::Log::log('ERROR: Data fetching terminated early by error: '.$DBI::errstr, 0, 'database') if $DBI::err;
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 }
 
 sub select_db_field_int
 {
 	my $dbh = shift;
 	my $params = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
 	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 	my $result = $sth->fetchrow_array();
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 	return $result || 0;
 }
 
@@ -332,9 +359,11 @@ sub select_db
 	my $dbh = shift;
 	my $params = shift;
 	my $result = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
-	#_log_query($params);
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
 	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 	while (my $data = $sth->fetchrow_hashref)
@@ -343,48 +372,75 @@ sub select_db
 	}
 	PDLNA::Log::log('ERROR: Data fetching terminated early by error: '.$DBI::errstr, 0, 'database') if $DBI::err;
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 }
 
 sub insert_db
 {
 	my $dbh = shift;
 	my $params = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
 	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 }
 
 sub update_db
 {
 	my $dbh = shift;
 	my $params = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
 	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 }
 
 sub delete_db
 {
 	my $dbh = shift;
 	my $params = shift;
+
+	my $perfdata = defined($$params{'perfdata'}) ? 0 : 1;
+
 	my $starttime = PDLNA::Utils::get_timestamp_ms();
 
 	my $sth = $dbh->prepare($$params{'query'}) || PDLNA::Log::log('ERROR: Cannot prepare database query: '.$DBI::errstr, 0, 'database');
 	$sth->execute(@{$$params{'parameters'}}) || PDLNA::Log::log('ERROR: Cannot execute database query: '.$DBI::errstr, 0, 'database');
 
-	_log_query($params, $starttime, PDLNA::Utils::get_timestamp_ms());
+	_log_query($dbh, $params, $starttime, $perfdata);
 }
 
 #
 # HELPER FUNCTIONS
 #
+
+sub _insert_performance_data
+{
+	my $dbh = shift;
+	my $query = shift;
+	my $time = shift;
+
+	my $query_type = substr($query, 0, 6);
+
+	insert_db(
+		$dbh,
+		{
+			'query' => 'INSERT INTO stat_db (date, query_type, query, exec_time) VALUES (?,?,?,?)',
+			'parameters' => [ time(), $query_type, $query, $time, ],
+			'perfdata' => 0, # disable writing perfdata
+		},
+	);
+}
 
 sub _insert_metadata
 {
@@ -397,15 +453,20 @@ sub _insert_metadata
 		{
 			'query' => 'INSERT INTO metadata (param, value) VALUES (?,?)',
 			'parameters' => [ $param, $value, ],
+			'perfdata' => 0, # disable writing perfdata
 		},
 	);
 }
 
 sub _log_query
 {
+	my $dbh = shift;
 	my $params = shift;
 	my $starttime = shift || 0;
-	my $endtime = shift || 0;
+	my $perfdata = shift;
+
+	my $endtime = PDLNA::Utils::get_timestamp_ms();
+	my $time = $endtime - $starttime;
 
 	my $parameters = '';
 	foreach my $param (@{$$params{'parameters'}})
@@ -421,8 +482,10 @@ sub _log_query
 	}
 	substr($parameters, -2) = '';
 
-	my $time = $endtime - $starttime;
-
+	if ($perfdata && $CONFIG{'ENABLE_DATABASE_STATISTICS'})
+	{
+		_insert_performance_data($dbh, $$params{'query'}, $time);
+	}
 	PDLNA::Log::log('(Query took '.$time.'ms): '. $$params{'query'}.' - '.$parameters, 1, 'database');
 }
 
