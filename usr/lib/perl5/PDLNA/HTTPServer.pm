@@ -271,12 +271,7 @@ sub handle_connection
 #	}
 	elsif ($ENV{'OBJECT'} =~ /^\/media\/(.*)$/) # handling media streaming
 	{
-#		stream_media($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name, $peer_ip_addr, $CGI{'USER-AGENT'});
 		stream_item($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name, $peer_ip_addr, $CGI{'USER-AGENT'});
-	}
-	elsif ($ENV{'OBJECT'} =~ /^\/subtitle\/(.*)$/) # handling delivering of subtitles
-	{
-		deliver_subtitle($1, $ENV{'METHOD'}, \%CGI, $FH, $model_name);
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/preview\/(.*)$/) # handling media thumbnails
 	{
@@ -908,7 +903,7 @@ sub ctrl_content_directory_1
 #
 sub stream_item
 {
-	my $id = shift;
+	my $item_id = shift;
 	my $method = shift;
 	my $CGI = shift;
 	my $FH = shift;
@@ -917,26 +912,26 @@ sub stream_item
 	#
 	# sanity check for ID
 	#
-	my $item_id = undef;
-	$item_id = $1 if $id =~ /^(\d+)\.(\w+)$/;
-
-	unless (defined($item_id))
+	if ($item_id =~ /^(\d+)\.(\w+)$/)
 	{
-		PDLNA::Log::log('ERROR: ID '.$id.' for streaming items is NOT supported yet.', 0, 'httpstream');
+		$item_id = $1; # cut off the file_extension
+	}
+	else
+	{
+		PDLNA::Log::log('ERROR: ID '.$item_id.' for streaming items is NOT supported yet.', 0, 'httpstream');
 		print $FH http_header({
 			'statuscode' => 501,
 			'content_type' => 'text/plain',
 			'log' => 'httpstream',
 		});
-		return;
 	}
 
 	#
 	# getting information from database
 	#
 	my $dbh = PDLNA::Database::connect();
-	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $id, [ 'item_type', 'media_type', 'mime_type', 'fullname', 'title', 'size', 'duration' ]);
-	my @subtitles = PDLNA::ContentLibrary::get_subtitles_by_refid($dbh, $id);
+	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $item_id, [ 'item_type', 'media_type', 'mime_type', 'fullname', 'title', 'size', 'duration' ]);
+	my @subtitles = PDLNA::ContentLibrary::get_subtitles_by_refid($dbh, $item_id);
 	PDLNA::Database::disconnect($dbh);
 
 	#
@@ -944,7 +939,7 @@ sub stream_item
 	#
 	unless (defined($item[0]->{fullname}))
 	{
-		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (in media library).', 0, 'httpstream');
+		PDLNA::Log::log('ERROR: Item with ID '.$item_id.' NOT found (in media library).', 0, 'httpstream');
 		print $FH http_header({
 			'statuscode' => 404,
 			'content_type' => 'text/plain',
@@ -954,7 +949,7 @@ sub stream_item
 	}
 	unless (-f $item[0]->{fullname})
 	{
-		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 0, 'httpstream');
+		PDLNA::Log::log('ERROR: Item with ID '.$item_id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 0, 'httpstream');
 		print $FH http_header({
 			'statuscode' => 404,
 			'content_type' => 'text/plain',
@@ -1267,30 +1262,31 @@ sub handle_getcontentfeatures_header
 
 sub preview_media
 {
-	my $id = shift;
+	my $item_id = shift;
 
 	#
 	# sanity check for ID
 	#
-	my $item_id = undef;
-	$item_id = $1 if $id =~ /^(\d+)\.(\w+)$/;
-
-	unless (defined($item_id))
+	if ($item_id =~ /^(\d+)\.(\w+)$/)
 	{
-		PDLNA::Log::log('ERROR: ID '.$id.' for preview items is NOT supported yet.', 0, 'httpstream');
+		$item_id = $1; # cut off the file_extension
+	}
+	else
+	{
+		PDLNA::Log::log('ERROR: ID '.$item_id.' for preview items is NOT supported yet.', 0, 'httpstream');
 		return http_header({
 			'statuscode' => 501,
 			'content_type' => 'text/plain',
 			'log' => 'httpstream',
 		});
-		return;
 	}
+
 
 	#
 	# getting information from database
 	#
 	my $dbh = PDLNA::Database::connect();
-	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $id, [ 'media_type', 'fullname' ]);
+	my @item = PDLNA::ContentLibrary::get_item_by_id($dbh, $item_id, [ 'media_type', 'fullname' ]);
 	PDLNA::Database::disconnect($dbh);
 
 	#
@@ -1298,7 +1294,7 @@ sub preview_media
 	#
 	unless (defined($item[0]->{fullname}))
 	{
-		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (in media library).', 0, 'httpstream');
+		PDLNA::Log::log('ERROR: Item with ID '.$item_id.' NOT found (in media library).', 0, 'httpstream');
 		return http_header({
 			'statuscode' => 404,
 			'content_type' => 'text/plain',
@@ -1307,7 +1303,7 @@ sub preview_media
 	}
 	unless (-f $item[0]->{fullname})
 	{
-		PDLNA::Log::log('ERROR: Item with ID '.$id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 0, 'httpstream');
+		PDLNA::Log::log('ERROR: Item with ID '.$item_id.' NOT found (on filesystem): '.$item[0]->{fullname}.'.', 0, 'httpstream');
 		return http_header({
 			'statuscode' => 404,
 			'content_type' => 'text/plain',
