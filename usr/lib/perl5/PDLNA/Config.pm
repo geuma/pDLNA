@@ -77,9 +77,9 @@ our %CONFIG = (
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
 	'PROGRAM_VERSION' => '0.70.0',
-	'PROGRAM_DATE' => '2014-xx-xx',
-	'PROGRAM_BETA' => 1,
-	'PROGRAM_DBVERSION' => '1.7',
+	'PROGRAM_DATE' => '2014-08-16',
+	'PROGRAM_BETA' => 0,
+	'PROGRAM_DBVERSION' => '1.8',
 	'PROGRAM_WEBSITE' => 'http://www.pdlna.org',
 	'PROGRAM_AUTHOR' => 'Stefan Heumader',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',

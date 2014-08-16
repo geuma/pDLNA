@@ -924,6 +924,7 @@ sub stream_item
 			'content_type' => 'text/plain',
 			'log' => 'httpstream',
 		});
+		return;
 	}
 
 	#
