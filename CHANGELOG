@@ -1,11 +1,17 @@
 pDLNA CHANGELOG
-(c) 2010-2014 Stefan Heumader
+(c) 2010-2015 Stefan Heumader
 email: stefan@heumader.at
 webpage: http://www.pdlna.org
 
 Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
+
+Version 0.70.1
+06-01-2015
+
+- fixed a bug regarding getting the correct modelName for a specific DLNA device
+- updated copyright year
 
 Version 0.70.0
 16-08-2014

@@ -1,7 +1,7 @@
 package PDLNA::Devices;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2014 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -317,9 +317,12 @@ sub get_modelname_by_devicetype
 			\@device_udns,
 		);
 
-		if (defined($device_udns[0]->{device_udn_ref}) && $device_udns[0]->{device_udn_ref} == $modelname->{id})
+		foreach my $device_udn (@device_udns)
 		{
-			return $modelname->{model_name};
+			if (defined($device_udn->{device_udn_ref}) && $device_udn->{device_udn_ref} == $modelname->{id})
+			{
+				return $modelname->{model_name};
+			}
 		}
 	}
 	return '';
