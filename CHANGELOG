@@ -1,11 +1,20 @@
 pDLNA CHANGELOG
-(c) 2010-2015 Stefan Heumader
+(c) 2010-2018 Stefan Heumader-Rainer
 email: stefan@heumader.at
-webpage: http://www.pdlna.org
+webpage: https://www.pdlna.org
 
 Licened under GPLv3 (see LICENSE file)
 
 -----------------------------------------
+
+Version 0.70.2
+01-11-2018
+
+- fixed a typo in PDLNA::Status::check_update function
+- fixed bugs related to delivering CSS and JS files for the WebUI
+- updated external links to use HTTPS instead of HTTP
+- WebUI has a favicon
+- updated copyright year
 
 Version 0.70.1
 06-01-2015

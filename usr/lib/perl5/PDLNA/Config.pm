@@ -1,7 +1,7 @@
 package PDLNA::Config;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2018 Stefan Heumader-Rainer <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -76,14 +76,14 @@ our %CONFIG = (
 	'TRANSCODING_PROFILES' => [],
 	# values which can be modified manually :P
 	'PROGRAM_NAME' => 'pDLNA',
-	'PROGRAM_VERSION' => '0.70.1',
-	'PROGRAM_DATE' => '2015-01-06',
+	'PROGRAM_VERSION' => '0.70.2',
+	'PROGRAM_DATE' => '2018-11-01',
 	'PROGRAM_BETA' => 0,
 	'PROGRAM_DBVERSION' => '1.8',
-	'PROGRAM_WEBSITE' => 'http://www.pdlna.org',
-	'PROGRAM_AUTHOR' => 'Stefan Heumader',
+	'PROGRAM_WEBSITE' => 'https://www.pdlna.org',
+	'PROGRAM_AUTHOR' => 'Stefan Heumader-Rainer',
 	'PROGRAM_DESC' => 'Perl DLNA MediaServer',
-	'AUTHOR_WEBSITE' => 'http://www.urandom.at',
+	'AUTHOR_WEBSITE' => 'https://www.urandom.at',
 	'PROGRAM_SERIAL' => 1337,
 	# arrays holding supported codec
 	'AUDIO_CODECS_ENCODE' => [],

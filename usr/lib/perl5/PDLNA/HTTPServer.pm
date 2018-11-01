@@ -1,7 +1,7 @@
 package PDLNA::HTTPServer;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2018 Stefan Heumader-Rainer <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -283,11 +283,29 @@ sub handle_connection
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/webui\/js.js$/) # deliver javascript code
 	{
-		$response = PDLNA::WebUI::javascript();
+		my $js = PDLNA::WebUI::javascript();
+		my @additional_header = (
+			'Content-Type: application/javascript; charset=utf8',
+			'Content-Length: '.length($js),
+		);
+		$response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $js;
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/webui\/css.css$/) # deliver stylesheet
 	{
-		$response = PDLNA::WebUI::css();
+		my $css = PDLNA::WebUI::css();
+		my @additional_header = (
+			'Content-Type: text/css; charset=utf8',
+			'Content-Length: '.length($css),
+		);
+		$response = http_header({
+			'statuscode' => 200,
+			'additional_header' => \@additional_header,
+		});
+		$response .= $css;
 	}
 	elsif ($ENV{'OBJECT'} =~ /^\/webui\/graphs\/(.+)\.png$/) # handling delivering graphs
 	{
@@ -310,6 +328,7 @@ sub handle_connection
 
 	if (defined($response))
 	{
+#		binmode($FH, ":utf8");
 		print $FH $response;
 		close($FH);
 	}

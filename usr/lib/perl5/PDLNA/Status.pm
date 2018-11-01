@@ -1,7 +1,7 @@
 package PDLNA::Status;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2018 Stefan Heumader-Rainer <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -98,7 +98,7 @@ sub check_update
 
 				foreach my $service (@device_services)
 				{
-					PDLNA::Log::log('Sending sms to '.$service->{control_urlL}.'.', 1, 'default');
+					PDLNA::Log::log('Sending sms to '.$service->{control_url}.'.', 1, 'default');
 					my $message = 'A new version of '.$CONFIG{'PROGRAM_NAME'}.' is available: '.$xml->{'response'}->{'NewVersion'};
 					PDLNA::SOAPMessages::send_sms($service->{type}, $service->{control_url}, $message);
 				}

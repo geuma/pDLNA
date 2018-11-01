@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2018 Stefan Heumader-Rainer <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

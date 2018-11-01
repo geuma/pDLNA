@@ -1,7 +1,7 @@
 package PDLNA::WebUI;
 #
 # pDLNA - a perl DLNA media server
-# Copyright (C) 2010-2015 Stefan Heumader <stefan@heumader.at>
+# Copyright (C) 2010-2018 Stefan Heumader-Rainer <stefan@heumader.at>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,6 +53,8 @@ sub show
 	$response .= '<title>'.encode_entities($CONFIG{'FRIENDLY_NAME'}).'</title>';
 	$response .= '<script type="text/javascript" src="/webui/js.js"></script>';
 	$response .= '<link href="/webui/css.css" rel="stylesheet" rev="stylesheet" type="text/css">';
+	$response .= '<link rel="icon" type="image/png" href="/icons/16/icon.png">';
+	$response .= '<link rel="shortcut icon" type="image/png" href="/icons/16/icon.png">';
 	$response .= '</head>';
 	$response .= '<body>';
 	$response .= '<div id="container">';

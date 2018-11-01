@@ -1,7 +1,7 @@
 pDLNA
-(c) 2010-2015 Stefan Heumader
+(c) 2010-2018 Stefan Heumader-Rainer
 email: stefan@heumader.at
-webpage: http://www.pdlna.org
+webpage: https://www.pdlna.org
 
 Licensed under GPLv3 (see LICENSE file)
 
@@ -19,7 +19,7 @@ INSTALLATION
 -------------------------
 For the installation see the INSTALL file or the
 'pDLNA Installation, Configuration and Debugging Guide' available under
-http://www.pdlna.org/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
+https://www.pdlna.org/cgi-bin/index.pl?menu=download&type=icdguide&version=latest
 
 BUGS & FEATURES
 ---------------
@@ -28,4 +28,4 @@ or if you have some ideas for improvements.
 <stefan@heumader.at>
 
 
-Stefan Heumader
+Stefan Heumader-Rainer
